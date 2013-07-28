@@ -20,16 +20,25 @@ b_build_context_allocate(
 void
 b_build_context_deallocate(struct BuildContext *);
 
-// Requests some questions be answered.  Uses the registered
-// Rule for performing side effects.  May run Rules in
-// parallel if multiple questions are asked.
-//
-// The actual answer calculated is not returned; the side
-// effect of answering (building) is the important part.
+// Like b_build_context_need_answers, but without returning
+// the answers.
 void
 b_build_context_need(
     const struct BuildContext *,
     struct AnyQuestion **,
+    size_t,
+);
+
+// Requests some Questions be answered.  Uses the registered
+// Rule for performing side effects.  May run Rules in
+// parallel if multiple questions are asked.  Returns
+// Answers corresponding to the Questions asked.  After
+// calling, the Answers are owned by the caller.
+void
+b_build_context_need_answers(
+    const struct BuildContext *,
+    struct AnyQuestion **,
+    struct AnyAnswer **,
     size_t,
 );
 
