@@ -4,21 +4,21 @@
 // A RuleMap is an abstract type for storing any types of
 // Rules.  If multiple rules of the same type are added to a
 // RuleMap, they are combined using b_rule_add.
-struct RuleMap;
+struct B_RuleMap;
 
-struct RuleMap *
+struct B_RuleMap *
 b_rulemap_allocate();
 
 void
-b_rulemap_deallocate(struct RuleMap *);
+b_rulemap_deallocate(struct B_RuleMap *);
 
 void
-b_rulemap_add(struct RuleMap *, const struct AnyRule *);
+b_rulemap_add(struct B_RuleMap *, const struct B_AnyRule *);
 
-struct AnyRule *
-b_rulemap_to_rule(struct RuleMap *);
+struct B_AnyRule *
+b_rulemap_to_rule(struct B_RuleMap *);
 
-struct RuleMap *
-b_rulemap_from_rule(struct AnyRule *);
+struct B_RuleMap *
+b_rulemap_from_rule(struct B_AnyRule *);
 
 #endif

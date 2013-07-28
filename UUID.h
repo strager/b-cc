@@ -12,12 +12,12 @@
 // 93C02C48-790A-415D-858E-D98C93941FEB
 // $ uuidgen
 // 5CCEEAF6-4B90-4124-8328-71B3A3279779
-struct UUID {
+struct B_UUID {
     const char *uuid;
 };
 
 // Converts a string literal into a UUID.
-#define B_UUID(str) ((struct UUID) { .uuid = "" str "" })
+#define B_UUID(str) ((struct B_UUID) { .uuid = "" str "" })
 
 // Converts a string which will not be deallocated into a
 // UUID.
@@ -33,6 +33,6 @@ b_uuid_from_temp_string(const char *);
 // Compares two UUIDs using string comparison.  Returns
 // 'true' if the two UUIDs are equivalent.
 bool
-b_uuid_equal(struct UUID, struct UUID);
+b_uuid_equal(struct B_UUID, struct B_UUID);
 
 #endif

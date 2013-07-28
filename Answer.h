@@ -3,27 +3,27 @@
 
 #include <stdbool.h>
 
-struct AnswerVTable;
+struct B_AnswerVTable;
 
 // An Answer is an object-oriented class describing the
-// state of part of the system.  See 'struct AnyQuestion'.
-struct AnyAnswer {
-    struct AnswerVTable *vtable;
+// state of part of the system.  See 'struct B_AnyQuestion'.
+struct B_AnyAnswer {
+    struct B_AnswerVTable *vtable;
 };
 
-struct AnswerVTable {
-    bool (*equal)(const struct AnyAnswer *, const struct AnyAnswer *);
-    void (*deallocate)(struct AnyAnswer *);
+struct B_AnswerVTable {
+    bool (*equal)(const struct B_AnyAnswer *, const struct B_AnyAnswer *);
+    void (*deallocate)(struct B_AnyAnswer *);
 };
 
 // Compares two Answers for equality.  Returns 'true' if
 // the two Questions are of the same type and are equal.
 bool
-b_answer_equal(const struct AnyAnswer *, const struct AnyAnswer *);
+b_answer_equal(const struct B_AnyAnswer *, const struct B_AnyAnswer *);
 
 // Deallocates an Answer using its deallocation function.
 // The Answer's associated vtable may be deallocated.
 void
-b_answer_deallocate(struct AnyAnswer *);
+b_answer_deallocate(struct B_AnyAnswer *);
 
 #endif

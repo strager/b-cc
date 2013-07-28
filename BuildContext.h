@@ -3,29 +3,29 @@
 
 #include <stddef.h>
 
-struct BuildContext;
-struct BuildDatabase;
+struct B_BuildContext;
+struct B_BuildDatabase;
 
 // Creates a new BuildContext, building against the given
 // BuildDatabase and using the given Rule for ensuring
 // questions are answerable.  Does not take ownership of the
 // given BuildDatabase or Rule.
-struct BuildContext *
+struct B_BuildContext *
 b_build_context_allocate(
-    struct AnyBuildDatabase *,
-    struct AnyRule *,
+    struct B_AnyBuildDatabase *,
+    struct B_AnyRule *,
 );
 
 // Destroys a BuildContext.
 void
-b_build_context_deallocate(struct BuildContext *);
+b_build_context_deallocate(struct B_BuildContext *);
 
 // Like b_build_context_need_answers, but without returning
 // the answers.
 void
 b_build_context_need(
-    const struct BuildContext *,
-    struct AnyQuestion **,
+    const struct B_BuildContext *,
+    struct B_AnyQuestion **,
     size_t,
 );
 
@@ -36,9 +36,9 @@ b_build_context_need(
 // calling, the Answers are owned by the caller.
 void
 b_build_context_need_answers(
-    const struct BuildContext *,
-    struct AnyQuestion **,
-    struct AnyAnswer **,
+    const struct B_BuildContext *,
+    struct B_AnyQuestion **,
+    struct B_AnyAnswer **,
     size_t,
 );
 

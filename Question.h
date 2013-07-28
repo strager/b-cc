@@ -5,9 +5,9 @@
 
 #include <stdbool.h>
 
-struct AnswerVTable;
-struct AnyAnswer;
-struct QuestionVTable;
+struct B_AnswerVTable;
+struct B_AnyAnswer;
+struct B_QuestionVTable;
 
 // A Question is an object-oriented class describing a
 // question on the current state of the system.  For
@@ -26,31 +26,31 @@ struct QuestionVTable;
 // b_build_context_need) such as "what is the content of
 // this C source file?", expressing a dependency on the C
 // source file for building the C object file.
-struct AnyQuestion {
-    struct QuestionVTable *vtable;
+struct B_AnyQuestion {
+    struct B_QuestionVTable *vtable;
 };
 
-struct QuestionVTable {
-    struct UUID uuid;
-    struct AnswerVTable *answerVTable;
-    struct AnyAnswer *(*answer)(const struct AnyQuestion *);
-    bool (*equal)(const struct AnyQuestion *, const struct AnyQuestion *);
-    void (*deallocate)(struct AnyQuestion *);
+struct B_QuestionVTable {
+    struct B_UUID uuid;
+    struct B_AnswerVTable *answerVTable;
+    struct B_AnyAnswer *(*answer)(const struct B_AnyQuestion *);
+    bool (*equal)(const struct B_AnyQuestion *, const struct B_AnyQuestion *);
+    void (*deallocate)(struct B_AnyQuestion *);
 };
 
 // Answers a Question.  Returns NULL if the question cannot
 // be answered.
-struct AnyAnswer *
-b_question_answer(const struct AnyQuestion *);
+struct B_AnyAnswer *
+b_question_answer(const struct B_AnyQuestion *);
 
 // Compares two Questions for equality.  Returns 'true' if
 // the two Questions are of the same type and are equal.
 bool
-b_question_equal(const struct AnyQuestion *, const struct AnyQuestion *);
+b_question_equal(const struct B_AnyQuestion *, const struct B_AnyQuestion *);
 
 // Deallocates a Question using its deallocation function.
 // The Question's associated vtable may be deallocated.
 void
-b_question_deallocate(struct AnyQuestion *);
+b_question_deallocate(struct B_AnyQuestion *);
 
 #endif
