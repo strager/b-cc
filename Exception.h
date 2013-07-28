@@ -21,6 +21,17 @@ b_exception_allocate(const char *message);
 void
 b_exception_deallocate(struct B_Exception *);
 
+// Creates an Exception which is the combination of multiple
+// exceptions.  Deallocating the returned Exception will
+// deallocate the aggregated exceptions.
+struct B_Exception *
+b_exception_aggregate(struct B_Exception **, size_t);
+
+// The opposite of b_exception_aggregate.  Returns a list of
+// Exceptions shallowly contained within this exception.
+void
+b_exception_deaggregate(struct B_Exception ***, size_t *);
+
 // Rethrows an exception if an exception occured, and
 // returns from this function.  Example usage:
 //
