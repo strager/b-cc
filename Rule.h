@@ -29,6 +29,7 @@ struct B_RuleVTable {
         const struct B_AnyQuestion *,
         const struct B_BuildContext *,
         struct B_RuleQueryList *,
+        struct B_Exception **,
     );
     void (*deallocate)(struct B_AnyRule *);
 };
@@ -47,6 +48,7 @@ b_rule_query(
     const struct B_AnyQuestion *,
     const struct B_BuildContext *,
     struct B_RuleQueryList *,
+    struct B_Exception **,
 );
 
 // Deallocates a Rule using its deallocation function.  The

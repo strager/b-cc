@@ -33,7 +33,10 @@ struct B_AnyQuestion {
 struct B_QuestionVTable {
     struct B_UUID uuid;
     struct B_AnswerVTable *answerVTable;
-    struct B_AnyAnswer *(*answer)(const struct B_AnyQuestion *);
+    struct B_AnyAnswer *(*answer)(
+        const struct B_AnyQuestion *,
+        struct B_Exception **,
+    );
     bool (*equal)(const struct B_AnyQuestion *, const struct B_AnyQuestion *);
     void (*deallocate)(struct B_AnyQuestion *);
 };
@@ -41,7 +44,10 @@ struct B_QuestionVTable {
 // Answers a Question.  Returns NULL if the question cannot
 // be answered.
 struct B_AnyAnswer *
-b_question_answer(const struct B_AnyQuestion *);
+b_question_answer(
+    const struct B_AnyQuestion *,
+    struct B_Exception **,
+);
 
 // Compares two Questions for equality.  Returns 'true' if
 // the two Questions are of the same type and are equal.

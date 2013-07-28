@@ -27,6 +27,7 @@ b_build_context_need(
     const struct B_BuildContext *,
     struct B_AnyQuestion **,
     size_t,
+    struct B_Exception **,
 );
 
 // Requests some Questions be answered.  Uses the registered
@@ -40,6 +41,7 @@ b_build_context_need_answers(
     struct B_AnyQuestion **,
     struct B_AnyAnswer **,
     size_t,
+    struct B_Exception **,
 );
 
 #endif
