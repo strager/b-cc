@@ -74,6 +74,12 @@ Why structure vtables this way?
   This vtable cannot be expressed in C++ or Java without a
   separate class.
 
+* Separation of concerns.  A value does not need to be tied
+  to a particular vtable.  If there are multiple ways to
+  serialize or deserialize a value, or replicate and
+  deallocate a value, or order two values, different vtables
+  can be used.
+
 ## Virtual Replication and Deallocation
 
 Sometimes, values need to be copied or persisted in a
@@ -104,7 +110,11 @@ Example implementations of replication and deallocation:
 
 * Reference counting, where the value is immutable,
   replication increments the reference counter, and
-  dealloation decrements it.
+  deallocation decrements it.
+
+* Copy-on-write, a union between reference counting and
+  copying, where reference counting is used before mutation
+  and copying replication occurs upon mutation.
 
 * No-op.  There are many possible reasons to have no-op
   replication and/or deallocation:
