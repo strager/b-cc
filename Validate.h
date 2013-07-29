@@ -1,0 +1,8 @@
+#ifndef VALIDATE_H_93AEEE54_CE2B_4ACA_83F1_8B81A779EE25
+#define VALIDATE_H_93AEEE54_CE2B_4ACA_83F1_8B81A779EE25
+
+#include <assert.h>
+
+#define B_VALIDATE(cond) assert(cond)
+
+#endif

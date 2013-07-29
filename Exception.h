@@ -3,6 +3,8 @@
 
 #include "UUID.h"
 
+#include <stddef.h>
+
 // An Exception is an abstract C++-style exception.  C++,
 // Objective-C, POSIX, and other kinds of exception and
 // error types may be encoded in a B_Exception type.
@@ -32,32 +34,18 @@ b_exception_aggregate(struct B_Exception **, size_t);
 void
 b_exception_deaggregate(struct B_Exception ***, size_t *);
 
-// Rethrows an exception if an exception occured, and
-// returns from this function.  Example usage:
-//
-// void
-// my_function(/* ..., */ struct B_Exception **ex) {
-//     other_function(/* ..., */ ex);
-//     B_RETHROW_EXCEPTION(ex);
-//     /* ... */
-// }
-#define B_RETHROW_EXCEPTION(ex_var) \
-    B_RETHROW_EXCEPTION_RETURNING(ex_var, /* no return value */)
+// When calling a function, the exception variable should
+// point to a NULL pointer.  This function validates that
+// contract.
+void
+b_exception_validate(
+    const struct B_Exception **,
+);
 
-// Rethrows an exception if an exception occured, and
-// returns from this function with the specified value.
-// Example usage:
-//
-// int
-// my_function(/* ..., */ struct B_Exception **ex) {
-//     other_function(/* ..., */ ex);
-//     B_RETHROW_EXCEPTION_RETURNING(ex, 0);
-//     /* ... */
-// }
-#define B_RETHROW_EXCEPTION_RETURNING(ex_var, return_value) \
+#define B_EXCEPTION_THEN(ex_var, ...) \
     do { \
         if (*(ex_var)) { \
-            return return_value; \
+            __VA_LIST__ \
         } \
     } while (0)
 
