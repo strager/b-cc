@@ -1,6 +1,6 @@
 #include "Answer.h"
 #include "BuildContext.h"
-#include "BuildDatabase.h"
+#include "Database.h"
 #include "Question.h"
 #include "Rule.h"
 #include "RuleQueryList.h"
@@ -12,7 +12,8 @@ struct B_BuildStack {
 };
 
 struct B_BuildContextInfo {
-    struct B_AnyBuildDatabase *database;
+    struct B_AnyDatabase *database;
+    const struct B_DatabaseVTable *database_vtable;
     const struct B_AnyRule *rule;
     const struct B_RuleVTable *rule_vtable;
 };
@@ -62,11 +63,13 @@ b_build_context_unchain(
 
 struct B_BuildContext *
 b_build_context_allocate(
-    struct B_AnyBuildDatabase *database,
+    struct B_AnyDatabase *database,
+    const struct B_DatabaseVTable *database_vtable,
     const struct B_AnyRule *rule,
     const struct B_RuleVTable *rule_vtable,
 ) {
-    b_database_validate(database);
+    B_VALIDATE(database);
+    b_database_vtable_validate(database);
     b_rule_validate(rule);
     b_rule_vtable_validate(rule_vtable);
 
@@ -74,6 +77,7 @@ b_build_context_allocate(
         = malloc(sizeof(B_BuildContextInfo));
     *info = (struct B_BuildContextInfo) {
         .database = database,
+        .database_vtable = database_vtable,
         .rule = rule,
         .rule_vtable = rule_vtable,
     };
@@ -122,7 +126,8 @@ b_build_context_need(
         ex,
     );
     for (size_t i = 0; i < count; ++i) {
-        free(answers[i]);
+        question_vtables[i]->answer_vtable
+            ->deallocate(answers[i]);
     }
 }
 
@@ -229,7 +234,7 @@ b_build_context_need_answer_one(
     const struct B_BuildContextInfo *info = ctx->info;
 
     if (const struct *B_BuildStack stack = ctx->stack) {
-        b_database_add_dependency(
+        info->database_vtable->add_dependency(
             info->database,
             stack->question,
             stack->question_vtable,
@@ -243,7 +248,7 @@ b_build_context_need_answer_one(
     }
 
     struct B_AnyAnswer *answer
-        = b_database_get_answer(
+        = info->database_vtable->get_answer(
             info->database,
             question,
             question_vtable,
@@ -266,7 +271,7 @@ b_build_context_need_answer_one(
         return NULL;
     });
 
-    b_database_set_answer(
+    info->database_vtable->set_answer(
         info->database,
         question,
         question_vtable,
@@ -301,7 +306,8 @@ b_build_context_need_one(
             ex,
         );
     if (answer) {
-        free(answer);
+        question_vtable->answer_vtable
+            ->deallocate(answer);
     }
     // Propagate exception.
 }
@@ -311,7 +317,8 @@ b_build_context_info_validate(
     const struct B_BuildContextInfo *info,
 ) {
     B_VALIDATE(info);
-    b_database_validate(info->database);
+    B_VALIDATE(info->database);
+    b_database_vtable_validate(info->database_vtable);
     b_rule_validate(info->rule);
     b_rule_vtable_validate(info->rule_vtable);
 }

@@ -4,15 +4,16 @@
 #include <stddef.h>
 
 struct B_BuildContext;
-struct B_BuildDatabase;
+struct B_Database;
 
 // Creates a new BuildContext, building against the given
-// BuildDatabase and using the given Rule for ensuring
-// questions are answerable.  Does not take ownership of the
-// given BuildDatabase or Rule.
+// Database and using the given Rule for ensuring questions
+// are answerable.  Does not take ownership of the given
+// Database or Rule.
 struct B_BuildContext *
 b_build_context_allocate(
-    struct B_AnyBuildDatabase *,
+    struct B_AnyDatabase *,
+    const struct B_DatabaseVTable *,
     const struct B_AnyRule *rule,
     const struct B_RuleVTable *rule_vtable,
 );

@@ -31,14 +31,25 @@ struct B_AnyQuestion {
 struct B_QuestionVTable {
     struct B_UUID uuid;
     struct B_AnswerVTable *answer_vtable;
+
     struct B_AnyAnswer *(*answer)(
         const struct B_AnyQuestion *,
         struct B_Exception **,
     );
+
     bool (*equal)(
         const struct B_AnyQuestion *,
         const struct B_AnyQuestion *,
     );
+
+    // Copies resources owned by an Question, resulting in a
+    // new Question whose deallocation will not affect the
+    // original Question.  For immutable values, this may
+    // simply increment a reference count.
+    struct B_AnyQuestion *(*replicate)(
+        const struct B_AnyQuestion *,
+    );
+
     void (*deallocate)(
         struct B_AnyQuestion *,
     );
