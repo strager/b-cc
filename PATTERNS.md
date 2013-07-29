@@ -96,20 +96,20 @@ semantics of the replicated value, and mutations or
 deallocation of the replicated value must not affect the
 semantics of the original value.
 
-Examples implementations of replication and deallocation:
+Example implementations of replication and deallocation:
 
 * Copying, where replication allocates a new value and
-  copies owned objects and deallocation frees owned objects
+  copies owned objects, and deallocation frees owned objects
   and frees the value.
 
-* Reference counting, where the value is immutable, and
-  replication increments the reference counter and
+* Reference counting, where the value is immutable,
+  replication increments the reference counter, and
   dealloation decrements it.
 
 * No-op.  There are many possible reasons to have no-op
   replication and/or deallocation:
 
-  * The value is stored for the livetime of the application,
+  * The value is stored for the lifetime of the application,
     is immutable, and has a no-op deallocator.  For example,
     a constant, static C string.
 
