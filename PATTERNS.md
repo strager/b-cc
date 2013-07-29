@@ -25,7 +25,7 @@ Why structure vtables this way?
 
 * Associated types.  One vtable can refer to another.  For
   example, for a given `B_Question` vtable there is an
-  associated `B_Answer` vtable.  These must be synchronized,
+  associated `B_Answer` vtable.  These must be synchronized:
   answering a question should always result in the same
   type of answer.
 
@@ -83,11 +83,11 @@ uses one or two virtual functions, depending upon semantic
 requirements: replication (virtual function `replicate`) and
 deallocation (virtual function `deallocate`).
 
-Replication is conceptually identially to cloning or
-copying.  Replication of a C string can be performed using
-the BSD 'strdup' function, for example.  However,
-replication does not need to copy or allocate memory at all.
-Replication must only follow the following law:
+Replication is conceptually identical to cloning or copying.
+Replication of a C string can be performed using the BSD
+`strdup` function, for example.  However, replication does
+not need to copy or allocate memory at all.  Replication
+must only follow the following law:
 
 All other operations on the replicated value must be
 independent of the original value.  That is, mutations or
