@@ -13,21 +13,14 @@ struct B_BuildDatabase;
 struct B_BuildContext *
 b_build_context_allocate(
     struct B_AnyBuildDatabase *,
-    struct B_AnyRule *,
+    const struct B_AnyRule *rule,
+    const struct B_RuleVTable *rule_vtable,
 );
 
 // Destroys a BuildContext.
 void
-b_build_context_deallocate(struct B_BuildContext *);
-
-// Like b_build_context_need_answers, but without returning
-// the answers.
-void
-b_build_context_need(
-    const struct B_BuildContext *,
-    struct B_AnyQuestion **,
-    size_t,
-    struct B_Exception **,
+b_build_context_deallocate(
+    struct B_BuildContext *,
 );
 
 // Requests some Questions be answered.  Uses the registered
@@ -38,10 +31,43 @@ b_build_context_need(
 void
 b_build_context_need_answers(
     const struct B_BuildContext *,
-    struct B_AnyQuestion **,
+    const struct B_AnyQuestion *const *,
+    const struct B_QuestionVTable *const *,
     struct B_AnyAnswer **,
-    size_t,
+    size_t count,
     struct B_Exception **,
+);
+
+// Like b_build_context_need_answers, but without returning
+// the answers.
+void
+b_build_context_need(
+    const struct B_BuildContext *,
+    const struct B_AnyQuestion *const *,
+    const struct B_QuestionVTable *const *,
+    size_t count,
+    struct B_Exception **,
+);
+
+struct B_AnyAnswer *
+b_build_context_need_answer_one(
+    const struct B_BuildContext *,
+    const struct B_AnyQuestion *,
+    const struct B_QuestionVTable *,
+    struct B_Exception **,
+);
+
+void
+b_build_context_need_one(
+    const struct B_BuildContext *,
+    const struct B_AnyQuestion *,
+    const struct B_QuestionVTable *,
+    struct B_Exception **,
+);
+
+void
+b_build_context_validate(
+    const struct B_BuildContext *,
 );
 
 #endif

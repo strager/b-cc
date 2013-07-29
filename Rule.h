@@ -1,23 +1,18 @@
 #ifndef RULE_H_47BACA82_A85E_47FA_92B8_8489B9DAAD3A
 #define RULE_H_47BACA82_A85E_47FA_92B8_8489B9DAAD3A
 
+#include "RuleQueryList.h"
 #include "UUID.h"
 
 struct B_AppendOnlyList;
 struct B_BuildContext;
-struct B_Question_VTable;
+struct B_QuestionVTable;
 
 // A Rule is a structure with an interface for performing a
 // build.  Its purpose is to ensure a Question is
 // answerable.
 struct B_AnyRule {
 };
-
-typedef void (*RuleQueryFunc)(
-    struct B_BuildContext *,
-    const struct B_AnyQuestion *,
-    void *,  // User closure.
-);
 
 struct B_RuleVTable {
     UUID uuid;
