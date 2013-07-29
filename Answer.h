@@ -8,16 +8,13 @@
 struct B_AnyAnswer {
 };
 
+// Virtual table for Answers.  See PATTERNS.md.
 struct B_AnswerVTable {
     bool (*equal)(
         const struct B_AnyAnswer *,
         const struct B_AnyAnswer *,
     );
 
-    // Copies resources owned by an Answer, resulting in a
-    // new Answer whose deallocation will not affect the
-    // original Answer.  For immutable values, this may
-    // simply increment a reference count.
     struct B_AnyAnswer *(*replicate)(
         const struct B_AnyAnswer *,
     );

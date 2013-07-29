@@ -14,6 +14,7 @@ struct B_QuestionVTable;
 struct B_AnyRule {
 };
 
+// Virtual table for Rules.  See PATTERNS.md.
 struct B_RuleVTable {
     UUID uuid;
     struct B_QuestionVTable *questionVTable;

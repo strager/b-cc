@@ -9,6 +9,7 @@ struct B_QuestionVTable;
 struct B_AnyDatabase {
 };
 
+// Virtual table for a Database.  See PATTERNS.md.
 struct B_DatabaseVTable {
     void (*deallocate)(
         struct B_AnyDatabase *,
