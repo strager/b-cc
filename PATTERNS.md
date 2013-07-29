@@ -15,6 +15,65 @@ Compiler's typeclass dictionary design.
 
 A function within a vtable is called a *virtual function*.
 
+Virtual table structures are suffixed with `VTable`.  Types
+associated with vtables in an object-oriented manner are
+prefixed with `Any`.  For example, the vtable
+`B_QuestionVTable` contains functions for operating on
+instances of `B_AnyQuestion`.
+
+Why structure vtables this way?
+
+* Associated types.  One vtable can refer to another.  For
+  example, for a given `B_Question` vtable there is an
+  associated `B_Answer` vtable.  These must be synchronized,
+  answering a question should always result in the same
+  type of answer.
+
+* Safety.  Implementing value equality is more safe as there
+  is only one vtable present when comparing, not two.  You
+  cannot accidentally compare two values with a different
+  comparison function by just changing the order of
+  arguments.  Compare:
+
+        bool
+        values_equal(Value *a, Value *b) {
+            if (a->vtable != b->vtable) {
+                // return false?  error?
+                // ignore and compromise correctness?
+            }
+            return a->vtable->equals(a, b);
+        }
+
+        values_equal(foo_a, foo_b);
+
+  with:
+
+        bool
+        values_equal(ValueVTable *vtable, AnyValue *a, AnyValue *b) {
+            return vtable->equals(a, b);
+        }
+
+        values_equal(foo_vtable, foo_a, foo_b);
+
+  In the latter case, the wrapper function isn't even
+  necessary:
+
+        foo_vtable->equals(foo_a, foo_b);
+
+* Terseness.  See example under 'Safety'.
+
+* Power.  By allowing a vtable to be used without an
+  attached object instance, expressing serialization and
+  deserialization functions is more natural:
+
+        struct SerializableVTable {
+            void (*serialize)(const AnySerializable *, Writer *);
+            const AnySerializable *(*deserialize)(Reader *);
+        };
+
+  This vtable cannot be expressed in C++ or Java without a
+  separate class.
+
 ## Virtual Replication and Deallocation
 
 Sometimes, values need to be copied or persisted in a
