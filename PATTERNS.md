@@ -68,7 +68,7 @@ Why structure vtables this way?
 
         struct SerializableVTable {
             void (*serialize)(const AnySerializable *, Writer *);
-            const AnySerializable *(*deserialize)(Reader *);
+            AnySerializable *(*deserialize)(Reader *);
         };
 
   This vtable cannot be expressed in C++ or Java without a
