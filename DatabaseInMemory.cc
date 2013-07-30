@@ -7,14 +7,13 @@
 
 struct QuestionAnswer {
     B_AnyQuestion *question;
-    B_QuestionVTable *question_vtable;
+    const B_QuestionVTable *question_vtable;
     B_AnyAnswer *answer;
 
     QuestionAnswer(
-        B_AnyQuestion *question,
-        B_QuestionVTable *question_vtable,
-        B_AnyAnswer *answer,
-    ) :
+        const B_AnyQuestion *question,
+        const B_QuestionVTable *question_vtable,
+        const B_AnyAnswer *answer) :
         question(question_vtable->replicate(question)),
         question_vtable(question_vtable),
         answer(question_vtable->answer_vtable->replicate(answer)) {
@@ -30,16 +29,15 @@ struct QuestionAnswer {
 
 struct Dependency {
     B_AnyQuestion *from;
-    B_QuestionVTable *from_vtable;
+    const B_QuestionVTable *from_vtable;
     B_AnyQuestion *to;
-    B_QuestionVTable *to_vtable;
+    const B_QuestionVTable *to_vtable;
 
     Dependency(
-        B_AnyQuestion *from;
-        B_QuestionVTable *from_vtable;
-        B_AnyQuestion *to;
-        B_QuestionVTable *to_vtable;
-    ) :
+        const B_AnyQuestion *from,
+        const B_QuestionVTable *from_vtable,
+        const B_AnyQuestion *to,
+        const B_QuestionVTable *to_vtable) :
         from(from_vtable->replicate(from)),
         from_vtable(from_vtable),
         to(to_vtable->replicate(to)),
@@ -62,27 +60,24 @@ struct DatabaseInMemory {
         const B_QuestionVTable *from_vtable,
         const B_AnyQuestion *to,
         const B_QuestionVTable *to_vtable,
-        B_Exception **ex,
-    ) {
+        B_Exception **ex) {
         this->dependencies.emplace_back(
             from,
             from_vtable,
             to,
-            to_vtable,
-        );
+            to_vtable);
     }
 
     struct B_AnyAnswer *
     get_answer(
         const struct B_AnyQuestion *question,
         const struct B_QuestionVTable *question_vtable,
-        struct B_Exception **ex,
-    ) {
+        struct B_Exception **ex) {
         for (const auto &qa : this->question_answers) {
-            if (qa->question_vtable == question_vtable
-            && question_vtable->equal(qustion, qa->question)) {
+            if (qa.question_vtable == question_vtable
+            && question_vtable->equal(question, qa.question)) {
                 return question_vtable->answer_vtable
-                    ->replicate(qa->answer);
+                    ->replicate(qa.answer);
             }
         }
         return NULL;
@@ -93,46 +88,45 @@ struct DatabaseInMemory {
         const struct B_AnyQuestion *question,
         const struct B_QuestionVTable *question_vtable,
         const struct B_AnyAnswer *answer,
-        struct B_Exception **ex,
-    ) {
+        struct B_Exception **ex) {
         for (auto &qa : this->question_answers) {
-            if (qa->question_vtable == question_vtable
-            && question_vtable->equal(qustion, qa->question)) {
+            if (qa.question_vtable == question_vtable
+            && question_vtable->equal(question, qa.question)) {
                 question_vtable->answer_vtable
-                    ->deallocate(qa->answer);
-                qa->answer = answer;
+                    ->deallocate(qa.answer);
+                qa.answer = question_vtable->answer_vtable
+                    ->replicate(answer);
                 return;
             }
         }
 
-        this->question_answers->emplace_back(
+        this->question_answers.emplace_back(
             question,
             question_vtable,
-            answer,
-        );
+            answer);
     }
 };
 
 static B_AnyDatabase *
 cast(DatabaseInMemory *database) {
-    return reinterpret_cast<B_AnyDatabase>(database);
+    return reinterpret_cast<B_AnyDatabase *>(database);
 }
 
 static DatabaseInMemory *
 cast(B_AnyDatabase *database) {
-    return reinterpret_cast<DatabaseInMemory>(database);
+    return reinterpret_cast<DatabaseInMemory *>(database);
 }
 
 B_AnyDatabase *
 b_build_database_in_memory_allocate() {
-    return cast(new B_DatabaseInMemory());
+    return cast(new DatabaseInMemory());
 };
 
 void
 b_build_database_in_memory_deallocate(
     B_AnyDatabase *database
 ) {
-    delete cast(database)();
+    delete cast(database);
 }
 
 const B_DatabaseVTable *
@@ -146,28 +140,24 @@ b_build_database_in_memory_vtable() {
             const B_QuestionVTable *from_vtable,
             const B_AnyQuestion *to,
             const B_QuestionVTable *to_vtable,
-            B_Exception **ex,
-        ) {
+            B_Exception **ex) {
             cast(database)->add_dependency(
                 from,
                 from_vtable,
                 to,
                 to_vtable,
-                ex,
-            );
+                ex);
         },
 
         .get_answer = [](
             B_AnyDatabase *database,
             const B_AnyQuestion *question,
             const B_QuestionVTable *question_vtable,
-            B_Exception **ex,
-        ) -> B_AnyAnswer *{
+            B_Exception **ex) -> B_AnyAnswer *{
             return cast(database)->get_answer(
                 question,
                 question_vtable,
-                ex,
-            );
+                ex);
         },
 
         .set_answer = [](
@@ -175,14 +165,12 @@ b_build_database_in_memory_vtable() {
             const B_AnyQuestion *question,
             const B_QuestionVTable *question_vtable,
             const B_AnyAnswer *answer,
-            B_Exception **ex,
-        ) {
+            B_Exception **ex) {
             return cast(database)->set_answer(
                 question,
                 question_vtable,
                 answer,
-                ex,
-            );
+                ex);
         },
     };
     return &vtable;

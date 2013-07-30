@@ -4,6 +4,10 @@
 #include "RuleQueryList.h"
 #include "UUID.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct B_AppendOnlyList;
 struct B_BuildContext;
 struct B_QuestionVTable;
@@ -16,7 +20,7 @@ struct B_AnyRule {
 
 // Virtual table for Rules.  See PATTERNS.md.
 struct B_RuleVTable {
-    UUID uuid;
+    struct B_UUID uuid;
     struct B_QuestionVTable *questionVTable;
     void (*add)(struct B_AnyRule *, const struct B_AnyRule *);
     void (*query)(
@@ -24,9 +28,16 @@ struct B_RuleVTable {
         const struct B_AnyQuestion *,
         const struct B_BuildContext *,
         struct B_RuleQueryList *,
-        struct B_Exception **,
-    );
+        struct B_Exception **);
     void (*deallocate)(struct B_AnyRule *);
 };
+
+void
+b_rule_vtable_validate(
+    const struct B_RuleVTable *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

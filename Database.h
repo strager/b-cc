@@ -1,6 +1,10 @@
 #ifndef DATABASE_H_8305F0BE_23DF_4665_BCCD_362980C37FAF
 #define DATABASE_H_8305F0BE_23DF_4665_BCCD_362980C37FAF
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct B_AnyAnswer;
 struct B_AnyQuestion;
 struct B_Exception;
@@ -12,8 +16,7 @@ struct B_AnyDatabase {
 // Virtual table for a Database.  See PATTERNS.md.
 struct B_DatabaseVTable {
     void (*deallocate)(
-        struct B_AnyDatabase *,
-    );
+        struct B_AnyDatabase *);
 
     // Expresses a dependency between two Questions.  The
     // first Question depends upon the second.  The caller
@@ -24,8 +27,7 @@ struct B_DatabaseVTable {
         const struct B_QuestionVTable *from_vtable,
         const struct B_AnyQuestion *to,
         const struct B_QuestionVTable *to_vtable,
-        struct B_Exception **,
-    );
+        struct B_Exception **);
 
     // Looks up an Answer, returning NULL if no answer is
     // available.  The caller maintains ownership of the
@@ -35,8 +37,7 @@ struct B_DatabaseVTable {
         struct B_AnyDatabase *,
         const struct B_AnyQuestion *,
         const struct B_QuestionVTable *,
-        struct B_Exception **,
-    );
+        struct B_Exception **);
 
     // Records the Answer to a Question.  The caller
     // maintains ownership of the Question and Answer.
@@ -45,13 +46,15 @@ struct B_DatabaseVTable {
         const struct B_AnyQuestion *,
         const struct B_QuestionVTable *,
         const struct B_AnyAnswer *,
-        struct B_Exception **,
-    );
+        struct B_Exception **);
 };
 
 void
 b_database_vtable_validate(
-    const struct B_DatabaseVTable *
-);
+    const struct B_DatabaseVTable *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

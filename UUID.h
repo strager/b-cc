@@ -1,6 +1,12 @@
 #ifndef UUID_H_5D99EDF5_A544_42C2_9442_1F8348898FC1
 #define UUID_H_5D99EDF5_A544_42C2_9442_1F8348898FC1
 
+#include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // A stable, unique identifier.  Used to identify different
 // types stably across builds and for persistence.  Stored
 // as a 0-terminated ASCII string.
@@ -21,18 +27,25 @@ struct B_UUID {
 
 // Converts a string which will not be deallocated into a
 // UUID.
-UUID
+struct B_UUID
 b_uuid_from_stable_string(const char *);
 
 // Converts a string which may be deallocated into a UUID.
 // Leaks memory by keeping copies of strings for the
 // lifetime of the application.
-UUID
+struct B_UUID
 b_uuid_from_temp_string(const char *);
 
 // Compares two UUIDs using string comparison.  Returns
 // 'true' if the two UUIDs are equivalent.
 bool
 b_uuid_equal(struct B_UUID, struct B_UUID);
+
+void
+b_uuid_validate(struct B_UUID);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

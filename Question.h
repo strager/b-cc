@@ -5,8 +5,13 @@
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct B_AnswerVTable;
 struct B_AnyAnswer;
+struct B_Exception;
 
 // A Question is value describing a question on the current
 // state of the system.  For example, "is this file
@@ -35,31 +40,29 @@ struct B_QuestionVTable {
 
     struct B_AnyAnswer *(*answer)(
         const struct B_AnyQuestion *,
-        struct B_Exception **,
-    );
+        struct B_Exception **);
 
     bool (*equal)(
         const struct B_AnyQuestion *,
-        const struct B_AnyQuestion *,
-    );
+        const struct B_AnyQuestion *);
 
     struct B_AnyQuestion *(*replicate)(
-        const struct B_AnyQuestion *,
-    );
+        const struct B_AnyQuestion *);
 
     void (*deallocate)(
-        struct B_AnyQuestion *,
-    );
+        struct B_AnyQuestion *);
 };
 
 void
 b_question_validate(
-    const struct B_AnyQuestion *,
-);
+    const struct B_AnyQuestion *);
 
 void
 b_question_vtable_validate(
-    const struct B_QuestionVTable *,
-);
+    const struct B_QuestionVTable *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

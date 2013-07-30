@@ -6,6 +6,15 @@
 // compiling any of this project yet!)
 
 #include "BuildContext.h"
+#include "DatabaseInMemory.h"
+#include "Exception.h"
+#include "FileQuestion.h"
+#include "FileRule.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 static const char *
 c_object_files[] = {
@@ -31,13 +40,12 @@ output_file = "b-cc-example";
 
 void
 run_command(
-    const char *args[],
-    struct B_Exception **ex,
-) {
+    const char *const args[],
+    struct B_Exception **ex) {
     pid_t child_pid = fork();
     if (child_pid == 0) {
         // Child.
-        execvp(args[0], args);
+        execvp(args[0], (char *const *) args);
         perror(NULL);
         exit(1);
     } else if (child_pid > 0) {
@@ -58,9 +66,11 @@ run_command(
 
 static char *
 drop_extension(
-    const char *path,
-) {
-    char *s = strdup(path);
+    const char *path) {
+    size_t size = strlen(path) + 1;
+    char *s = malloc(size);
+    memcpy(s, path, size);
+
     char *dot = strrchr(s, '.');
     if (dot) {
         *dot = '\0';
@@ -72,10 +82,9 @@ static void
 run_c_compile(
     struct B_BuildContext *ctx,
     const char *object_path,
-    struct B_Exception **ex,
-) {
-    const char *c_path = drop_extension(object_path);
-    run_command((const char *args[]) {
+    struct B_Exception **ex) {
+    char *c_path = drop_extension(object_path);
+    run_command((const char *[]) {
         "clang",
         "-o", object_path,
         "-c", c_path,
@@ -88,10 +97,9 @@ static void
 run_cc_compile(
     struct B_BuildContext *ctx,
     const char *object_path,
-    struct B_Exception **ex,
-) {
-    const char *cc_path = drop_extension(object_path);
-    run_command((const char *args[]) {
+    struct B_Exception **ex) {
+    char *cc_path = drop_extension(object_path);
+    run_command((const char *[]) {
         "clang++",
         "-std=c++11",
         "-o", object_path,
@@ -105,8 +113,7 @@ static void
 run_cc_link(
     struct B_BuildContext *ctx,
     const char *output_path,
-    struct B_Exception **ex,
-) {
+    struct B_Exception **ex) {
     // What is two lines in other languages:
     //
     // > ["clang++", "-o", output_path]
@@ -114,13 +121,19 @@ run_cc_link(
     //
     // Is over ten lines in C99.
 
-    size_t object_file_count = c_object_files_count + cc_object_files_count;
-    size_t static_args_count = 3;
-    size_t args_count = object_file_count + static_args_count + 1;
-    const char *args[args_count] = {
+    const char *static_args[] = {
         "clang++", "-o", output_path,
     };
-    size_t arg = static_args_count;
+    size_t static_args_count = sizeof(static_args) / sizeof(*static_args);
+
+    size_t object_files_count = c_object_files_count + cc_object_files_count;
+    size_t args_count = object_files_count + static_args_count + 1;
+    const char *args[args_count];
+
+    size_t arg = 0;
+    for (size_t i = 0; i < static_args_count; ++i, ++arg) {
+        args[arg] = static_args[i];
+    }
     for (size_t i = 0; i < c_object_files_count; ++i, ++arg) {
         args[arg] = c_object_files[i];
     }
@@ -138,35 +151,32 @@ main(int argc, char **argv) {
 
     struct B_AnyDatabase *database
         = b_database_in_memory_allocate();
-    struct B_DatabaseVTable *database_vtable
+    const struct B_DatabaseVTable *database_vtable
         = b_database_in_memory_vtable();
 
     struct B_AnyRule *rule
         = b_file_rule_allocate();
-    struct B_RuleVTable *rule_vtable
+    const struct B_RuleVTable *rule_vtable
         = b_file_rule_vtable();
 
     b_file_rule_add_many(
         rule,
         c_object_files,
         c_object_files_count,
-        run_c_compile,
-    );
+        run_c_compile);
     b_file_rule_add_many(
         rule,
         cc_object_files,
         cc_object_files_count,
-        run_cc_compile,
-    );
+        run_cc_compile);
     b_file_rule_add(
         rule,
         output_file,
-        run_cc_link,
-    );
+        run_cc_link);
 
     struct B_AnyQuestion *question
         = b_file_question_constant_string(output_file);
-    struct B_QuestionVTable *question_vtable
+    const struct B_QuestionVTable *question_vtable
         = b_file_question_constant_string_vtable();
 
     struct B_BuildContext *ctx
@@ -174,28 +184,24 @@ main(int argc, char **argv) {
             database,
             database_vtable,
             rule,
-            rule_vtable
-        );
+            rule_vtable);
 
-    struct B_Exception ex = NULL;
+    struct B_Exception *ex = NULL;
 
     b_build_context_need_one(
         ctx,
         question,
         question_vtable,
-        &ex,
-    );
+        &ex);
 
     if (ex) {
         fprintf(
             stderr,
             "Exception occured while building:\n  %s\n",
-            ex->message,
-        );
+            ex->message);
         err = 1;
     }
 
-done:
     b_build_context_deallocate(ctx);
     b_file_rule_deallocate(rule);
     b_database_in_memory_deallocate(database);

@@ -5,6 +5,10 @@
 
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // An Exception is an abstract C++-style exception.  C++,
 // Objective-C, POSIX, and other kinds of exception and
 // error types may be encoded in a B_Exception type.
@@ -15,9 +19,14 @@ struct B_Exception {
     void (*deallocate)(struct B_Exception *);
 };
 
-// Creates a plain-text Exception.
+// Creates a plain-text Exception from a constant string.
 struct B_Exception *
-b_exception_allocate(const char *message);
+b_exception_constant_string(const char *message);
+
+// Creates a plain-text Exception from a printf-like format
+// specifier.
+struct B_Exception *
+b_exception_format_string(const char *format, ...);
 
 // Destroys any type of Exception.
 void
@@ -39,14 +48,17 @@ b_exception_deaggregate(struct B_Exception ***, size_t *);
 // contract.
 void
 b_exception_validate(
-    const struct B_Exception **,
-);
+    struct B_Exception *const *);
 
 #define B_EXCEPTION_THEN(ex_var, ...) \
     do { \
         if (*(ex_var)) { \
-            __VA_LIST__ \
+            __VA_ARGS__ \
         } \
     } while (0)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

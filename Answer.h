@@ -3,6 +3,10 @@
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // An Answer is a value describing the state of part of the
 // system.  See 'struct B_AnyQuestion'.
 struct B_AnyAnswer {
@@ -12,26 +16,25 @@ struct B_AnyAnswer {
 struct B_AnswerVTable {
     bool (*equal)(
         const struct B_AnyAnswer *,
-        const struct B_AnyAnswer *,
-    );
+        const struct B_AnyAnswer *);
 
     struct B_AnyAnswer *(*replicate)(
-        const struct B_AnyAnswer *,
-    );
+        const struct B_AnyAnswer *);
 
     void (*deallocate)(
-        struct B_AnyAnswer *,
-    );
+        struct B_AnyAnswer *);
 };
 
 void
 b_answer_validate(
-    const struct B_AnyAnswer *,
-);
+    const struct B_AnyAnswer *);
 
 void
 b_answer_vtable_validate(
-    const struct B_AnswerVTable *,
-);
+    const struct B_AnswerVTable *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

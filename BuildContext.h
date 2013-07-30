@@ -3,8 +3,19 @@
 
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct B_AnyAnswer;
+struct B_AnyDatabase;
+struct B_AnyQuestion;
+struct B_AnyRule;
 struct B_BuildContext;
-struct B_Database;
+struct B_DatabaseVTable;
+struct B_Exception;
+struct B_QuestionVTable;
+struct B_RuleVTable;
 
 // Creates a new BuildContext, building against the given
 // Database and using the given Rule for ensuring questions
@@ -15,14 +26,12 @@ b_build_context_allocate(
     struct B_AnyDatabase *,
     const struct B_DatabaseVTable *,
     const struct B_AnyRule *rule,
-    const struct B_RuleVTable *rule_vtable,
-);
+    const struct B_RuleVTable *rule_vtable);
 
 // Destroys a BuildContext.
 void
 b_build_context_deallocate(
-    struct B_BuildContext *,
-);
+    struct B_BuildContext *);
 
 // Requests some Questions be answered.  Uses the registered
 // Rule for performing side effects.  May run Rules in
@@ -36,8 +45,7 @@ b_build_context_need_answers(
     const struct B_QuestionVTable *const *,
     struct B_AnyAnswer **,
     size_t count,
-    struct B_Exception **,
-);
+    struct B_Exception **);
 
 // Like b_build_context_need_answers, but without returning
 // the answers.
@@ -47,28 +55,28 @@ b_build_context_need(
     const struct B_AnyQuestion *const *,
     const struct B_QuestionVTable *const *,
     size_t count,
-    struct B_Exception **,
-);
+    struct B_Exception **);
 
 struct B_AnyAnswer *
 b_build_context_need_answer_one(
     const struct B_BuildContext *,
     const struct B_AnyQuestion *,
     const struct B_QuestionVTable *,
-    struct B_Exception **,
-);
+    struct B_Exception **);
 
 void
 b_build_context_need_one(
     const struct B_BuildContext *,
     const struct B_AnyQuestion *,
     const struct B_QuestionVTable *,
-    struct B_Exception **,
-);
+    struct B_Exception **);
 
 void
 b_build_context_validate(
-    const struct B_BuildContext *,
-);
+    const struct B_BuildContext *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
