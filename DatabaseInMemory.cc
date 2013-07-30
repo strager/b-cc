@@ -135,60 +135,55 @@ b_build_database_in_memory_deallocate(
     delete cast(database)();
 }
 
-static void
-b_build_database_in_memory_add_dependency(
-    B_AnyDatabase *database,
-    const B_AnyQuestion *from,
-    const B_QuestionVTable *from_vtable,
-    const B_AnyQuestion *to,
-    const B_QuestionVTable *to_vtable,
-    B_Exception **ex,
-) {
-    cast(database)->add_dependency(
-        from,
-        from_vtable,
-        to,
-        to_vtable,
-        ex,
-    );
-}
-
-static B_AnyAnswer *
-b_build_database_in_memory_get_answer(
-    B_AnyDatabase *database,
-    const B_AnyQuestion *question,
-    const B_QuestionVTable *question_vtable,
-    B_Exception **ex,
-) {
-    return cast(database)->get_answer(
-        question,
-        question_vtable,
-        ex,
-    );
-
-static void
-b_build_database_in_memory_set_answer(
-    B_AnyDatabase *database,
-    const B_AnyQuestion *question,
-    const B_QuestionVTable *question_vtable,
-    const B_AnyAnswer *answer,
-    B_Exception **ex,
-) {
-    return cast(database)->set_answer(
-        question,
-        question_vtable,
-        answer,
-        ex,
-    );
-}
-
 const B_DatabaseVTable *
 b_build_database_in_memory_vtable() {
     static const B_DatabaseVTable vtable = {
         .deallocate = b_build_database_in_memory_deallocate,
-        .add_dependency = b_build_database_in_memory_add_dependency,
-        .get_answer = b_build_database_in_memory_get_answer,
-        .set_answer = b_build_database_in_memory_set_answer,
+
+        .add_dependency = [](
+            B_AnyDatabase *database,
+            const B_AnyQuestion *from,
+            const B_QuestionVTable *from_vtable,
+            const B_AnyQuestion *to,
+            const B_QuestionVTable *to_vtable,
+            B_Exception **ex,
+        ) {
+            cast(database)->add_dependency(
+                from,
+                from_vtable,
+                to,
+                to_vtable,
+                ex,
+            );
+        },
+
+        .get_answer = [](
+            B_AnyDatabase *database,
+            const B_AnyQuestion *question,
+            const B_QuestionVTable *question_vtable,
+            B_Exception **ex,
+        ) -> B_AnyAnswer *{
+            return cast(database)->get_answer(
+                question,
+                question_vtable,
+                ex,
+            );
+        },
+
+        .set_answer = [](
+            B_AnyDatabase *database,
+            const B_AnyQuestion *question,
+            const B_QuestionVTable *question_vtable,
+            const B_AnyAnswer *answer,
+            B_Exception **ex,
+        ) {
+            return cast(database)->set_answer(
+                question,
+                question_vtable,
+                answer,
+                ex,
+            );
+        },
     };
     return &vtable;
 }
