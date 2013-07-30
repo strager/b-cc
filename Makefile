@@ -16,6 +16,10 @@ LD_FLAGS := $(LD_FLAGS) $(WARNING_FLAGS) -stdlib=libc++
 .PHONY: all
 all: $(OUTPUT)
 
+.PHONY: clean
+clean:
+	rm -rf $(O_FILES) $(OUTPUT)
+
 $(OUTPUT): $(O_FILES)
 	$(CXX) $(LD_FLAGS) -o $@ $^
 
