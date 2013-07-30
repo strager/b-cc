@@ -22,7 +22,10 @@ typedef void (*B_RuleQueryFunction)(
 struct B_RuleQuery {
     B_RuleQueryFunction function;
     B_RuleQueryClosure closure;
-    void (*deallocate_closure)(B_RuleQueryClosure *);
+    B_RuleQueryClosure *(*replicate_closure)(
+        const B_RuleQueryClosure *);
+    void (*deallocate_closure)(
+        B_RuleQueryClosure *);
 };
 
 struct B_RuleQueryList;
@@ -35,15 +38,15 @@ b_rule_query_list_deallocate(
     struct B_RuleQueryList *);
 
 void
-b_rule_query_list_append(
+b_rule_query_list_add(
     struct B_RuleQueryList *,
-    const struct B_RuleQuery);
+    const struct B_RuleQuery *);
 
 size_t
 b_rule_query_list_size(
     struct B_RuleQueryList *);
 
-struct B_RuleQuery *
+const struct B_RuleQuery *
 b_rule_query_list_get(
     struct B_RuleQueryList *,
     size_t index);

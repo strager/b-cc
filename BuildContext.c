@@ -24,7 +24,7 @@ struct B_BuildContextInfo {
 
 struct B_BuildContext {
     struct B_BuildContextInfo *const info;
-    struct B_BuildStack *const stack;  /* Nullable. */
+    struct B_BuildStack *const stack;  // Nullable.
 };
 
 static struct B_BuildContext *
@@ -189,15 +189,13 @@ b_build_context_build(
         goto done;
 
     case 1: {
-        struct B_RuleQuery *rule_query
+        const struct B_RuleQuery *rule_query
             = b_rule_query_list_get(rule_query_list, 0);
         rule_query->function(
             ctx,
             question,
             rule_query->closure,
-            ex
-        );
-        rule_query->deallocate_closure(rule_query->closure);
+            ex);
         B_EXCEPTION_THEN(ex, {
             goto done;
         });
