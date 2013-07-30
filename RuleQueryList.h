@@ -7,6 +7,10 @@
 extern "C" {
 #endif
 
+struct B_AnyQuestion;
+struct B_BuildContext;
+struct B_Exception;
+
 typedef void *B_RuleQueryClosure;
 
 typedef void (*B_RuleQueryFunction)(
