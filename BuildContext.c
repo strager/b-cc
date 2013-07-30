@@ -113,7 +113,6 @@ b_build_context_need(
     b_build_context_validate(ctx);
     B_VALIDATE(questions);  /* TODO */
     B_VALIDATE(question_vtables);  /* TODO */
-    b_exception_validate(ex);
 
     // TODO Don't allocate/deallocate answers.
     struct B_AnyAnswer *answers[count];
@@ -142,7 +141,6 @@ b_build_context_need_answers(
     B_VALIDATE(questions);  /* TODO */
     B_VALIDATE(question_vtables);  /* TODO */
     B_VALIDATE(answers);  /* TODO */
-    b_exception_validate(ex);
 
     // TODO Allow parallelism.
     struct B_Exception *exceptions[count];
@@ -169,7 +167,6 @@ b_build_context_build(
     struct B_Exception **ex) {
     b_build_context_validate(ctx);
     b_question_validate(question);
-    b_exception_validate(ex);
 
     const struct B_BuildContextInfo *info = ctx->info;
 
@@ -188,7 +185,7 @@ b_build_context_build(
 
     switch (b_rule_query_list_size(rule_query_list)) {
     case 0:
-        *ex = b_exception_constant_string("No rule to build question");
+        *ex = b_exception_string("No rule to build question");
         goto done;
 
     case 1: {
@@ -208,7 +205,7 @@ b_build_context_build(
     }
 
     default:
-        *ex = b_exception_constant_string("Multiple rules to build question");
+        *ex = b_exception_string("Multiple rules to build question");
         goto done;
     }
 
@@ -225,7 +222,6 @@ b_build_context_need_answer_one(
     b_build_context_validate(ctx);
     b_question_validate(question);
     b_question_vtable_validate(question_vtable);
-    b_exception_validate(ex);
 
     const struct B_BuildContextInfo *info = ctx->info;
 
@@ -288,7 +284,6 @@ b_build_context_need_one(
     b_build_context_validate(ctx);
     b_question_validate(question);
     b_question_vtable_validate(question_vtable);
-    b_exception_validate(ex);
 
     // TODO Don't allocate/deallocate answers.
     struct B_AnyAnswer *answer

@@ -53,14 +53,14 @@ run_command(
         int status;
         int err = waitpid(child_pid, &status, 0);
         if (err) {
-            *ex = b_exception_constant_string("Failed to waitpid while running command");
+            *ex = b_exception_string("Failed to waitpid while running command");
         } else if (status) {
-            *ex = b_exception_constant_string("Command exited with nonzero exit code");
+            *ex = b_exception_string("Command exited with nonzero exit code");
         } else {
             *ex = 0;
         }
     } else {
-        *ex = b_exception_constant_string("Failed to fork while running command");
+        *ex = b_exception_string("Failed to fork while running command");
     }
 }
 

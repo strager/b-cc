@@ -19,36 +19,34 @@ struct B_Exception {
     void (*deallocate)(struct B_Exception *);
 };
 
-// Creates a plain-text Exception from a constant string.
+// Creates a plain-text Exception with the given message.
 struct B_Exception *
-b_exception_constant_string(const char *message);
+b_exception_string(
+    const char *message);
 
 // Creates a plain-text Exception from a printf-like format
 // specifier.
 struct B_Exception *
-b_exception_format_string(const char *format, ...);
+b_exception_format_string(
+    const char *format,
+    ...);
 
 // Destroys any type of Exception.
 void
-b_exception_deallocate(struct B_Exception *);
+b_exception_deallocate(
+    struct B_Exception *);
 
 // Creates an Exception which is the combination of multiple
 // exceptions.  Deallocating the returned Exception will
 // deallocate the aggregated exceptions.
 struct B_Exception *
-b_exception_aggregate(struct B_Exception **, size_t);
+b_exception_aggregate(
+    struct B_Exception **,
+    size_t count);
 
-// The opposite of b_exception_aggregate.  Returns a list of
-// Exceptions shallowly contained within this exception.
-void
-b_exception_deaggregate(struct B_Exception ***, size_t *);
-
-// When calling a function, the exception variable should
-// point to a NULL pointer.  This function validates that
-// contract.
 void
 b_exception_validate(
-    struct B_Exception *const *);
+    struct B_Exception *);
 
 #define B_EXCEPTION_THEN(ex_var, ...) \
     do { \
