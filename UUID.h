@@ -28,18 +28,22 @@ struct B_UUID {
 // Converts a string which will not be deallocated into a
 // UUID.
 struct B_UUID
-b_uuid_from_stable_string(const char *);
+b_uuid_from_stable_string(
+    const char *);
 
 // Converts a string which may be deallocated into a UUID.
 // Leaks memory by keeping copies of strings for the
 // lifetime of the application.
 struct B_UUID
-b_uuid_from_temp_string(const char *);
+b_uuid_from_temp_string(
+    const char *);
 
 // Compares two UUIDs using string comparison.  Returns
 // 'true' if the two UUIDs are equivalent.
 bool
-b_uuid_equal(struct B_UUID, struct B_UUID);
+b_uuid_equal(
+    struct B_UUID,
+    struct B_UUID);
 
 void
 b_uuid_validate(struct B_UUID);
