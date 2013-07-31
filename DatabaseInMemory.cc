@@ -118,21 +118,21 @@ cast(B_AnyDatabase *database) {
 }
 
 B_AnyDatabase *
-b_build_database_in_memory_allocate() {
+b_database_in_memory_allocate() {
     return cast(new DatabaseInMemory());
 };
 
 void
-b_build_database_in_memory_deallocate(
+b_database_in_memory_deallocate(
     B_AnyDatabase *database
 ) {
     delete cast(database);
 }
 
 const B_DatabaseVTable *
-b_build_database_in_memory_vtable() {
+b_database_in_memory_vtable() {
     static const B_DatabaseVTable vtable = {
-        .deallocate = b_build_database_in_memory_deallocate,
+        .deallocate = b_database_in_memory_deallocate,
 
         .add_dependency = [](
             B_AnyDatabase *database,
