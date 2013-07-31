@@ -11,21 +11,19 @@ struct B_AnyQuestion;
 struct B_BuildContext;
 struct B_Exception;
 
-typedef void *B_RuleQueryClosure;
-
 typedef void (*B_RuleQueryFunction)(
     struct B_BuildContext *,
     const struct B_AnyQuestion *,
-    B_RuleQueryClosure,
+    void *closure,
     struct B_Exception **);
 
 struct B_RuleQuery {
     B_RuleQueryFunction function;
-    B_RuleQueryClosure closure;
-    B_RuleQueryClosure *(*replicate_closure)(
-        const B_RuleQueryClosure *);
+    void *closure;
+    void *(*replicate_closure)(
+        const void *);
     void (*deallocate_closure)(
-        B_RuleQueryClosure *);
+        void *);
 };
 
 struct B_RuleQueryList;

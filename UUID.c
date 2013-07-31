@@ -1,3 +1,4 @@
+#include "Portable.h"
 #include "UUID.h"
 #include "Validate.h"
 
@@ -12,11 +13,8 @@ b_uuid_from_stable_string(
 
 struct B_UUID
 b_uuid_from_temp_string(
-    const char *s) {
-    size_t size = strlen(s) + 1;
-    char *uuid = malloc(size);
-    memcpy(uuid, s, size);
-    return b_uuid_from_stable_string(uuid);
+    const char *uuid) {
+    return b_uuid_from_stable_string(b_strdup(uuid));
 }
 
 bool

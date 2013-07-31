@@ -31,6 +31,12 @@ b_exception_format_string(
     const char *format,
     ...);
 
+// Creates a plain-text Exception from a POSIX error code.
+struct B_Exception *
+b_exception_errno(
+    const char *function,
+    int errno);
+
 // Destroys any type of Exception.
 void
 b_exception_deallocate(

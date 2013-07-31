@@ -36,7 +36,7 @@ struct B_AnyQuestion {
 // Virtual table for Questions.  See PATTERNS.md.
 struct B_QuestionVTable {
     struct B_UUID uuid;
-    struct B_AnswerVTable *answer_vtable;
+    const struct B_AnswerVTable *answer_vtable;
 
     struct B_AnyAnswer *(*answer)(
         const struct B_AnyQuestion *,

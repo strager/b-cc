@@ -1,3 +1,4 @@
+#include "Allocate.h"
 #include "Answer.h"
 #include "BuildContext.h"
 #include "Database.h"
@@ -36,20 +37,16 @@ b_build_context_chain(
     b_question_validate(question);
     b_question_vtable_validate(question_vtable);
 
-    struct B_BuildStack *stack
-        = malloc(sizeof(struct B_BuildStack));
-    *stack = (struct B_BuildStack) {
+    B_ALLOCATE(struct B_BuildStack, stack, {
         .question = question,
         .question_vtable = question_vtable,
         .next = parent->stack,
-    };
+    });
 
-    struct B_BuildContext *ctx
-        = malloc(sizeof(struct B_BuildContext));
-    *ctx = (struct B_BuildContext) {
+    B_ALLOCATE(struct B_BuildContext, ctx, {
         .info = parent->info,
         .stack = stack,
-    };
+    });
 
     return ctx;
 }
@@ -74,21 +71,17 @@ b_build_context_allocate(
     B_VALIDATE(rule);
     b_rule_vtable_validate(rule_vtable);
 
-    struct B_BuildContextInfo *info
-        = malloc(sizeof(struct B_BuildContextInfo));
-    *info = (struct B_BuildContextInfo) {
+    B_ALLOCATE(struct B_BuildContextInfo, info, {
         .database = database,
         .database_vtable = database_vtable,
         .rule = rule,
         .rule_vtable = rule_vtable,
-    };
+    });
 
-    struct B_BuildContext *ctx
-        = malloc(sizeof(struct B_BuildContext));
-    *ctx = (struct B_BuildContext) {
+    B_ALLOCATE(struct B_BuildContext, ctx, {
         .info = info,
         .stack = NULL,
-    };
+    });
 
     return ctx;
 }

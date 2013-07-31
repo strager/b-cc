@@ -1,4 +1,6 @@
+#include "Allocate.h"
 #include "Exception.h"
+#include "Portable.h"
 #include "UUID.h"
 #include "Validate.h"
 
@@ -48,18 +50,12 @@ b_exception_aggregate_deallocate(
 struct B_Exception *
 b_exception_string(
     const char *message) {
-    size_t size = strlen(message) + 1;
-    char *s = malloc(size);
-    memcpy(s, message, size);
-
-    struct B_Exception *ex
-        = malloc(sizeof(struct B_Exception));
-    *ex = (struct B_Exception) {
+    B_ALLOCATE(struct B_Exception, ex, {
         .uuid = b_exception_string_uuid,
-        .message = s,
+        .message = b_strdup(message),
         .data = NULL,
         .deallocate = b_exception_string_deallocate,
-    };
+    });
     return ex;
 }
 
@@ -76,15 +72,23 @@ b_exception_format_string(
         va_end(vp);
     }
 
-    struct B_Exception *ex
-        = malloc(sizeof(struct B_Exception));
-    *ex = (struct B_Exception) {
+    B_ALLOCATE(struct B_Exception, ex, {
         .uuid = b_exception_string_uuid,
         .message = message,
         .data = NULL,
         .deallocate = b_exception_string_deallocate,
-    };
+    });
     return ex;
+}
+
+struct B_Exception *
+b_exception_errno(
+    const char *function,
+    int errno) {
+    return b_exception_format_string(
+        "%s: %s",
+        function,
+        strerror(errno));
 }
 
 void
@@ -129,14 +133,12 @@ b_exception_aggregate(
         strcat(message, (*sub_ex)->message);
     }
 
-    struct B_Exception *ex
-        = malloc(sizeof(struct B_Exception));
-    *ex = (struct B_Exception) {
+    B_ALLOCATE(struct B_Exception, ex, {
         .uuid = b_exception_aggregate_uuid,
         .message = message,
         .data = sub_exceptions,
         .deallocate = b_exception_aggregate_deallocate,
-    };
+    });
     return ex;
 }
 

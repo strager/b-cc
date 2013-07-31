@@ -1,0 +1,7 @@
+#ifndef PORTABLE_H_E5B130AF_4834_4A83_BC1C_B543D7F8D37D
+#define PORTABLE_H_E5B130AF_4834_4A83_BC1C_B543D7F8D37D
+
+char *
+b_strdup(const char *);
+
+#endif

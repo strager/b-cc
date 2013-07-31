@@ -10,6 +10,7 @@
 #include "Exception.h"
 #include "FileQuestion.h"
 #include "FileRule.h"
+#include "Portable.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,10 +68,7 @@ run_command(
 static char *
 drop_extension(
     const char *path) {
-    size_t size = strlen(path) + 1;
-    char *s = malloc(size);
-    memcpy(s, path, size);
-
+    char *s = b_strdup(path);
     char *dot = strrchr(s, '.');
     if (dot) {
         *dot = '\0';
@@ -175,9 +173,9 @@ main(int argc, char **argv) {
         run_cc_link);
 
     struct B_AnyQuestion *question
-        = b_file_question_constant_string(output_file);
+        = b_file_question_allocate(output_file);
     const struct B_QuestionVTable *question_vtable
-        = b_file_question_constant_string_vtable();
+        = b_file_question_vtable();
 
     struct B_BuildContext *ctx
         = b_build_context_allocate(

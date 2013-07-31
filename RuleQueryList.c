@@ -1,3 +1,4 @@
+#include "Allocate.h"
 #include "RuleQueryList.h"
 
 #include <stdlib.h>
@@ -14,12 +15,10 @@ struct B_RuleQueryList {
 
 struct B_RuleQueryList *
 b_rule_query_list_allocate() {
-    struct B_RuleQueryList *list
-        = malloc(sizeof(struct B_RuleQueryList));
-    *list = (struct B_RuleQueryList) {
+    B_ALLOCATE(struct B_RuleQueryList, list, {
         .head = NULL,
         .size = 0,
-    };
+    });
     return list;
 }
 
@@ -29,7 +28,6 @@ b_rule_query_list_deallocate_node(
     if (!node) {
         return;
     }
-
     b_rule_query_list_deallocate_node(node->next);
     node->query.deallocate_closure(node->query.closure);
     free(node);
@@ -46,12 +44,10 @@ void
 b_rule_query_list_add(
     struct B_RuleQueryList *list,
     const struct B_RuleQuery *query) {
-    struct B_RuleQueryListNode *node
-        = malloc(sizeof(struct B_RuleQueryListNode));
-    *node = (struct B_RuleQueryListNode) {
+    B_ALLOCATE(struct B_RuleQueryListNode, node, {
         .query = *query,
         .next = list->head,
-    };
+    });
     node->query.closure = node->query
         .replicate_closure(node->query.closure);
     list->head = node;

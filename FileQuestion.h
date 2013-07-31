@@ -8,11 +8,19 @@ extern "C" {
 struct B_AnyQuestion;
 
 struct B_AnyQuestion *
-b_file_question_constant_string(
+b_file_question_allocate(
     const char *file_path);
 
+void
+b_file_question_deallocate(
+    struct B_AnyQuestion *);
+
+const char *
+b_file_question_file_path(
+    const struct B_AnyQuestion *);
+
 const struct B_QuestionVTable *
-b_file_question_constant_string_vtable();
+b_file_question_vtable();
 
 #ifdef __cplusplus
 }

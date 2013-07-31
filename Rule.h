@@ -22,14 +22,17 @@ struct B_AnyRule {
 struct B_RuleVTable {
     struct B_UUID uuid;
     struct B_QuestionVTable *question_vtable;  // FIXME!!!
-    void (*add)(struct B_AnyRule *, const struct B_AnyRule *);
+    void (*add)(
+        struct B_AnyRule *,
+        const struct B_AnyRule *);
     void (*query)(
         const struct B_AnyRule *,
         const struct B_AnyQuestion *,
         const struct B_BuildContext *,
         struct B_RuleQueryList *,
         struct B_Exception **);
-    void (*deallocate)(struct B_AnyRule *);
+    void (*deallocate)(
+        struct B_AnyRule *);
 };
 
 void
