@@ -110,11 +110,13 @@ static void
 b_file_rule_query(
     const struct B_AnyRule *rule,
     const struct B_AnyQuestion *question,
+    const struct B_QuestionVTable *question_vtable,
     const struct B_BuildContext *_ctx,
     struct B_RuleQueryList *list,
     struct B_Exception **_ex) {
-    const struct B_QuestionVTable *question_vtable
-        = b_file_question_vtable();
+    if (!b_uuid_equal(question_vtable->uuid, b_file_question_vtable()->uuid)) {
+        return;
+    }
     for (
         const struct FileRuleNode *node
             = ((const struct FileRule *) rule)->head;
@@ -136,7 +138,6 @@ const struct B_RuleVTable *
 b_file_rule_vtable() {
     static const struct B_RuleVTable vtable = {
         .uuid = B_UUID("3325547E-38B3-4121-BE5A-5E65FEB42C12"),
-        .question_vtable = NULL,  // TODO
         .add = b_file_rule_combine,
         .query = b_file_rule_query,
         .deallocate = b_file_rule_deallocate,

@@ -12,6 +12,7 @@
 #include "FileRule.h"
 #include "Portable.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,8 +22,16 @@ static const char *
 c_object_files[] = {
     "Answer.c.o",
     "BuildContext.c.o",
+    "Database.c.o",
     "Example.c.o",
+    "Exception.c.o",
+    "FileQuestion.c.o",
+    "FileRule.c.o",
+    "Portable.c.o",
     "Question.c.o",
+    "Rule.c.o",
+    "RuleQueryList.c.o",
+    "UUID.c.o",
 };
 
 static const size_t
@@ -36,13 +45,37 @@ cc_object_files[] = {
 static const size_t
 cc_object_files_count = sizeof(cc_object_files) / sizeof(*cc_object_files);
 
+static const size_t
+object_files_count = c_object_files_count + cc_object_files_count;
+
 static const char *
 output_file = "b-cc-example";
+
+void
+print_command(
+    FILE *stream,
+    const char *const args[]) {
+    for (const char *const *arg = args; *arg; ++arg) {
+        if (arg != args) {
+            fprintf(stream, " ");
+        }
+        size_t spanned = strcspn(*arg, " \'\"");
+        if (spanned == strlen(*arg)) {
+            fprintf(stream, "%s", *arg);
+        } else {
+            fprintf(stream, "'%s'", *arg);
+        }
+    }
+}
 
 void
 run_command(
     const char *const args[],
     struct B_Exception **ex) {
+    fprintf(stderr, "$ ");
+    print_command(stderr, args);
+    fprintf(stderr, "\n");
+
     pid_t child_pid = fork();
     if (child_pid == 0) {
         // Child.
@@ -52,9 +85,14 @@ run_command(
     } else if (child_pid > 0) {
         // Parent.
         int status;
-        int err = waitpid(child_pid, &status, 0);
-        if (err) {
-            *ex = b_exception_string("Failed to waitpid while running command");
+        int err;
+retry_wait:
+        err = waitpid(child_pid, &status, 0);
+        if (err < 0) {
+            if (errno == EINTR) {
+                goto retry_wait;
+            }
+            *ex = b_exception_errno("waitpid", errno);
         } else if (status) {
             *ex = b_exception_string("Command exited with nonzero exit code");
         } else {
@@ -100,6 +138,7 @@ run_cc_compile(
     run_command((const char *[]) {
         "clang++",
         "-std=c++11",
+        "-stdlib=libc++",
         "-o", object_path,
         "-c", cc_path,
         NULL,
@@ -108,37 +147,80 @@ run_cc_compile(
 }
 
 static void
+depend_upon_object_files(
+    struct B_BuildContext *ctx,
+    struct B_Exception **ex) {
+    struct B_AnyQuestion *questions[object_files_count];
+    const struct B_QuestionVTable *question_vtables[object_files_count];
+
+    {
+        const struct B_QuestionVTable *question_vtable
+            = b_file_question_vtable();
+        size_t question = 0;
+        for (size_t i = 0; i < c_object_files_count; ++i, ++question) {
+            questions[question]
+                = b_file_question_allocate(c_object_files[i]);
+            question_vtables[question] = question_vtable;
+        }
+        for (size_t i = 0; i < cc_object_files_count; ++i, ++question) {
+            questions[question]
+                = b_file_question_allocate(cc_object_files[i]);
+            question_vtables[question] = question_vtable;
+        }
+    }
+
+    b_build_context_need(
+        ctx,
+        (const struct B_AnyQuestion *const *) questions,
+        question_vtables,
+        object_files_count,
+        ex);
+
+    for (size_t i = 0; i < object_files_count; ++i) {
+        b_file_question_deallocate(questions[i]);
+    }
+}
+
+static void
 run_cc_link(
     struct B_BuildContext *ctx,
     const char *output_path,
     struct B_Exception **ex) {
+    depend_upon_object_files(ctx, ex);
+    B_EXCEPTION_THEN(ex, {
+        return;
+    });
+
     // What is two lines in other languages:
     //
-    // > ["clang++", "-o", output_path]
+    // > ["clang++", "-stdlib=libc++", "-o", output_path]
     // > ++ c_object_files ++ cc_object_files
     //
     // Is over ten lines in C99.
 
     const char *static_args[] = {
-        "clang++", "-o", output_path,
+        "clang++",
+        "-stdlib=libc++",
+        "-o", output_path,
     };
     size_t static_args_count = sizeof(static_args) / sizeof(*static_args);
 
-    size_t object_files_count = c_object_files_count + cc_object_files_count;
     size_t args_count = object_files_count + static_args_count + 1;
     const char *args[args_count];
 
-    size_t arg = 0;
-    for (size_t i = 0; i < static_args_count; ++i, ++arg) {
-        args[arg] = static_args[i];
+    {
+        size_t arg = 0;
+        for (size_t i = 0; i < static_args_count; ++i, ++arg) {
+            args[arg] = static_args[i];
+        }
+        for (size_t i = 0; i < c_object_files_count; ++i, ++arg) {
+            args[arg] = c_object_files[i];
+        }
+        for (size_t i = 0; i < cc_object_files_count; ++i, ++arg) {
+            args[arg] = cc_object_files[i];
+        }
+        args[arg] = NULL;
     }
-    for (size_t i = 0; i < c_object_files_count; ++i, ++arg) {
-        args[arg] = c_object_files[i];
-    }
-    for (size_t i = 0; i < cc_object_files_count; ++i, ++arg) {
-        args[arg] = cc_object_files[i];
-    }
-    args[arg] = NULL;
 
     run_command(args, ex);
 }

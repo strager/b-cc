@@ -7,7 +7,7 @@ O_FILES := \
 	$(C_FILES:.c=.c.o) \
 	$(CXX_FILES:.cc=.cc.o)
 
-OUTPUT := b-cc
+OUTPUT := b-cc-example
 
 WARNING_FLAGS := -Wall -Werror
 CC_FLAGS := $(CFLAGS) $(WARNING_FLAGS)

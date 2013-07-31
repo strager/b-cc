@@ -139,6 +139,7 @@ b_build_context_need_answers(
     struct B_Exception *exceptions[count];
     size_t exception_count = 0;
     for (size_t i = 0; i < count; ++i) {
+        exceptions[exception_count] = NULL;
         answers[i] = b_build_context_need_answer_one(
             ctx,
             questions[i],
@@ -157,6 +158,7 @@ static void
 b_build_context_build(
     struct B_BuildContext *ctx,
     const struct B_AnyQuestion *question,
+    const struct B_QuestionVTable *question_vtable,
     struct B_Exception **ex) {
     b_build_context_validate(ctx);
     b_question_validate(question);
@@ -169,6 +171,7 @@ b_build_context_build(
     info->rule_vtable->query(
         info->rule,
         question,
+        question_vtable,
         ctx,
         rule_query_list,
         ex);
@@ -242,7 +245,7 @@ b_build_context_need_answer_one(
 
     struct B_BuildContext *sub_ctx
         = b_build_context_chain(ctx, question, question_vtable);
-    b_build_context_build(sub_ctx, question, ex);
+    b_build_context_build(sub_ctx, question, question_vtable, ex);
     b_build_context_unchain(sub_ctx);
     B_EXCEPTION_THEN(ex, {
         return NULL;
