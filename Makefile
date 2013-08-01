@@ -24,8 +24,8 @@ LIB := lib/libb$(SHARED_EXT)
 EXAMPLE := example/example
 
 WARNING_FLAGS := -Wall -Werror
-CC_FLAGS := $(CFLAGS) $(WARNING_FLAGS) -Ilib
-CXX_FLAGS := $(CXXFLAGS) $(WARNING_FLAGS) -Ilib -std=c++11 -stdlib=libc++
+CC_FLAGS := $(CFLAGS) $(WARNING_FLAGS) -Ilib -g
+CXX_FLAGS := $(CXXFLAGS) $(WARNING_FLAGS) -Ilib -g -std=c++11 -stdlib=libc++
 LD_FLAGS := $(LDFLAGS) $(WARNING_FLAGS) -Llib -stdlib=libc++
 
 .PHONY: all
