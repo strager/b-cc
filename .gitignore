@@ -1,4 +1,5 @@
 /b-cc-example
+/b-cc-example-in-py
 /example/*.c.o
 /example/example
 /lib/*.c.o
