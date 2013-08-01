@@ -1,3 +1,7 @@
-/*.c.o
-/*.cc.o
 /b-cc-example
+/example/*.c.o
+/example/example
+/lib/*.c.o
+/lib/*.cc.o
+/lib/libb.dylib
+/lib/libb.so

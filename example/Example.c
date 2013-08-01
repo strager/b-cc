@@ -20,18 +20,18 @@
 
 static const char *
 c_object_files[] = {
-    "Answer.c.o",
-    "BuildContext.c.o",
-    "Database.c.o",
-    "Example.c.o",
-    "Exception.c.o",
-    "FileQuestion.c.o",
-    "FileRule.c.o",
-    "Portable.c.o",
-    "Question.c.o",
-    "Rule.c.o",
-    "RuleQueryList.c.o",
-    "UUID.c.o",
+    "lib/Answer.c.o",
+    "lib/BuildContext.c.o",
+    "lib/Database.c.o",
+    "lib/Exception.c.o",
+    "lib/FileQuestion.c.o",
+    "lib/FileRule.c.o",
+    "lib/Portable.c.o",
+    "lib/Question.c.o",
+    "lib/Rule.c.o",
+    "lib/RuleQueryList.c.o",
+    "lib/UUID.c.o",
+    "example/Example.c.o",
 };
 
 static const size_t
@@ -39,7 +39,7 @@ c_object_files_count = sizeof(c_object_files) / sizeof(*c_object_files);
 
 static const char *
 cc_object_files[] = {
-    "DatabaseInMemory.cc.o",
+    "lib/DatabaseInMemory.cc.o",
 };
 
 static const size_t
@@ -122,6 +122,7 @@ run_c_compile(
     char *c_path = drop_extension(object_path);
     run_command((const char *[]) {
         "clang",
+        "-Ilib",
         "-o", object_path,
         "-c", c_path,
         NULL,
@@ -137,6 +138,7 @@ run_cc_compile(
     char *cc_path = drop_extension(object_path);
     run_command((const char *[]) {
         "clang++",
+        "-Ilib",
         "-std=c++11",
         "-stdlib=libc++",
         "-o", object_path,
