@@ -11,11 +11,19 @@ struct B_AnyAnswer;
 struct B_AnyDatabase;
 struct B_AnyQuestion;
 struct B_AnyRule;
-struct B_BuildContext;
 struct B_DatabaseVTable;
 struct B_Exception;
 struct B_QuestionVTable;
 struct B_RuleVTable;
+
+struct B_BuildContext;
+
+struct B_BuildContextInfo {
+    struct B_AnyDatabase *database;
+    const struct B_DatabaseVTable *database_vtable;
+    const struct B_AnyRule *rule;
+    const struct B_RuleVTable *rule_vtable;
+};
 
 // Creates a new BuildContext, building against the given
 // Database and using the given Rule for ensuring questions
@@ -23,15 +31,16 @@ struct B_RuleVTable;
 // Database or Rule.
 struct B_BuildContext *
 b_build_context_allocate(
-    struct B_AnyDatabase *,
-    const struct B_DatabaseVTable *,
-    const struct B_AnyRule *rule,
-    const struct B_RuleVTable *rule_vtable);
+    const struct B_BuildContextInfo *);
 
 // Destroys a BuildContext.
 void
 b_build_context_deallocate(
     struct B_BuildContext *);
+
+const struct B_BuildContextInfo *
+b_build_context_info(
+    const struct B_BuildContext *);
 
 // Requests some Questions be answered.  Uses the registered
 // Rule for performing side effects.  May run Rules in

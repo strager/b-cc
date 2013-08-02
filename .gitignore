@@ -6,3 +6,4 @@
 /lib/*.cc.o
 /lib/libb.dylib
 /lib/libb.so
+/python/**/*.pyc
