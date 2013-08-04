@@ -121,8 +121,24 @@ b_exception_aggregate(
             *sub_ex++ = source_ex;
         }
     }
+    if (sub_ex == sub_exceptions) {
+        // No exceptions given.
+        // No exception returned.
+        // No exceptions.
+        free(sub_exceptions);
+        return NULL;
+    }
+    if (sub_ex - sub_exceptions == 1) {
+        // One exception.
+        // One exception returned.
+        // No exceptions.
+        struct B_Exception *ex = *sub_exceptions;
+        free(sub_exceptions);
+        return ex;
+    }
     *sub_ex = NULL;
 
+    // Create exception message.
     char *message = malloc(message_length + 1);
     strcpy(message, header);
     for (sub_ex = sub_exceptions; *sub_ex; ++sub_ex) {
