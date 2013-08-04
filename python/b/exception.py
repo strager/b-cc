@@ -31,7 +31,13 @@ def domestic_exception(ex):
 
 def maybe_raise(ex_ptr):
     if ex_ptr:
-        ex = BException(ex_ptr.contents)
+        if ex_ptr.contents.uuid == domestic_exception_uuid:
+            ex_py_ptr = ctypes.cast(
+                ex_ptr.contents.data,
+                ctypes.POINTER(ctypes.py_object))
+            ex = ex_py_ptr.contents.value
+        else:
+            ex = BException(ex_ptr.contents)
         raise ex
 
 def raise_foreign(function, *args):
