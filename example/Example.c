@@ -250,6 +250,11 @@ load_database() {
         perror("Error reading file " DATABASE_FILE_PATH);
         return NULL;
     }
+    if (!database) {
+        fprintf(stderr, "Error parsing file " DATABASE_FILE_PATH "."
+               " Database file is likely corrupt!\n");
+        return NULL;
+    }
 
     return database;
 }
