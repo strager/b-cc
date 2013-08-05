@@ -118,6 +118,19 @@ b_deserialize_size_t(
     B_Deserializer,
     void *deserializer_closure);
 
+void *
+b_deserialize_blob(
+    size_t data_size,
+    B_Deserializer,
+    void *deserializer_closure);
+
+void *
+b_deserialize_sized_blob(
+    size_t *data_size,
+    size_t (*deserialize_size)(bool *ok, B_Deserializer, void *),
+    B_Deserializer,
+    void *deserializer_closure);
+
 #ifdef __cplusplus
 }
 #endif

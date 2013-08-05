@@ -158,6 +158,7 @@ b_deserialize_from_memory_serializer(
         data_size,
         closure->data_size - closure->cursor);
     memcpy(data, closure->data + closure->cursor, size);
+    closure->cursor += size;
     return size;
 }
 
@@ -214,6 +215,14 @@ b_deserialize_sized(
     if (!ok) return NULL;
 
     char *data = malloc(data_size);
+    size_t read_size = deserializer(
+        data,
+        data_size,
+        deserializer_closure);
+    if (read_size != data_size) {
+        return NULL;
+    }
+
     void *result = b_deserialize_from_memory(
         data,
         data_size,
@@ -298,4 +307,44 @@ b_deserialize_size_t(
     B_Deserializer s,
     void *c) {
     return b_deserialize_uint64(ok, s, c);
+}
+
+void *
+b_deserialize_blob(
+    size_t data_size,
+    B_Deserializer deserializer,
+    void *deserializer_closure) {
+    void *data = malloc(data_size);
+    size_t size_read = deserializer(
+        data,
+        data_size,
+        deserializer_closure);
+    if (size_read != data_size) {
+        free(data);
+        return NULL;
+    }
+    return data;
+}
+
+void *
+b_deserialize_sized_blob(
+    size_t *out_data_size,
+    size_t (*deserialize_size)(bool *ok, B_Deserializer, void *),
+    B_Deserializer deserializer,
+    void *deserializer_closure) {
+    bool ok;
+    size_t data_size = deserialize_size(
+        &ok,
+        deserializer,
+        deserializer_closure);
+    if (!ok) return NULL;
+
+    void *data = b_deserialize_blob(
+        data_size,
+        deserializer,
+        deserializer_closure);
+    if (!data) return NULL;
+
+    *out_data_size = data_size;
+    return data;
 }

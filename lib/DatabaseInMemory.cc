@@ -5,7 +5,6 @@
 #include "Serialize.h"
 
 #include <algorithm>
-#include <cassert>
 #include <list>
 #include <map>
 #include <memory>
@@ -58,10 +57,45 @@ serialize_uuid(
     s(uuid.uuid, size, c);
 }
 
+static bool
+deserialize_uuid(
+    B_UUID *uuid,
+    B_Deserializer s,
+    void *c) {
+    bool ok;
+    size_t size = b_deserialize_size_t(&ok, s, c);
+    if (!ok) return false;
+
+    auto buffer = std::unique_ptr<char>(new char[size + 1]);
+    size_t read_size = s(buffer.get(), size, c);
+    if (read_size != size) {
+        return false;
+    }
+    buffer.get()[size] = '\0';
+
+    *uuid = b_uuid_from_temp_string(buffer.get());
+    return true;
+}
+
 struct QuestionAnswer {
     B_AnyQuestion *question;
     const B_QuestionVTable *question_vtable;
     B_AnyAnswer *answer;
+
+    QuestionAnswer(
+        const QuestionAnswer &other) :
+        QuestionAnswer(
+            other.question,
+            other.question_vtable,
+            other.answer) {
+    }
+
+    QuestionAnswer(
+        const B_QuestionVTable *question_vtable) :
+        question(nullptr),
+        question_vtable(question_vtable),
+        answer(nullptr) {
+    }
 
     QuestionAnswer(
         const B_AnyQuestion *question,
@@ -73,10 +107,14 @@ struct QuestionAnswer {
     }
 
     ~QuestionAnswer() {
-        this->question_vtable
-            ->deallocate(this->question);
-        this->question_vtable->answer_vtable
-            ->deallocate(this->answer);
+        if (this->question) {
+            this->question_vtable
+                ->deallocate(this->question);
+        }
+        if (this->answer) {
+            this->question_vtable->answer_vtable
+                ->deallocate(this->answer);
+        }
     }
 
     void
@@ -109,6 +147,24 @@ struct Dependency {
     const B_QuestionVTable *to_vtable;
 
     Dependency(
+        const Dependency &other) :
+        Dependency(
+            other.from,
+            other.from_vtable,
+            other.to,
+            other.to_vtable) {
+    }
+
+    Dependency(
+        const B_QuestionVTable *from_vtable,
+        const B_QuestionVTable *to_vtable) :
+        from(nullptr),
+        from_vtable(from_vtable),
+        to(nullptr),
+        to_vtable(to_vtable) {
+    }
+
+    Dependency(
         const B_AnyQuestion *from,
         const B_QuestionVTable *from_vtable,
         const B_AnyQuestion *to,
@@ -120,8 +176,12 @@ struct Dependency {
     }
 
     ~Dependency() {
-        this->from_vtable->deallocate(this->from);
-        this->to_vtable->deallocate(this->to);
+        if (this->from) {
+            this->from_vtable->deallocate(this->from);
+        }
+        if (this->to) {
+            this->to_vtable->deallocate(this->to);
+        }
     }
 
     void
@@ -164,8 +224,50 @@ struct UnresolvedQuestionAnswer {
     deserialize(
         B_Deserializer s,
         void *c) {
-        // TODO
-        assert(0);
+        auto qa = std::unique_ptr<UnresolvedQuestionAnswer>(
+            new UnresolvedQuestionAnswer());
+
+        bool ok;
+        ok = deserialize_uuid(
+            &qa->question_vtable_uuid,
+            s,
+            c);
+        if (!ok) return nullptr;
+
+        qa->question_data = static_cast<const char *>(
+            b_deserialize_sized_blob(
+                &qa->question_data_size,
+                b_deserialize_size_t,
+                s,
+                c));
+        if (!qa->question_data) return nullptr;
+
+        qa->answer_data = static_cast<const char *>(
+            b_deserialize_sized_blob(
+                &qa->answer_data_size,
+                b_deserialize_size_t,
+                s,
+                c));
+        if (!qa->answer_data) return nullptr;
+
+        return qa;
+    }
+
+    QuestionAnswer
+    resolve(
+        const B_QuestionVTable *question_vtable) const {
+        QuestionAnswer qa(question_vtable);
+        qa.question = static_cast<B_AnyQuestion *>(
+            b_deserialize_from_memory(
+                this->question_data,
+                this->question_data_size,
+                question_vtable->deserialize));
+        qa.answer = static_cast<B_AnyAnswer *>(
+            b_deserialize_from_memory(
+                this->answer_data,
+                this->answer_data_size,
+                question_vtable->answer_vtable->deserialize));
+        return qa;
     }
 };
 
@@ -182,8 +284,58 @@ struct UnresolvedDependency {
     deserialize(
         B_Deserializer s,
         void *c) {
-        // TODO
-        assert(0);
+        auto dep = std::unique_ptr<UnresolvedDependency>(
+            new UnresolvedDependency());
+
+        bool ok;
+
+        ok = deserialize_uuid(
+            &dep->from_vtable_uuid,
+            s,
+            c);
+        if (!ok) return nullptr;
+
+        ok = deserialize_uuid(
+            &dep->to_vtable_uuid,
+            s,
+            c);
+        if (!ok) return nullptr;
+
+        dep->from_data = static_cast<const char *>(
+            b_deserialize_sized_blob(
+                &dep->from_data_size,
+                b_deserialize_size_t,
+                s,
+                c));
+        if (!dep->from_data) return nullptr;
+
+        dep->to_data = static_cast<const char *>(
+            b_deserialize_sized_blob(
+                &dep->to_data_size,
+                b_deserialize_size_t,
+                s,
+                c));
+        if (!dep->to_data) return nullptr;
+
+        return dep;
+    }
+
+    Dependency
+    resolve(
+        const B_QuestionVTable *from_vtable,
+        const B_QuestionVTable *to_vtable) const {
+        Dependency dep(from_vtable, to_vtable);
+        dep.from = static_cast<B_AnyQuestion *>(
+            b_deserialize_from_memory(
+                this->from_data,
+                this->from_data_size,
+                from_vtable->deserialize));
+        dep.to = static_cast<B_AnyQuestion *>(
+            b_deserialize_from_memory(
+                this->to_data,
+                this->to_data_size,
+                to_vtable->deserialize));
+        return dep;
     }
 };
 
@@ -191,10 +343,69 @@ struct DatabaseInMemory {
     std::list<QuestionAnswer> question_answers;
     std::list<Dependency> dependencies;
 
-    std::map<B_UUID, B_QuestionVTable *> question_vtables;
+    std::map<B_UUID, const B_QuestionVTable *> question_vtables;
 
-    std::map<B_UUID, UnresolvedQuestionAnswer> unresolved_question_answers;
-    std::map<B_UUID, std::shared_ptr<UnresolvedDependency>> unresolved_dependencies;
+    std::multimap<B_UUID, UnresolvedQuestionAnswer> unresolved_question_answers;
+    std::multimap<B_UUID, std::shared_ptr<UnresolvedDependency>> unresolved_dependencies;
+
+    void
+    resolve(
+        const B_QuestionVTable *vtable) {
+        B_UUID uuid = vtable->uuid;
+        auto &vtables = this->question_vtables;
+        if (vtables.find(uuid) != vtables.end()) {
+            // Already resolved.
+            return;
+        }
+
+        vtables[uuid] = vtable;
+        resolve_question_answers(vtable);
+        resolve_dependencies(vtable);
+    }
+
+    void
+    resolve_question_answers(
+        const B_QuestionVTable *vtable) {
+        auto &qas = this->unresolved_question_answers;
+        auto p = qas.equal_range(vtable->uuid);
+        auto begin = p.first;
+        auto end = p.second;
+        for (auto i = begin; i != end; ++i) {
+            this->question_answers.push_back(
+                i->second.resolve(vtable));
+        }
+        qas.erase(begin, end);
+    }
+
+    void
+    resolve_dependencies(
+        const B_QuestionVTable *vtable) {
+        auto &vtables = this->question_vtables;
+        auto &deps = this->unresolved_dependencies;
+
+        auto p = deps.equal_range(vtable->uuid);
+        auto begin = p.first;
+        auto end = p.second;
+        for (auto i = begin; i != end; ++i) {
+            const auto &dep = *i->second;
+
+            auto from_entry = vtables.find(dep.from_vtable_uuid);
+            if (from_entry == vtables.end()) {
+                continue;
+            }
+            auto to_entry = vtables.find(dep.to_vtable_uuid);
+            if (to_entry == vtables.end()) {
+                continue;
+            }
+
+            this->dependencies.push_back(dep.resolve(
+                from_entry->second,
+                to_entry->second));
+
+            // TODO Erase dependency from
+            // this->unresolved_dependencies.
+        }
+    }
 
     void
     add_dependency(
@@ -203,6 +414,8 @@ struct DatabaseInMemory {
         const B_AnyQuestion *to,
         const B_QuestionVTable *to_vtable,
         B_Exception **ex) {
+        this->resolve(from_vtable);
+        this->resolve(to_vtable);
         this->dependencies.emplace_back(
             from,
             from_vtable,
@@ -215,6 +428,8 @@ struct DatabaseInMemory {
         const struct B_AnyQuestion *question,
         const struct B_QuestionVTable *question_vtable,
         struct B_Exception **ex) {
+        this->resolve(question_vtable);
+
         for (const auto &qa : this->question_answers) {
             if (qa.question_vtable == question_vtable
             && question_vtable->equal(question, qa.question)) {
@@ -231,6 +446,8 @@ struct DatabaseInMemory {
         const struct B_QuestionVTable *question_vtable,
         const struct B_AnyAnswer *answer,
         struct B_Exception **ex) {
+        this->resolve(question_vtable);
+
         for (auto &qa : this->question_answers) {
             if (qa.question_vtable == question_vtable
             && question_vtable->equal(question, qa.question)) {
@@ -256,11 +473,13 @@ struct DatabaseInMemory {
         for (const QuestionAnswer &qa : this->question_answers) {
             b_serialize_sized(qa, b_serialize_size_t, s, c);
         }
+        // TODO Serialize unresolved question-answers.
 
         b_serialize_size_t(this->dependencies.size(), s, c);
         for (const Dependency &dep : this->dependencies) {
             b_serialize_sized(dep, b_serialize_size_t, s, c);
         }
+        // TODO Serialize unresolved dependencies.
     }
 
     static std::unique_ptr<DatabaseInMemory>
