@@ -49,7 +49,7 @@ b_uuid_equal(
 // '0' if the two UUIDs are equivalent, less than '0' if the
 // left is lesser than the right, or greater than '0' if the
 // right is lesser than the left.
-bool
+int
 b_uuid_compare(
     struct B_UUID,
     struct B_UUID);

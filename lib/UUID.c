@@ -24,7 +24,7 @@ b_uuid_equal(
     return b_uuid_compare(a, b) == 0;
 }
 
-bool
+int
 b_uuid_compare(
     struct B_UUID a,
     struct B_UUID b) {
