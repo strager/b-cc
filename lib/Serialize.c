@@ -14,7 +14,7 @@ b_serialize_with_file(
     size_t data_size,
     void *closure) {
     FILE *stream = (FILE *) closure;
-    fwrite(data, data_size, 1, stream);
+    fwrite(data, 1, data_size, stream);
 }
 
 int
@@ -36,7 +36,7 @@ b_deserialize_with_file(
     size_t data_size,
     void *closure) {
     FILE *stream = (FILE *) closure;
-    return fread(data, data_size, 1, stream);
+    return fread(data, 1, data_size, stream);
 }
 
 int
