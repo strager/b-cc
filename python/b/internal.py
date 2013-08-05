@@ -5,7 +5,7 @@ _sysname = os.uname()[0]
 _shared_ext = '.dylib' if _sysname == 'Darwin' else '.so'
 
 _cur_dir = os.path.dirname(os.path.realpath(__file__))
-_lib_dir = os.path.join(_cur_dir, '..', '..', 'lib')
+_lib_dir = os.path.join(_cur_dir, '..', '..', 'out', 'lib')
 
 BEqual = CFUNCTYPE(
     c_bool,
