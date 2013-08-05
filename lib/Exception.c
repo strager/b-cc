@@ -111,7 +111,7 @@ b_exception_aggregate(
     // calculate length of message.
     size_t message_length = header_length;
     struct B_Exception **sub_exceptions
-        = malloc(sizeof(struct B_Exception) * (count + 1));
+        = malloc(sizeof(struct B_Exception *) * (count + 1));
     struct B_Exception **sub_ex = sub_exceptions;
     for (size_t i = 0; i < count; ++i) {
         struct B_Exception *source_ex = source_exceptions[i];
