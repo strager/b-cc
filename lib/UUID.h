@@ -45,10 +45,31 @@ b_uuid_equal(
     struct B_UUID,
     struct B_UUID);
 
+// Compares two UUIDs using string comparison.  Returns
+// '0' if the two UUIDs are equivalent, less than '0' if the
+// left is lesser than the right, or greater than '0' if the
+// right is lesser than the left.
+bool
+b_uuid_compare(
+    struct B_UUID,
+    struct B_UUID);
+
 void
 b_uuid_validate(struct B_UUID);
 
 #ifdef __cplusplus
+}
+#endif
+
+#ifdef __cplusplus
+inline bool
+operator==(B_UUID a, B_UUID b) {
+    return b_uuid_equal(a, b);
+}
+
+inline bool
+operator<(B_UUID a, B_UUID b) {
+    return b_uuid_compare(a, b) < 0;
 }
 #endif
 

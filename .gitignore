@@ -1,5 +1,6 @@
 /b-cc-example
 /b-cc-example-in-py
+/build.database
 /example/*.c.o
 /lib/*.c.o
 /lib/*.cc.o

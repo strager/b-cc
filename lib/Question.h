@@ -1,6 +1,7 @@
 #ifndef QUESTION_H_D2583961_C888_4152_97C6_212BE8122C3F
 #define QUESTION_H_D2583961_C888_4152_97C6_212BE8122C3F
 
+#include "Serialize.h"
 #include "UUID.h"
 
 #include <stdbool.h>
@@ -34,6 +35,10 @@ struct B_AnyQuestion {
 };
 
 // Virtual table for Questions.  See PATTERNS.md.
+//
+// Invariant: deserialize(a) == deserialize(b) iff a == b
+// Invariant: deserialize(serialize(a)) == a
+// Invariant: replicate(a) == a
 struct B_QuestionVTable {
     struct B_UUID uuid;
     const struct B_AnswerVTable *answer_vtable;
@@ -51,6 +56,9 @@ struct B_QuestionVTable {
 
     void (*deallocate)(
         struct B_AnyQuestion *);
+
+    B_SerializeFunc serialize;
+    B_DeserializeFunc deserialize;
 };
 
 void

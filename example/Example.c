@@ -16,7 +16,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
+
+#define DATABASE_FILE_PATH "build.database"
 
 static const char *
 c_object_files[] = {
@@ -30,6 +33,7 @@ c_object_files[] = {
     "lib/Question.c.o",
     "lib/Rule.c.o",
     "lib/RuleQueryList.c.o",
+    "lib/Serialize.c.o",
     "lib/UUID.c.o",
     "example/Example.c.o",
 };
@@ -227,12 +231,37 @@ run_cc_link(
     run_command(args, ex);
 }
 
+static struct B_AnyDatabase *
+load_database() {
+    int err_code;
+
+    struct stat statbuf;
+    err_code = stat(DATABASE_FILE_PATH, &statbuf);
+    if (err_code) {
+        return b_database_in_memory_allocate();
+    }
+
+    void *database;
+    err_code = b_deserialize_from_file_path(
+        DATABASE_FILE_PATH,
+        &database,
+        b_database_in_memory_deserialize);
+    if (err_code) {
+        perror("Error reading file " DATABASE_FILE_PATH);
+        return NULL;
+    }
+
+    return database;
+}
+
 int
 main(int argc, char **argv) {
     int err = 0;
 
-    struct B_AnyDatabase *database
-        = b_database_in_memory_allocate();
+    struct B_AnyDatabase *database = load_database();
+    if (!database) {
+        return 3;
+    }
     const struct B_DatabaseVTable *database_vtable
         = b_database_in_memory_vtable();
 
@@ -284,6 +313,17 @@ main(int argc, char **argv) {
             "Exception occured while building:\n  %s\n",
             ex->message);
         err = 1;
+        // Fall through
+    }
+
+    int err_code = b_serialize_to_file_path(
+        DATABASE_FILE_PATH,
+        database,
+        b_database_in_memory_serialize);
+    if (err_code) {
+        perror("Error writing file " DATABASE_FILE_PATH);
+        err = 2;
+        // Fall through
     }
 
     b_build_context_deallocate(ctx);

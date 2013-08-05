@@ -18,6 +18,7 @@ c_object_files = [
     'lib/Question.c.o',
     'lib/Rule.c.o',
     'lib/RuleQueryList.c.o',
+    'lib/Serialize.c.o',
     'lib/UUID.c.o',
 ]
 
