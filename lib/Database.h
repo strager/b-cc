@@ -47,6 +47,10 @@ struct B_DatabaseVTable {
         const struct B_QuestionVTable *,
         const struct B_AnyAnswer *,
         struct B_Exception **);
+
+    void (*recheck_all)(
+        struct B_AnyDatabase *,
+        struct B_Exception **);
 };
 
 void

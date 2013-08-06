@@ -8,6 +8,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <vector>
 
 // Serialization formats:
 //
@@ -77,6 +78,41 @@ deserialize_uuid(
     return true;
 }
 
+struct Question {
+    B_AnyQuestion *question;
+    const B_QuestionVTable *question_vtable;
+
+    Question(
+        const Question &other) :
+        Question(
+            other.question,
+            other.question_vtable) {
+    }
+
+    Question(
+        const B_QuestionVTable *question_vtable) :
+        question(nullptr),
+        question_vtable(question_vtable) {
+    }
+
+    Question(
+        const B_AnyQuestion *question,
+        const B_QuestionVTable *question_vtable) :
+        question(question_vtable->replicate(question)),
+        question_vtable(question_vtable) {
+    }
+
+    ~Question() {
+        if (this->question) {
+            this->question_vtable
+                ->deallocate(this->question);
+        }
+    }
+
+    Question &
+    operator=(const Question &other) = delete;
+};
+
 struct QuestionAnswer {
     B_AnyQuestion *question;
     const B_QuestionVTable *question_vtable;
@@ -116,6 +152,9 @@ struct QuestionAnswer {
                 ->deallocate(this->answer);
         }
     }
+
+    QuestionAnswer &
+    operator=(const QuestionAnswer &other) = delete;
 
     void
     serialize(
@@ -183,6 +222,9 @@ struct Dependency {
             this->to_vtable->deallocate(this->to);
         }
     }
+
+    Dependency &
+    operator=(const Dependency &other) = delete;
 
     void
     serialize(
@@ -423,21 +465,35 @@ struct DatabaseInMemory {
             to_vtable);
     }
 
+    std::list<QuestionAnswer>::iterator
+    find_question(
+        const struct B_AnyQuestion *question,
+        const struct B_QuestionVTable *question_vtable) {
+        this->resolve(question_vtable);
+
+        auto &qas = this->question_answers;
+        return std::find_if(
+            qas.begin(),
+            qas.end(),
+            [question, question_vtable](const QuestionAnswer &qa) {
+                return qa.question_vtable == question_vtable
+                    && question_vtable->equal(question, qa.question);
+            }
+        );
+    }
+
     struct B_AnyAnswer *
     get_answer(
         const struct B_AnyQuestion *question,
         const struct B_QuestionVTable *question_vtable,
         struct B_Exception **ex) {
-        this->resolve(question_vtable);
-
-        for (const auto &qa : this->question_answers) {
-            if (qa.question_vtable == question_vtable
-            && question_vtable->equal(question, qa.question)) {
-                return question_vtable->answer_vtable
-                    ->replicate(qa.answer);
-            }
+        auto i = find_question(question, question_vtable);
+        if (i == this->question_answers.end()) {
+            return nullptr;
+        } else {
+            return question_vtable->answer_vtable
+                ->replicate(i->answer);
         }
-        return nullptr;
     }
 
     void
@@ -446,23 +502,82 @@ struct DatabaseInMemory {
         const struct B_QuestionVTable *question_vtable,
         const struct B_AnyAnswer *answer,
         struct B_Exception **ex) {
-        this->resolve(question_vtable);
+        auto i = find_question(question, question_vtable);
+        if (i == this->question_answers.end()) {
+            this->question_answers.emplace_back(
+                question,
+                question_vtable,
+                answer);
+        } else {
+            question_vtable->answer_vtable
+                ->deallocate(i->answer);
+            i->answer = question_vtable->answer_vtable
+                ->replicate(answer);
+        }
+    }
 
-        for (auto &qa : this->question_answers) {
-            if (qa.question_vtable == question_vtable
-            && question_vtable->equal(question, qa.question)) {
-                question_vtable->answer_vtable
-                    ->deallocate(qa.answer);
-                qa.answer = question_vtable->answer_vtable
-                    ->replicate(answer);
-                return;
+    void
+    recheck_all() {
+        // FIXME Does not work for unresolved.
+        std::vector<Question> dirty_questions;
+        for (const auto &qa : this->question_answers) {
+            // TODO Exception safety.
+            // Ensure the question's answer is up to date.
+            // If not, dirty it.
+            auto q_vtable = qa.question_vtable;
+            auto a_vtable = q_vtable->answer_vtable;
+
+            struct B_Exception *ex = nullptr;
+            B_AnyAnswer *answer = q_vtable->answer(qa.question, &ex);
+            if (ex || !a_vtable->equal(answer, qa.answer)) {
+                dirty_questions.emplace_back(
+                    qa.question,
+                    qa.question_vtable);
+            }
+            a_vtable->deallocate(answer);
+        }
+
+        for (const auto &question : dirty_questions) {
+            this->dirty(question);
+        }
+    }
+
+    void
+    dirty(const Question &q) {
+        auto question = q.question;
+        auto question_vtable = q.question_vtable;
+
+        std::list<Dependency> new_dependencies;
+        std::vector<Question> dependants;
+        for (const auto &dep : this->dependencies) {
+            if (question_vtable == dep.to_vtable
+            && question_vtable->equal(question, dep.to)) {
+                dependants.emplace_back(
+                    dep.from,
+                    dep.from_vtable);
+            } else {
+                // TODO Move and stuff.
+                new_dependencies.emplace_back(dep);
             }
         }
 
-        this->question_answers.emplace_back(
-            question,
-            question_vtable,
-            answer);
+        std::list<QuestionAnswer> new_question_answers;
+        for (const auto &qa : this->question_answers) {
+            if (question_vtable == qa.question_vtable
+                && question_vtable->equal(question, qa.question)) {
+                // Match; remove.
+            } else {
+                // TODO Move.
+                new_question_answers.emplace_back(qa);
+            }
+        }
+
+        this->dependencies = std::move(new_dependencies);
+        this->question_answers = std::move(new_question_answers);
+
+        for (const auto &q : dependants) {
+            this->dirty(q);
+        }
     }
 
     void
@@ -590,6 +705,13 @@ b_database_in_memory_vtable() {
                 answer,
                 ex);
         },
+
+        .recheck_all = [](
+            B_AnyDatabase *database,
+            B_Exception **ex) {
+            (void) ex;
+            cast(database)->recheck_all();
+        }
     };
     return &vtable;
 }
@@ -607,4 +729,11 @@ b_database_in_memory_deserialize(
     B_Deserializer s,
     void *c) {
     return b_deserialize<DatabaseInMemory>(s, c).release();
+}
+
+void
+b_database_in_memory_resolve(
+    struct B_AnyDatabase *database,
+    const B_QuestionVTable *question_vtable) {
+    cast(database)->resolve(question_vtable);
 }

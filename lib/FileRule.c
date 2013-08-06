@@ -5,6 +5,8 @@
 #include "Rule.h"
 #include "UUID.h"
 
+#include <sys/stat.h>
+
 struct FileRuleNode {
     struct B_AnyQuestion *question;
     B_FileRuleCallback callback;
@@ -94,6 +96,19 @@ b_file_rule_query_callback(
     callback(ctx, file_path, ex);
 }
 
+static void
+b_file_rule_query_no_callback(
+    struct B_BuildContext *ctx,
+    const struct B_AnyQuestion *question,
+    void *closure,
+    struct B_Exception **ex) {
+    (void) ctx;
+    (void) question;
+    (void) closure;
+    (void) ex;
+    // Do nothing.
+}
+
 static void *
 b_file_rule_query_replicate_closure(
     const void *closure) {
@@ -117,6 +132,8 @@ b_file_rule_query(
     if (!b_uuid_equal(question_vtable->uuid, b_file_question_vtable()->uuid)) {
         return;
     }
+
+    bool added_query = false;
     for (
         const struct FileRuleNode *node
             = ((const struct FileRule *) rule)->head;
@@ -126,6 +143,23 @@ b_file_rule_query(
             struct B_RuleQuery query = {
                 .function = b_file_rule_query_callback,
                 .closure = (void *) node->callback,
+                .replicate_closure = b_file_rule_query_replicate_closure,
+                .deallocate_closure = b_file_rule_query_deallocate_closure,
+            };
+            b_rule_query_list_add(list, &query);
+            added_query = true;
+        }
+    }
+
+    if (!added_query) {
+        struct stat stat;
+        const char *file_path
+            = b_file_question_file_path(question);
+        int err = lstat(file_path, &stat);
+        if (!err) {
+            struct B_RuleQuery query = {
+                .function = b_file_rule_query_no_callback,
+                .closure = NULL,
                 .replicate_closure = b_file_rule_query_replicate_closure,
                 .deallocate_closure = b_file_rule_query_deallocate_closure,
             };

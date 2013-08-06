@@ -6,6 +6,7 @@
 // compiling any of this project yet!)
 
 #include "BuildContext.h"
+#include "Database.h"
 #include "DatabaseInMemory.h"
 #include "Exception.h"
 #include "FileQuestion.h"
@@ -124,6 +125,19 @@ run_c_compile(
     const char *object_path,
     struct B_Exception **ex) {
     char *c_path = drop_extension(object_path);
+
+    struct B_AnyQuestion *question
+        = b_file_question_allocate(c_path);
+    b_build_context_need_one(
+        ctx,
+        question,
+        b_file_question_vtable(),
+        ex);
+    b_file_question_deallocate(question);
+    B_EXCEPTION_THEN(ex, {
+        return;
+    });
+
     run_command((const char *[]) {
         "clang",
         "-Ilib",
@@ -140,6 +154,19 @@ run_cc_compile(
     const char *object_path,
     struct B_Exception **ex) {
     char *cc_path = drop_extension(object_path);
+
+    struct B_AnyQuestion *question
+        = b_file_question_allocate(cc_path);
+    b_build_context_need_one(
+        ctx,
+        question,
+        b_file_question_vtable(),
+        ex);
+    b_file_question_deallocate(question);
+    B_EXCEPTION_THEN(ex, {
+        return;
+    });
+
     run_command((const char *[]) {
         "clang++",
         "-Ilib",
@@ -253,6 +280,21 @@ load_database() {
     if (!database) {
         fprintf(stderr, "Error parsing file " DATABASE_FILE_PATH "."
                " Database file is likely corrupt!\n");
+        return NULL;
+    }
+
+    b_database_in_memory_resolve(
+        database,
+        b_file_question_vtable());
+
+    struct B_Exception *ex = NULL;
+    b_database_in_memory_vtable()
+        ->recheck_all(database, &ex);
+    if (ex) {
+        fprintf(
+            stderr,
+            "Exception occured while rechecking:\n  %s\n",
+            ex->message);
         return NULL;
     }
 
