@@ -31,7 +31,7 @@ struct B_AnswerVTable {
         struct B_AnyAnswer *);
 
     B_SerializeFunc serialize;
-    B_DeserializeFunc deserialize;
+    B_DeserializeFunc0 deserialize;
 };
 
 void

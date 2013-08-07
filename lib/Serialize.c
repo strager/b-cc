@@ -39,13 +39,36 @@ b_deserialize_with_file(
     return fread(data, 1, data_size, stream);
 }
 
+void *
+b_deserialize0(
+    void *user_closure,
+    B_Deserializer deserializer,
+    void *deserializer_closure) {
+    B_DeserializeFunc0 func = user_closure;
+    return func(deserializer, deserializer_closure);
+}
+
 int
-b_deserialize_from_file(
+b_deserialize_from_file0(
     FILE *stream,
     void **value,
-    B_DeserializeFunc deserialize) {
+    B_DeserializeFunc0 deserialize) {
+    return b_deserialize_from_file1(
+        stream,
+        value,
+        b_deserialize0,
+        deserialize);
+}
+
+int
+b_deserialize_from_file1(
+    FILE *stream,
+    void **value,
+    B_DeserializeFunc deserialize,
+    void *user_closure) {
     errno = 0;
     *value = deserialize(
+        user_closure,
         b_deserialize_with_file,
         (void *) stream);
     return errno ? -1 : 0;
@@ -60,21 +83,41 @@ b_serialize_to_file_path(
     if (!stream) {
         return -1;
     }
-    int err = b_serialize_to_file(stream, value, serialize);
+    int err = b_serialize_to_file(
+        stream,
+        value,
+        serialize);
     fclose(stream);
     return err;
 }
 
 int
-b_deserialize_from_file_path(
+b_deserialize_from_file_path0(
     const char *file_path,
     void **value,
-    B_DeserializeFunc deserialize) {
+    B_DeserializeFunc0 deserialize) {
+    return b_deserialize_from_file_path1(
+        file_path,
+        value,
+        b_deserialize0,
+        deserialize);
+}
+
+int
+b_deserialize_from_file_path1(
+    const char *file_path,
+    void **value,
+    B_DeserializeFunc deserialize,
+    void *user_closure) {
     FILE *stream = fopen(file_path, "r");
     if (!stream) {
         return -1;
     }
-    int err = b_deserialize_from_file(stream, value, deserialize);
+    int err = b_deserialize_from_file1(
+        stream,
+        value,
+        deserialize,
+        user_closure);
     fclose(stream);
     return err;
 }
@@ -163,16 +206,18 @@ b_deserialize_from_memory_serializer(
 }
 
 void *
-b_deserialize_from_memory(
+b_deserialize_from_memory1(
     const char *data,
     size_t data_size,
-    B_DeserializeFunc deserialize) {
+    B_DeserializeFunc deserialize,
+    void *user_closure) {
     struct B_DeserializeFromMemory closure = {
         .data = data,
         .data_size = data_size,
         .cursor = 0,
     };
     return deserialize(
+        user_closure,
         b_deserialize_from_memory_serializer,
         &closure);
 }
@@ -202,9 +247,24 @@ b_serialize_sized(
 }
 
 void *
-b_deserialize_sized(
+b_deserialize_sized0(
+    size_t (*deserialize_size)(bool *ok, B_Deserializer, void *),
+    B_DeserializeFunc0 deserialize,
+    B_Deserializer deserializer,
+    void *deserializer_closure) {
+    return b_deserialize_sized1(
+        deserialize_size,
+        b_deserialize0,
+        deserialize,
+        deserializer,
+        deserializer_closure);
+}
+
+void *
+b_deserialize_sized1(
     size_t (*deserialize_size)(bool *ok, B_Deserializer, void *),
     B_DeserializeFunc deserialize,
+    void *user_closure,
     B_Deserializer deserializer,
     void *deserializer_closure) {
     bool ok;
@@ -223,10 +283,11 @@ b_deserialize_sized(
         return NULL;
     }
 
-    void *result = b_deserialize_from_memory(
+    void *result = b_deserialize_from_memory1(
         data,
         data_size,
-        deserialize);
+        deserialize,
+        user_closure);
     free(data);
     return result;
 }

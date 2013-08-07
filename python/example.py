@@ -16,6 +16,7 @@ c_object_files = [
     'lib/FileRule.c.o',
     'lib/Portable.c.o',
     'lib/Question.c.o',
+    'lib/QuestionVTableList.c.o',
     'lib/Rule.c.o',
     'lib/RuleQueryList.c.o',
     'lib/Serialize.c.o',

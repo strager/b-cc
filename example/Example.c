@@ -12,6 +12,7 @@
 #include "FileQuestion.h"
 #include "FileRule.h"
 #include "Portable.h"
+#include "QuestionVTableList.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -32,6 +33,7 @@ c_object_files[] = {
     "lib/FileRule.c.o",
     "lib/Portable.c.o",
     "lib/Question.c.o",
+    "lib/QuestionVTableList.c.o",
     "lib/Rule.c.o",
     "lib/RuleQueryList.c.o",
     "lib/Serialize.c.o",
@@ -259,7 +261,8 @@ run_cc_link(
 }
 
 static struct B_AnyDatabase *
-load_database() {
+load_database(
+    const struct B_QuestionVTableList *question_vtables) {
     int err_code;
 
     struct stat statbuf;
@@ -269,10 +272,11 @@ load_database() {
     }
 
     void *database;
-    err_code = b_deserialize_from_file_path(
+    err_code = b_deserialize_from_file_path1(
         DATABASE_FILE_PATH,
         &database,
-        b_database_in_memory_deserialize);
+        (B_DeserializeFunc) b_database_in_memory_deserialize,
+        (void *) question_vtables);
     if (err_code) {
         perror("Error reading file " DATABASE_FILE_PATH);
         return NULL;
@@ -282,10 +286,6 @@ load_database() {
                " Database file is likely corrupt!\n");
         return NULL;
     }
-
-    b_database_in_memory_resolve(
-        database,
-        b_file_question_vtable());
 
     struct B_Exception *ex = NULL;
     b_database_in_memory_vtable()
@@ -305,8 +305,16 @@ int
 main(int argc, char **argv) {
     int err = 0;
 
-    struct B_AnyDatabase *database = load_database();
+    struct B_QuestionVTableList *question_vtables
+        = b_question_vtable_list_allocate();
+    b_question_vtable_list_add(
+        question_vtables,
+        b_file_question_vtable());
+
+    struct B_AnyDatabase *database = load_database(
+        question_vtables);
     if (!database) {
+        b_question_vtable_list_deallocate(question_vtables);
         return 3;
     }
     const struct B_DatabaseVTable *database_vtable
@@ -373,6 +381,7 @@ main(int argc, char **argv) {
         // Fall through
     }
 
+    b_question_vtable_list_deallocate(question_vtables);
     b_build_context_deallocate(ctx);
     b_file_rule_deallocate(rule);
     b_database_in_memory_deallocate(database);

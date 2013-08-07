@@ -58,7 +58,7 @@ struct B_QuestionVTable {
         struct B_AnyQuestion *);
 
     B_SerializeFunc serialize;
-    B_DeserializeFunc deserialize;
+    B_DeserializeFunc0 deserialize;
 };
 
 void

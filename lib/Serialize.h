@@ -25,7 +25,12 @@ typedef void (*B_SerializeFunc)(
     B_Serializer,
     void *serializer_closure);
 
+typedef void *(*B_DeserializeFunc0)(
+    B_Deserializer,
+    void *deserializer_closure);
+
 typedef void *(*B_DeserializeFunc)(
+    void *user_closure,
     B_Deserializer,
     void *deserializer_closure);
 
@@ -36,10 +41,17 @@ b_serialize_to_file(
     B_SerializeFunc);
 
 int
-b_deserialize_from_file(
+b_deserialize_from_file0(
     FILE *stream,
     void **value,
-    B_DeserializeFunc);
+    B_DeserializeFunc0);
+
+int
+b_deserialize_from_file1(
+    FILE *stream,
+    void **value,
+    B_DeserializeFunc,
+    void *user_closure);
 
 int
 b_serialize_to_file_path(
@@ -48,10 +60,17 @@ b_serialize_to_file_path(
     B_SerializeFunc);
 
 int
-b_deserialize_from_file_path(
+b_deserialize_from_file_path0(
     const char *file_path,
     void **value,
-    B_DeserializeFunc);
+    B_DeserializeFunc0);
+
+int
+b_deserialize_from_file_path1(
+    const char *file_path,
+    void **value,
+    B_DeserializeFunc,
+    void *user_closure);
 
 char *
 b_serialize_to_memory(
@@ -60,10 +79,17 @@ b_serialize_to_memory(
     size_t *size);
 
 void *
-b_deserialize_from_memory(
+b_deserialize_from_memory0(
     const char *data,
     size_t data_size,
-    B_DeserializeFunc);
+    B_DeserializeFunc0);
+
+void *
+b_deserialize_from_memory1(
+    const char *data,
+    size_t data_size,
+    B_DeserializeFunc,
+    void *user_closure);
 
 void
 b_serialize_sized(
@@ -74,9 +100,17 @@ b_serialize_sized(
     void *serializer_closure);
 
 void *
-b_deserialize_sized(
+b_deserialize_sized0(
+    size_t (*deserialize_size)(bool *ok, B_Deserializer, void *),
+    B_DeserializeFunc0,
+    B_Deserializer,
+    void *deserializer_closure);
+
+void *
+b_deserialize_sized1(
     size_t (*deserialize_size)(bool *ok, B_Deserializer, void *),
     B_DeserializeFunc,
+    void *user_closure,
     B_Deserializer,
     void *deserializer_closure);
 
@@ -136,7 +170,9 @@ b_deserialize_sized_blob(
 #endif
 
 #ifdef __cplusplus
+#include <cassert>
 #include <memory>
+#include <type_traits>
 
 template<typename T>
 void
@@ -185,22 +221,46 @@ b_serialize_sized(
     );
 }
 
-template<typename T>
-std::unique_ptr<T>
+#define B_RESULT_OF_DESERIALIZE_FUNC(t) \
+    typename std::result_of<t(B_Deserializer, void *)>::type
+
+template<typename TDeserializeFunc>
+B_RESULT_OF_DESERIALIZE_FUNC(TDeserializeFunc)
 b_deserialize_sized(
     size_t (*deserialize_size)(bool *ok, B_Deserializer, void *),
+    TDeserializeFunc deserialize,
     B_Deserializer deserializer,
     void *deserializer_closure) {
-    void *value = b_deserialize_sized(
+    typedef B_RESULT_OF_DESERIALIZE_FUNC(TDeserializeFunc) result_type;
+    struct Payload {
+        Payload(
+            TDeserializeFunc &deserialize) :
+            deserialize(deserialize) {
+        }
+
+        TDeserializeFunc &deserialize;
+        // FIXME 'result' should not be default-constructed.
+        result_type result;
+    };
+
+    Payload payload(deserialize);
+    void *returned_payload = b_deserialize_sized1(
         deserialize_size,
-        [](B_Deserializer s, void *c) -> void * {
-            auto value = b_deserialize<T>(s, c);
-            return static_cast<void *>(value.release());
+        [](
+            void *payload_raw,
+            B_Deserializer s,
+            void *c) -> void * {
+            Payload &payload
+                = *static_cast<Payload *>(payload_raw);
+            payload.result = payload.deserialize(s, c);
+            return &payload;
         },
+        &payload,
         deserializer,
         deserializer_closure
     );
-    return std::unique_ptr<T>(static_cast<T *>(value));
+    assert(returned_payload);
+    return std::move(payload.result);
 }
 #endif
 

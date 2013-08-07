@@ -46,7 +46,7 @@ b_rule_query_list_size(
 
 const struct B_RuleQuery *
 b_rule_query_list_get(
-    struct B_RuleQueryList *,
+    const struct B_RuleQueryList *,
     size_t index);
 
 #ifdef __cplusplus

@@ -10,6 +10,7 @@ extern "C" {
 struct B_AnyDatabase;
 struct B_DatabaseVTable;
 struct B_QuestionVTable;
+struct B_QuestionVTableList;
 
 // An in-memory Database is a simple Database which stores
 // question-answers and dependency information in memory.
@@ -33,13 +34,9 @@ b_database_in_memory_serialize(
 
 void *
 b_database_in_memory_deserialize(
+    const struct B_QuestionVTableList *question_vtables,
     B_Deserializer,
     void *deserializer_closure);
-
-void
-b_database_in_memory_resolve(
-    struct B_AnyDatabase *,
-    const struct B_QuestionVTable *);
 
 #ifdef __cplusplus
 }

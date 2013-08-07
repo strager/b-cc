@@ -62,7 +62,7 @@ b_rule_query_list_size(
 
 static const struct B_RuleQuery *
 b_rule_query_list_node_get(
-    struct B_RuleQueryListNode *node,
+    const struct B_RuleQueryListNode *node,
     size_t index) {
     if (index == 0) {
         return &node->query;
@@ -75,7 +75,7 @@ b_rule_query_list_node_get(
 
 const struct B_RuleQuery *
 b_rule_query_list_get(
-    struct B_RuleQueryList *list,
+    const struct B_RuleQueryList *list,
     size_t index) {
     if (index >= list->size) {
         return NULL;
