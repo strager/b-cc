@@ -315,6 +315,7 @@ main(int argc, char **argv) {
         question_vtables);
     if (!database) {
         b_question_vtable_list_deallocate(question_vtables);
+        b_uuid_deallocate_leaked();
         return 3;
     }
     const struct B_DatabaseVTable *database_vtable
@@ -383,8 +384,11 @@ main(int argc, char **argv) {
 
     b_question_vtable_list_deallocate(question_vtables);
     b_build_context_deallocate(ctx);
+    b_file_question_deallocate(question);
     b_file_rule_deallocate(rule);
     b_database_in_memory_deallocate(database);
+
+    b_uuid_deallocate_leaked();
 
     return err;
 }

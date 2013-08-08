@@ -1,6 +1,7 @@
 #include "Answer.h"
 #include "Database.h"
 #include "DatabaseInMemory.h"
+#include "Exception.h"
 #include "Question.h"
 #include "QuestionVTableList.h"
 #include "Serialize.h"
@@ -505,6 +506,9 @@ struct DatabaseInMemory {
                 &ex);
             if (ex || !a_vtable->equal(answer, qa.answer)) {
                 dirty_questions.emplace_back(qa.question);
+            }
+            if (ex) {
+                b_exception_deallocate(ex);
             }
             a_vtable->deallocate(answer);
         }

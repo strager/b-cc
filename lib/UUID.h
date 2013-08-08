@@ -33,10 +33,18 @@ b_uuid_from_stable_string(
 
 // Converts a string which may be deallocated into a UUID.
 // Leaks memory by keeping copies of strings for the
-// lifetime of the application.
+// lifetime of the application.  NOT THREAD SAFE!  See also
+// b_uuid_deallocate_leaked.
 struct B_UUID
 b_uuid_from_temp_string(
     const char *);
+
+// Deallocates all UUIDs allocated using
+// b_uuid_from_temp_string.  Such UUIDs held by other parts
+// of the problem will be invalid; using them is undefined
+// behaviour.  NOT THREAD SAFE!
+void
+b_uuid_deallocate_leaked();
 
 // Compares two UUIDs using string comparison.  Returns
 // 'true' if the two UUIDs are equivalent.
