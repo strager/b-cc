@@ -619,8 +619,7 @@ b_database_in_memory_allocate() {
 
 void
 b_database_in_memory_deallocate(
-    B_AnyDatabase *database
-) {
+    B_AnyDatabase *database) {
     delete cast(database);
 }
 

@@ -20,8 +20,7 @@ b_database_in_memory_allocate();
 
 void
 b_database_in_memory_deallocate(
-    struct B_AnyDatabase *
-);
+    struct B_AnyDatabase *);
 
 const struct B_DatabaseVTable *
 b_database_in_memory_vtable();
