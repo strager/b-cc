@@ -44,8 +44,9 @@ b_deserialize0(
     void *user_closure,
     B_Deserializer deserializer,
     void *deserializer_closure) {
-    B_DeserializeFunc0 func = user_closure;
-    return func(deserializer, deserializer_closure);
+    return ((B_DeserializeFunc0) user_closure)(
+        deserializer,
+        deserializer_closure);
 }
 
 int
@@ -57,7 +58,7 @@ b_deserialize_from_file0(
         stream,
         value,
         b_deserialize0,
-        deserialize);
+        (void *) deserialize);
 }
 
 int
@@ -100,7 +101,7 @@ b_deserialize_from_file_path0(
         file_path,
         value,
         b_deserialize0,
-        deserialize);
+        (void *) deserialize);
 }
 
 int
@@ -255,7 +256,7 @@ b_deserialize_sized0(
     return b_deserialize_sized1(
         deserialize_size,
         b_deserialize0,
-        deserialize,
+        (void *) deserialize,
         deserializer,
         deserializer_closure);
 }
@@ -297,21 +298,20 @@ b_deserialize_sized1(
 // architectures (ARM-LE, i386, x86_64).
 #define B_SERIALIZE_WORD(type, value, serializer, serializer_closure) \
     do { \
-        const size_t size = sizeof(type); \
         union { \
             type word; \
-            char bytes[size]; \
+            char bytes[sizeof(type)]; \
         } u = { .word = (value) }; \
-        (serializer)(u.bytes, size, (serializer_closure)); \
+        (serializer)(u.bytes, sizeof(type), (serializer_closure)); \
     } while (0)
 
 #define B_DESERIALIZE_WORD(type, ok, deserializer, deserializer_closure) \
     do { \
-        const size_t size = sizeof(type); \
         union { \
             type word; \
-            char bytes[size]; \
+            char bytes[sizeof(type)]; \
         } u; \
+        const size_t size = sizeof(type); \
         size_t read_size = (deserializer)(u.bytes, size, (deserializer_closure)); \
         if (read_size == size) { \
             *(ok) = true; \
