@@ -11,7 +11,6 @@ c_object_files = [
     'lib/Answer.c.o',
     'lib/BuildContext.c.o',
     'lib/Database.c.o',
-    'lib/Exception.c.o',
     'lib/FileQuestion.c.o',
     'lib/FileRule.c.o',
     'lib/Portable.c.o',
@@ -25,6 +24,7 @@ c_object_files = [
 
 cc_object_files = [
     'lib/DatabaseInMemory.cc.o',
+    'lib/Exception.cc.o',
 ]
 
 object_files = c_object_files + cc_object_files

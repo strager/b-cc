@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <memory>
+
 static struct B_UUID
 b_exception_string_uuid = B_UUID("AC32D2DB-3201-4FB8-8CBB-F9F294203F30");
 
@@ -44,6 +46,20 @@ b_exception_aggregate_deallocate(
 
     free(sub_exceptions);
     free((char *) ex->message);
+    free(ex);
+}
+
+static B_UUID
+b_exception_cxx_uuid = B_UUID("F2414BCB-FA84-481A-9DDD-10CFDB2A5434");
+
+static void
+b_exception_cxx_deallocate(
+    B_Exception *ex) {
+    b_exception_validate(ex);
+    B_VALIDATE(b_uuid_equal(ex->uuid, b_exception_cxx_uuid));
+
+    free((char *) ex->message);
+    delete static_cast<std::exception *>(ex->data);
     free(ex);
 }
 
@@ -110,8 +126,8 @@ b_exception_aggregate(
     // Copy exception pointers into NULL-terminated list and
     // calculate length of message.
     size_t message_length = header_length;
-    struct B_Exception **sub_exceptions
-        = malloc(sizeof(struct B_Exception *) * (count + 1));
+    auto sub_exceptions = static_cast<B_Exception **>(malloc(
+        sizeof(struct B_Exception *) * (count + 1)));
     struct B_Exception **sub_ex = sub_exceptions;
     for (size_t i = 0; i < count; ++i) {
         struct B_Exception *source_ex = source_exceptions[i];
@@ -139,7 +155,8 @@ b_exception_aggregate(
     *sub_ex = NULL;
 
     // Create exception message.
-    char *message = malloc(message_length + 1);
+    char *message = static_cast<char *>(
+        malloc(message_length + 1));
     strcpy(message, header);
     for (sub_ex = sub_exceptions; *sub_ex; ++sub_ex) {
         // FIXME Horrible time complexity.  Should use
@@ -165,4 +182,17 @@ b_exception_validate(
     b_uuid_validate(ex->uuid);
     B_VALIDATE(ex->message);
     B_VALIDATE(ex->deallocate);
+}
+
+B_Exception *
+b_exception_cxx(
+    const char *message,
+    std::unique_ptr<std::exception> &&exception) {
+    B_ALLOCATE(struct B_Exception, ex, {
+        .uuid = b_exception_cxx_uuid,
+        .message = b_strdup(message),
+        .data = exception.release(),
+        .deallocate = b_exception_cxx_deallocate,
+    });
+    return ex;
 }

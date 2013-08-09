@@ -432,8 +432,7 @@ struct DatabaseInMemory {
         const B_AnyQuestion *from,
         const B_QuestionVTable *from_vtable,
         const B_AnyQuestion *to,
-        const B_QuestionVTable *to_vtable,
-        B_Exception **ex) {
+        const B_QuestionVTable *to_vtable) {
         this->dependencies.emplace_back(
             from,
             from_vtable,
@@ -459,8 +458,7 @@ struct DatabaseInMemory {
     struct B_AnyAnswer *
     get_answer(
         const struct B_AnyQuestion *question,
-        const struct B_QuestionVTable *question_vtable,
-        struct B_Exception **ex) {
+        const struct B_QuestionVTable *question_vtable) {
         auto i = find_question(question, question_vtable);
         if (i == this->question_answers.end()) {
             return nullptr;
@@ -474,8 +472,7 @@ struct DatabaseInMemory {
     set_answer(
         const struct B_AnyQuestion *question,
         const struct B_QuestionVTable *question_vtable,
-        const struct B_AnyAnswer *answer,
-        struct B_Exception **ex) {
+        const struct B_AnyAnswer *answer) {
         auto i = find_question(question, question_vtable);
         if (i == this->question_answers.end()) {
             this->question_answers.emplace_back(
@@ -519,7 +516,8 @@ struct DatabaseInMemory {
     }
 
     void
-    dirty(const Question &q) {
+    dirty(
+        const Question &q) {
         auto question = q.question;
         auto question_vtable = q.question_vtable;
 
@@ -639,23 +637,25 @@ b_database_in_memory_vtable() {
             const B_AnyQuestion *to,
             const B_QuestionVTable *to_vtable,
             B_Exception **ex) {
-            cast(database)->add_dependency(
-                from,
-                from_vtable,
-                to,
-                to_vtable,
-                ex);
+            b_exception_try_cxx([=] {
+                cast(database)->add_dependency(
+                    from,
+                    from_vtable,
+                    to,
+                    to_vtable);
+            }, ex);
         },
 
         .get_answer = [](
             B_AnyDatabase *database,
             const B_AnyQuestion *question,
             const B_QuestionVTable *question_vtable,
-            B_Exception **ex) -> B_AnyAnswer *{
-            return cast(database)->get_answer(
-                question,
-                question_vtable,
-                ex);
+            B_Exception **ex) -> B_AnyAnswer * {
+            return b_exception_try_cxx([=] {
+                return cast(database)->get_answer(
+                    question,
+                    question_vtable);
+            }, ex);
         },
 
         .set_answer = [](
@@ -664,18 +664,20 @@ b_database_in_memory_vtable() {
             const B_QuestionVTable *question_vtable,
             const B_AnyAnswer *answer,
             B_Exception **ex) {
-            return cast(database)->set_answer(
-                question,
-                question_vtable,
-                answer,
-                ex);
+            return b_exception_try_cxx([=] {
+                return cast(database)->set_answer(
+                    question,
+                    question_vtable,
+                    answer);
+            }, ex);
         },
 
         .recheck_all = [](
             B_AnyDatabase *database,
             B_Exception **ex) {
-            (void) ex;
-            cast(database)->recheck_all();
+            b_exception_try_cxx([=] {
+                cast(database)->recheck_all();
+            }, ex);
         }
     };
     return &vtable;

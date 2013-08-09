@@ -221,17 +221,16 @@ b_serialize_sized(
     );
 }
 
-#define B_RESULT_OF_DESERIALIZE_FUNC(t) \
-    typename std::result_of<t(B_Deserializer, void *)>::type
-
+#define B_RESULT_OF_DESERIALIZE_FUNC \
+    typename std::result_of<TDeserializeFunc(B_Deserializer, void *)>::type
 template<typename TDeserializeFunc>
-B_RESULT_OF_DESERIALIZE_FUNC(TDeserializeFunc)
+B_RESULT_OF_DESERIALIZE_FUNC
 b_deserialize_sized(
     size_t (*deserialize_size)(bool *ok, B_Deserializer, void *),
     TDeserializeFunc deserialize,
     B_Deserializer deserializer,
     void *deserializer_closure) {
-    typedef B_RESULT_OF_DESERIALIZE_FUNC(TDeserializeFunc) result_type;
+    typedef B_RESULT_OF_DESERIALIZE_FUNC result_type;
     struct Payload {
         Payload(
             TDeserializeFunc &deserialize) :
@@ -262,6 +261,7 @@ b_deserialize_sized(
     assert(returned_payload);
     return std::move(payload.result);
 }
+#undef B_RESULT_OF_DESERIALIZE_FUNC
 #endif
 
 #endif

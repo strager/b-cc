@@ -65,4 +65,64 @@ b_exception_validate(
 }
 #endif
 
+#ifdef __cplusplus
+#include <exception>
+#include <memory>
+#include <stdexcept>
+#include <type_traits>
+
+B_Exception *
+b_exception_cxx(
+    const char *message,
+    std::unique_ptr<std::exception> &&);
+
+#define B_RESULT_OF_EXCEPTION_FUNC \
+    typename std::result_of<TFunc(TArgs...)>::type
+template<typename TFunc, typename ...TArgs>
+B_RESULT_OF_EXCEPTION_FUNC
+b_exception_try_cxx(
+    TFunc func,
+    B_Exception **ex,
+    TArgs... args) {
+    typedef B_RESULT_OF_EXCEPTION_FUNC result_type;
+
+#define B_RETHROW_STD_EXCEPTION(type) \
+    catch (const type &exception) { \
+        *ex = b_exception_cxx( \
+            exception.what(), \
+            std::unique_ptr<type>(new type(exception))); \
+        return result_type(); \
+    }
+
+    try {
+        return func(args...);
+    }
+
+    // <stdexcept>
+    B_RETHROW_STD_EXCEPTION(std::domain_error    )  // std::logic_error
+    B_RETHROW_STD_EXCEPTION(std::invalid_argument)  // std::logic_error
+    B_RETHROW_STD_EXCEPTION(std::length_error    )  // std::logic_error
+    B_RETHROW_STD_EXCEPTION(std::out_of_range    )  // std::logic_error
+    B_RETHROW_STD_EXCEPTION(std::logic_error     )  // std::exception
+
+    B_RETHROW_STD_EXCEPTION(std::range_error     )  // std::runtime_error
+    B_RETHROW_STD_EXCEPTION(std::overflow_error  )  // std::runtime_error
+    B_RETHROW_STD_EXCEPTION(std::underflow_error )  // std::runtime_error
+    B_RETHROW_STD_EXCEPTION(std::runtime_error   )  // std::exception
+
+    // <exception>
+    B_RETHROW_STD_EXCEPTION(std::bad_exception)  // std::exception
+    B_RETHROW_STD_EXCEPTION(std::exception)
+
+    catch (B_Exception *exception) {
+        *ex = exception;
+        return result_type();
+    } catch (...) {
+        *ex = b_exception_string("Unknown C++ exception");
+        return result_type();
+    }
+}
+#undef B_RESULT_OF_EXCEPTION_FUNC
+#endif
+
 #endif
