@@ -16,6 +16,13 @@ struct B_BuildStack {
     const struct B_BuildStack *next;
 };
 
+struct B_BuildContextInfo {
+    struct B_AnyDatabase *database;
+    const struct B_DatabaseVTable *database_vtable;
+    const struct B_AnyRule *rule;
+    const struct B_RuleVTable *rule_vtable;
+};
+
 struct B_BuildContext {
     struct B_BuildContextInfo *const info;
     struct B_BuildStack *const stack;  // Nullable.
@@ -55,17 +62,27 @@ b_build_context_unchain(
 
 struct B_BuildContext *
 b_build_context_allocate(
-    const struct B_BuildContextInfo *source_info) {
-    B_VALIDATE(source_info->database);
-    b_database_vtable_validate(source_info->database_vtable);
-    B_VALIDATE(source_info->rule);
-    b_rule_vtable_validate(source_info->rule_vtable);
+    struct B_AnyDatabase *database,
+    const struct B_DatabaseVTable *database_vtable,
+    const struct B_AnyRule *rule,
+    const struct B_RuleVTable *rule_vtable) {
+    B_VALIDATE(database);
+    b_database_vtable_validate(database_vtable);
+    B_VALIDATE(rule);
+    b_rule_vtable_validate(rule_vtable);
 
-    B_ALLOCATE(struct B_BuildContextInfo, info, *source_info);
+    B_ALLOCATE(struct B_BuildContextInfo, info, {
+        .database = database,
+        .database_vtable = database_vtable,
+        .rule = rule,
+        .rule_vtable = rule_vtable,
+    });
+
     B_ALLOCATE(struct B_BuildContext, ctx, {
         .info = info,
         .stack = NULL,
     });
+
     return ctx;
 }
 
@@ -77,12 +94,6 @@ b_build_context_deallocate(
 
     free(ctx->info);
     free(ctx);
-}
-
-const struct B_BuildContextInfo *
-b_build_context_info(
-    const struct B_BuildContext *ctx) {
-    return ctx->info;
 }
 
 void

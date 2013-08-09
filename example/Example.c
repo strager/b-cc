@@ -345,14 +345,12 @@ main(int argc, char **argv) {
     const struct B_QuestionVTable *question_vtable
         = b_file_question_vtable();
 
-    const struct B_BuildContextInfo ctx_info = {
-        .database = database,
-        .database_vtable = database_vtable,
-        .rule = rule,
-        .rule_vtable = rule_vtable,
-    };
     struct B_BuildContext *ctx
-        = b_build_context_allocate(&ctx_info);
+        = b_build_context_allocate(
+            database,
+            database_vtable,
+            rule,
+            rule_vtable);
 
     struct B_Exception *ex = NULL;
 

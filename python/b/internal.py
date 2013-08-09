@@ -98,13 +98,6 @@ class BDatabaseVTableStructure(Structure):
         ("get_answer", BDatabaseGetAnswer),
         ("set_answer", BDatabaseSetAnswer)]
 
-class BBuildContextInfoStructure(Structure):
-    _fields_ = [
-        ("database", c_void_p),
-        ("database_vtable", POINTER(BDatabaseVTableStructure)),
-        ("rule", c_void_p),
-        ("rule_vtable", POINTER(BRuleVTableStructure))]
-
 FileRuleCallback = CFUNCTYPE(
     None,
     c_void_p,
@@ -134,11 +127,11 @@ lib.b_database_in_memory_vtable.argtypes = []
 lib.b_database_in_memory_vtable.restype = c_void_p
 
 lib.b_build_context_allocate.argtypes = [
-    POINTER(BBuildContextInfoStructure)]
+    c_void_p,
+    c_void_p, # TODO B_DatabaseVTable
+    c_void_p,
+    POINTER(BRuleVTableStructure)]
 lib.b_build_context_allocate.restype = c_void_p
-lib.b_build_context_info.argtypes = [
-    c_void_p]
-lib.b_build_context_info.restype = POINTER(BBuildContextInfoStructure)
 lib.b_build_context_deallocate.argtypes = [
     c_void_p]
 lib.b_build_context_deallocate.restype = None

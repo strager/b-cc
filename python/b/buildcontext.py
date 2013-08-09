@@ -15,11 +15,10 @@ class BuildContext(object):
     @staticmethod
     def _create(database, rule):
         return b.lib.b_build_context_allocate(
-            b.BBuildContextInfoStructure(
-                database=database._ptr,
-                database_vtable=database._vtable,
-                rule=rule._ptr,
-                rule_vtable=rule._vtable))
+            database._ptr,
+            database._vtable,
+            rule._ptr,
+            rule._vtable)
 
     @staticmethod
     def from_ptr(ctx_ptr):
