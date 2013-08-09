@@ -699,3 +699,11 @@ b_database_in_memory_deserialize(
         s,
         c).release();
 }
+
+void
+b_database_in_memory_recheck_all(
+    struct B_AnyDatabase *database,
+    struct B_Exception **ex) {
+    (void) ex;
+    cast(database)->recheck_all();
+}

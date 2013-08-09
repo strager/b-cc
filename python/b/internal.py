@@ -120,13 +120,16 @@ lib.b_file_question_deallocate.argtypes = [
     c_void_p]
 lib.b_file_question_deallocate.restype = None
 lib.b_file_question_vtable.argtypes = []
-lib.b_file_question_vtable.restype = c_void_p
+lib.b_file_question_vtable.restype = POINTER(BQuestionVTableStructure)
 
 lib.b_database_in_memory_allocate.argtypes = []
 lib.b_database_in_memory_allocate.restype = c_void_p
 lib.b_database_in_memory_deallocate.argtypes = [
     c_void_p]
 lib.b_database_in_memory_deallocate.restype = None
+lib.b_database_in_memory_recheck_all.argtypes = [
+    c_void_p]
+lib.b_database_in_memory_recheck_all.restype = None
 lib.b_database_in_memory_vtable.argtypes = []
 lib.b_database_in_memory_vtable.restype = c_void_p
 
@@ -152,6 +155,25 @@ lib.b_build_context_need_one.argtypes = [
     BQuestionVTableStructure,
     POINTER(POINTER(BExceptionStructure))]
 lib.b_build_context_need_one.restype = None
+
+lib.b_question_vtable_list_add.argtypes = [
+    c_void_p,
+    POINTER(BQuestionVTableStructure)]
+lib.b_question_vtable_list_add.restype = None
+lib.b_question_vtable_list_allocate.argtypes = []
+lib.b_question_vtable_list_allocate.restype = c_void_p
+
+lib.b_deserialize_from_file_path1.argtypes = [
+    c_char_p,
+    POINTER(c_void_p),
+    c_void_p, # TODO B_DeserializeFunc
+    c_void_p]
+lib.b_deserialize_from_file_path1.restype = c_int
+
+lib.b_serialize_to_file_path.argtypes = [
+    c_char_p,
+    c_void_p,
+    c_void_p] # TODO B_SerializeFunc
 
 lib.b_file_rule_add.argtypes = [
     c_void_p,

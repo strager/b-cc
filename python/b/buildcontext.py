@@ -3,26 +3,27 @@ import b.internal as b
 
 import ctypes
 
-_build_contexts = {}
-
 class BuildContext(object):
-    def __init__(self, database, rule):
-        self._database = database
-        self._rule = rule
-        self._ptr = b.lib.b_build_context_allocate(
+    def __init__(self, **kwargs):
+        """Parameters: database and rule, or ptr"""
+        # WTB Overloading...
+        if 'ptr' in kwargs:
+            self._ptr = kwargs['ptr']
+        else:
+            self._ptr = BuildContext._create(**kwargs)
+
+    @staticmethod
+    def _create(database, rule):
+        return b.lib.b_build_context_allocate(
             b.BBuildContextInfoStructure(
                 database=database._ptr,
                 database_vtable=database._vtable,
                 rule=rule._ptr,
                 rule_vtable=rule._vtable))
 
-        info = b.lib.b_build_context_info(self._ptr).contents
-        _build_contexts[ctypes.addressof(info)] = self
-
     @staticmethod
     def from_ptr(ctx_ptr):
-        info = b.lib.b_build_context_info(ctx_ptr).contents
-        return _build_contexts[ctypes.addressof(info)]
+        return BuildContext(ptr=ctx_ptr)
 
     def need_one(self, question):
         self.need([question])

@@ -41,10 +41,12 @@ def drop_extension(path):
 
 def run_c_compile(ctx, object_path):
     c_path = drop_extension(object_path)
+    ctx.need_one(b.FileQuestion(c_path))
     run_command(['clang', '-Ilib', '-o', object_path, '-c', c_path])
 
 def run_cc_compile(ctx, object_path):
     cc_path = drop_extension(object_path)
+    ctx.need_one(b.FileQuestion(cc_path))
     run_command(['clang++', '-Ilib', '-std=c++11', '-stdlib=libc++',
         '-o', object_path, '-c', cc_path])
 
@@ -53,8 +55,19 @@ def run_cc_link(ctx, output_path):
     run_command(['clang++', '-stdlib=libc++',
         '-o', output_path] + object_files)
 
+def load_database(file_path):
+    database = None
+    if os.path.exists(file_path):
+        database = b.DatabaseInMemory.deserialize_file(file_path)
+    else:
+        database = b.DatabaseInMemory()
+    database.recheck_all()
+    return database
+
 def main(argv):
-    database = b.DatabaseInMemory()
+    database_file_path = "build.database"
+    database = load_database(database_file_path)
+
     rule = b.FileRule()
 
     for f in c_object_files:
@@ -63,8 +76,14 @@ def main(argv):
         rule.append(f, run_cc_compile)
     rule.append(output_file, run_cc_link)
 
-    ctx = b.BuildContext(database, rule)
-    ctx.need_one(b.FileQuestion(output_file))
+    ctx = b.BuildContext(
+        database=database,
+        rule=rule)
+
+    try:
+        ctx.need_one(b.FileQuestion(output_file))
+    finally:
+        database.serialize_file(database_file_path)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))

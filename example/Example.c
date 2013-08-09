@@ -288,8 +288,7 @@ load_database(
     }
 
     struct B_Exception *ex = NULL;
-    b_database_in_memory_vtable()
-        ->recheck_all(database, &ex);
+    b_database_in_memory_recheck_all(database, &ex);
     if (ex) {
         fprintf(
             stderr,

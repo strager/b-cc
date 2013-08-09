@@ -9,6 +9,7 @@ extern "C" {
 
 struct B_AnyDatabase;
 struct B_DatabaseVTable;
+struct B_Exception;
 struct B_QuestionVTable;
 struct B_QuestionVTableList;
 
@@ -36,6 +37,11 @@ b_database_in_memory_deserialize(
     const struct B_QuestionVTableList *question_vtables,
     B_Deserializer,
     void *deserializer_closure);
+
+void
+b_database_in_memory_recheck_all(
+    struct B_AnyDatabase *,
+    struct B_Exception **);
 
 #ifdef __cplusplus
 }
