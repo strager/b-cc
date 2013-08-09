@@ -18,7 +18,7 @@ struct FileRule {
 };
 
 struct B_AnyRule *
-b_file_rule_allocate() {
+b_file_rule_allocate(void) {
     B_ALLOCATE(struct FileRule, rule, {
         .head = NULL,
     });
@@ -169,7 +169,7 @@ b_file_rule_query(
 }
 
 const struct B_RuleVTable *
-b_file_rule_vtable() {
+b_file_rule_vtable(void) {
     static const struct B_RuleVTable vtable = {
         .uuid = B_UUID("3325547E-38B3-4121-BE5A-5E65FEB42C12"),
         .add = b_file_rule_combine,

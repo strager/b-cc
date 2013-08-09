@@ -14,7 +14,7 @@ struct B_RuleQueryList {
 };
 
 struct B_RuleQueryList *
-b_rule_query_list_allocate() {
+b_rule_query_list_allocate(void) {
     B_ALLOCATE(struct B_RuleQueryList, list, {
         .head = NULL,
         .size = 0,

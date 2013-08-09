@@ -129,7 +129,7 @@ struct B_SerializeToMemory {
 };
 
 static struct B_SerializeToMemory
-b_serialize_to_memory_allocate() {
+b_serialize_to_memory_allocate(void) {
     const size_t buffer_size = 4096;
     return (struct B_SerializeToMemory) {
         .buffer = malloc(buffer_size),

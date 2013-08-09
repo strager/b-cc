@@ -178,7 +178,7 @@ b_file_answer_deserialize(
 }
 
 static const struct B_AnswerVTable *
-b_file_answer_vtable() {
+b_file_answer_vtable(void) {
     static const struct B_AnswerVTable vtable = {
         .equal = b_file_answer_equal,
         .replicate = b_file_answer_replicate,
@@ -190,7 +190,7 @@ b_file_answer_vtable() {
 }
 
 const struct B_QuestionVTable *
-b_file_question_vtable() {
+b_file_question_vtable(void) {
     static struct B_QuestionVTable vtable = {
         .uuid = B_UUID("F90D4C63-397C-4C93-B3F0-0F2A1CFFE55B"),
         .answer_vtable = NULL,

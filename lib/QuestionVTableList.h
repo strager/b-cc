@@ -12,7 +12,7 @@ struct B_QuestionVTable;
 struct B_QuestionVTableList;
 
 struct B_QuestionVTableList *
-b_question_vtable_list_allocate();
+b_question_vtable_list_allocate(void);
 
 void
 b_question_vtable_list_deallocate(

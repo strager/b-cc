@@ -17,14 +17,14 @@ struct B_QuestionVTableList;
 // question-answers and dependency information in memory.
 
 struct B_AnyDatabase *
-b_database_in_memory_allocate();
+b_database_in_memory_allocate(void);
 
 void
 b_database_in_memory_deallocate(
     struct B_AnyDatabase *);
 
 const struct B_DatabaseVTable *
-b_database_in_memory_vtable();
+b_database_in_memory_vtable(void);
 
 void
 b_database_in_memory_serialize(

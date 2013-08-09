@@ -20,7 +20,7 @@ b_file_question_file_path(
     const struct B_AnyQuestion *);
 
 const struct B_QuestionVTable *
-b_file_question_vtable();
+b_file_question_vtable(void);
 
 #ifdef __cplusplus
 }

@@ -14,7 +14,7 @@ struct B_QuestionVTableList {
 };
 
 struct B_QuestionVTableList *
-b_question_vtable_list_allocate() {
+b_question_vtable_list_allocate(void) {
     B_ALLOCATE(struct B_QuestionVTableList, list, {
         .head = NULL,
     });

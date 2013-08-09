@@ -44,7 +44,7 @@ b_uuid_from_temp_string(
 // of the problem will be invalid; using them is undefined
 // behaviour.  NOT THREAD SAFE!
 void
-b_uuid_deallocate_leaked();
+b_uuid_deallocate_leaked(void);
 
 // Compares two UUIDs using string comparison.  Returns
 // 'true' if the two UUIDs are equivalent.

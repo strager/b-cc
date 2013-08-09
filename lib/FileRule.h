@@ -18,7 +18,7 @@ typedef void (*B_FileRuleCallback)(
     struct B_Exception **);
 
 struct B_AnyRule *
-b_file_rule_allocate();
+b_file_rule_allocate(void);
 
 void
 b_file_rule_deallocate(
@@ -38,7 +38,7 @@ b_file_rule_add_many(
     B_FileRuleCallback);
 
 const struct B_RuleVTable *
-b_file_rule_vtable();
+b_file_rule_vtable(void);
 
 #ifdef __cplusplus
 }

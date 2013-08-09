@@ -29,7 +29,7 @@ struct B_RuleQuery {
 struct B_RuleQueryList;
 
 struct B_RuleQueryList *
-b_rule_query_list_allocate();
+b_rule_query_list_allocate(void);
 
 void
 b_rule_query_list_deallocate(

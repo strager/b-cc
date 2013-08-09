@@ -51,7 +51,7 @@ b_uuid_from_temp_string(
 }
 
 void
-b_uuid_deallocate_leaked() {
+b_uuid_deallocate_leaked(void) {
     b_uuid_free_allocation_list(uuid_allocations);
 }
 
