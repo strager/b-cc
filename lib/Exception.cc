@@ -1,52 +1,48 @@
-#include "Allocate.h"
 #include "Exception.h"
 #include "Portable.h"
 #include "UUID.h"
 #include "Validate.h"
 
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <memory>
+#include <sstream>
 
-static struct B_UUID
+static B_UUID
 b_exception_string_uuid = B_UUID("AC32D2DB-3201-4FB8-8CBB-F9F294203F30");
 
 static void
 b_exception_string_deallocate(
-    struct B_Exception *ex) {
+    B_Exception *ex) {
     b_exception_validate(ex);
     B_VALIDATE(b_uuid_equal(ex->uuid, b_exception_string_uuid));
 
     free((char *) ex->message);
-    free(ex);
+    delete ex;
 }
 
-static struct B_UUID
+static B_UUID
 b_exception_aggregate_uuid = B_UUID("4B332F25-4DF4-4B19-846E-3610209367FE");
 
 static void
 b_exception_aggregate_deallocate(
-    struct B_Exception *ex) {
+    B_Exception *ex) {
     b_exception_validate(ex);
     B_VALIDATE(b_uuid_equal(ex->uuid, b_exception_aggregate_uuid));
 
-    struct B_Exception **sub_exceptions
-        = (struct B_Exception **) ex->data;
+    auto sub_exceptions
+        = static_cast<B_Exception **>(ex->data);
     B_VALIDATE(sub_exceptions);
 
-    for (
-        struct B_Exception **sub_ex = sub_exceptions;
-        *sub_ex;
-        ++sub_ex) {
-        free(*sub_ex);
+    for (auto sub_ex = sub_exceptions; *sub_ex; ++sub_ex) {
+        b_exception_deallocate(*sub_ex);
     }
 
-    free(sub_exceptions);
+    delete sub_exceptions;
     free((char *) ex->message);
-    free(ex);
+    delete ex;
 }
 
 static B_UUID
@@ -60,22 +56,21 @@ b_exception_cxx_deallocate(
 
     free((char *) ex->message);
     delete static_cast<std::exception *>(ex->data);
-    free(ex);
+    delete ex;
 }
 
-struct B_Exception *
+B_Exception *
 b_exception_string(
     const char *message) {
-    B_ALLOCATE(struct B_Exception, ex, {
+    return new B_Exception {
         .uuid = b_exception_string_uuid,
         .message = b_strdup(message),
         .data = NULL,
         .deallocate = b_exception_string_deallocate,
-    });
-    return ex;
+    };
 }
 
-struct B_Exception *
+B_Exception *
 b_exception_format_string(
     const char *format,
     ...) {
@@ -88,19 +83,18 @@ b_exception_format_string(
         va_end(vp);
     }
 
-    B_ALLOCATE(struct B_Exception, ex, {
+    return new B_Exception {
         .uuid = b_exception_string_uuid,
         .message = message,
         .data = NULL,
         .deallocate = b_exception_string_deallocate,
-    });
-    return ex;
+    };
 }
 
 struct B_Exception *
 b_exception_errno(
     const char *function,
-    int errno) {
+    int errno_) {
     return b_exception_format_string(
         "%s: %s",
         function,
@@ -109,75 +103,55 @@ b_exception_errno(
 
 void
 b_exception_deallocate(
-    struct B_Exception *ex) {
+    B_Exception *ex) {
     b_exception_validate(ex);
     ex->deallocate(ex);
 }
 
-struct B_Exception *
+B_Exception *
 b_exception_aggregate(
-    struct B_Exception **source_exceptions,
+    B_Exception **source_exceptions,
     size_t count) {
-    static const char header[] = "Aggregate exception:";
-    static const size_t header_length = sizeof(header) - 1;
-    static const char ex_prefix[] = "\n - ";
-    static const size_t ex_prefix_length = sizeof(ex_prefix) - 1;
+    std::ostringstream message;
+    message << "Aggregate exception:";
 
-    // Copy exception pointers into NULL-terminated list and
-    // calculate length of message.
-    size_t message_length = header_length;
-    auto sub_exceptions = static_cast<B_Exception **>(malloc(
-        sizeof(struct B_Exception *) * (count + 1)));
-    struct B_Exception **sub_ex = sub_exceptions;
+    // Create a NULL-terminated list of exceptions from
+    // source_exceptions.
+    auto sub_exceptions = std::unique_ptr<B_Exception *>(
+        new B_Exception *[count + 1]);
+    size_t sub_exception_index = 0;
     for (size_t i = 0; i < count; ++i) {
-        struct B_Exception *source_ex = source_exceptions[i];
-        if (source_ex) {
+        if (B_Exception *source_ex = source_exceptions[i]) {
             b_exception_validate(source_ex);
-            message_length += ex_prefix_length + strlen(source_ex->message);
-            *sub_ex++ = source_ex;
+            sub_exceptions.get()[sub_exception_index++] = source_ex;
+            message << "\n - " << source_ex->message;
         }
     }
-    if (sub_ex == sub_exceptions) {
+
+    if (sub_exception_index == 0) {
         // No exceptions given.
         // No exception returned.
         // No exceptions.
-        free(sub_exceptions);
-        return NULL;
-    }
-    if (sub_ex - sub_exceptions == 1) {
+        return nullptr;
+    } else if (sub_exception_index == 1) {
         // One exception.
         // One exception returned.
         // No exceptions.
-        struct B_Exception *ex = *sub_exceptions;
-        free(sub_exceptions);
-        return ex;
+        return *sub_exceptions;
+    } else {
+        sub_exceptions.get()[sub_exception_index] = nullptr;
+        return new B_Exception {
+            .uuid = b_exception_aggregate_uuid,
+            .message = b_strdup(message.str().c_str()),
+            .data = sub_exceptions.release(),
+            .deallocate = b_exception_aggregate_deallocate,
+        };
     }
-    *sub_ex = NULL;
-
-    // Create exception message.
-    char *message = static_cast<char *>(
-        malloc(message_length + 1));
-    strcpy(message, header);
-    for (sub_ex = sub_exceptions; *sub_ex; ++sub_ex) {
-        // FIXME Horrible time complexity.  Should use
-        // stpcpy, or (of course) a manual copy for
-        // portability.
-        strcat(message, ex_prefix);
-        strcat(message, (*sub_ex)->message);
-    }
-
-    B_ALLOCATE(struct B_Exception, ex, {
-        .uuid = b_exception_aggregate_uuid,
-        .message = message,
-        .data = sub_exceptions,
-        .deallocate = b_exception_aggregate_deallocate,
-    });
-    return ex;
 }
 
 void
 b_exception_validate(
-    struct B_Exception *ex) {
+    B_Exception *ex) {
     B_VALIDATE(ex);
     b_uuid_validate(ex->uuid);
     B_VALIDATE(ex->message);
@@ -188,11 +162,10 @@ B_Exception *
 b_exception_cxx(
     const char *message,
     std::unique_ptr<std::exception> &&exception) {
-    B_ALLOCATE(struct B_Exception, ex, {
+    return new B_Exception {
         .uuid = b_exception_cxx_uuid,
         .message = b_strdup(message),
         .data = exception.release(),
         .deallocate = b_exception_cxx_deallocate,
-    });
-    return ex;
+    };
 }

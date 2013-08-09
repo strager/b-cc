@@ -35,7 +35,8 @@ b_exception_format_string(
 struct B_Exception *
 b_exception_errno(
     const char *function,
-    int errno);
+    int errno_);
+// Warning: errno is a macro on some platforms.
 
 // Destroys any type of Exception.
 void
