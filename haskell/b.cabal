@@ -1,0 +1,37 @@
+name: b
+version: 0.1.0.0
+
+author: Matt "strager" Glazar
+build-type: Simple
+cabal-version: >=1.8
+category: Development
+license-file: LICENSE
+license: BSD3
+maintainer: strager.nds@gmail.com
+synopsis: Haskell bindings for the theoretically awesome build system
+
+library
+  exposed-modules:
+    B.Foreign.BuildContext,
+    B.Foreign.DatabaseInMemory
+
+  build-depends:
+    base >=4.6.0 && <5
+
+  extra-libraries:
+    b
+
+  ghc-options:
+    -Wall
+
+executable example
+  main-is: example/Example.hs
+
+  build-depends:
+    b,
+    base,
+    filepath,
+    process
+
+  ghc-options:
+    -Wall

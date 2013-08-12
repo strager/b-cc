@@ -40,6 +40,10 @@ clean:
 		$(OUT_DIR) \
 		b-cc-example
 
+.PHONY: haskell
+haskell:
+	$(MAKE) -C haskell
+
 $(LIB): $(LIB_O_FILES) $(BUILD_FILES) | $(OUT_DIRS)
 	$(CXX) $(LD_FLAGS) -shared -o $@ $(LIB_O_FILES)
 
