@@ -2,8 +2,7 @@
 // programs.  Offers little dependency management; changing
 // header files or editing the target list do not cause
 // recompilation.  I consider this a bug, but rule maps
-// aren't implemented yet.  (Hell, I haven't even tried
-// compiling any of this project yet!)
+// aren't implemented yet.
 
 #include "BuildContext.h"
 #include "Database.h"
