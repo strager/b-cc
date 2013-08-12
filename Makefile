@@ -28,8 +28,8 @@ EXAMPLE := $(OUT_DIR)/example/example
 
 WARNING_FLAGS := -Wall -Werror
 CC_FLAGS := $(CFLAGS) $(WARNING_FLAGS) -Ilib -g -std=c99
-CXX_FLAGS := $(CXXFLAGS) $(WARNING_FLAGS) -Ilib -g -std=c++11 -stdlib=libc++
-LD_FLAGS := $(LDFLAGS) $(WARNING_FLAGS) -L$(OUT_DIR)/lib -stdlib=libc++
+CXX_FLAGS := $(CFLAGS) $(CXXFLAGS) $(WARNING_FLAGS) -Ilib -g -std=c++11 -stdlib=libc++
+LD_FLAGS := $(CFLAGS) $(LDFLAGS) $(WARNING_FLAGS) -L$(OUT_DIR)/lib -stdlib=libc++
 
 .PHONY: all
 all: $(LIB) $(EXAMPLE)
