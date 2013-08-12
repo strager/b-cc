@@ -6,4 +6,3 @@
 /lib/*.c.o
 /lib/*.cc.o
 /out/
-/python/**/*.pyc
