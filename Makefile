@@ -5,7 +5,7 @@ LIB_H_FILES := $(wildcard lib/*.h)
 LIB_C_FILES := $(wildcard lib/*.c)
 LIB_CXX_FILES := $(wildcard lib/*.cc)
 
-EXAMPLE_C_FILES := example/Example.c
+EXAMPLE_C_FILES := example/Example2.c
 
 BUILD_FILES := Makefile
 
@@ -23,13 +23,15 @@ else
 SHARED_EXT := .so
 endif
 
+LIBS := -lzmq
+
 LIB := $(OUT_DIR)/lib/libb$(SHARED_EXT)
 EXAMPLE := $(OUT_DIR)/example/example
 
 WARNING_FLAGS := -Wall -Werror
-CC_FLAGS := $(CFLAGS) $(WARNING_FLAGS) -Ilib -g -std=c99
-CXX_FLAGS := $(CFLAGS) $(CXXFLAGS) $(WARNING_FLAGS) -Ilib -g -std=c++11 -stdlib=libc++
-LD_FLAGS := $(CFLAGS) $(LDFLAGS) $(WARNING_FLAGS) -L$(OUT_DIR)/lib -stdlib=libc++
+CC_FLAGS := $(CFLAGS) $(WARNING_FLAGS) -g -std=c99
+CXX_FLAGS := $(CFLAGS) $(CXXFLAGS) $(WARNING_FLAGS) -g -std=c++11 -stdlib=libc++
+LD_FLAGS := $(CFLAGS) $(LDFLAGS) $(WARNING_FLAGS) -L$(OUT_DIR)/lib $(LIBS) -stdlib=libc++
 
 .PHONY: all
 all: $(LIB) $(EXAMPLE)

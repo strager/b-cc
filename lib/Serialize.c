@@ -207,6 +207,22 @@ b_deserialize_from_memory_serializer(
 }
 
 void *
+b_deserialize_from_memory0(
+    const char *data,
+    size_t data_size,
+    B_DeserializeFunc0 deserialize) {
+
+    struct B_DeserializeFromMemory closure = {
+        .data = data,
+        .data_size = data_size,
+        .cursor = 0,
+    };
+    return deserialize(
+        b_deserialize_from_memory_serializer,
+        &closure);
+}
+
+void *
 b_deserialize_from_memory1(
     const char *data,
     size_t data_size,
