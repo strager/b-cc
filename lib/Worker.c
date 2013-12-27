@@ -24,14 +24,13 @@ b_worker_build(
     struct B_AnyQuestion const *,
     struct B_QuestionVTable const *);
 
-static void
+static struct B_Exception *
 b_worker_parse_request(
     void *socket_zmq,
     struct B_QuestionVTableList const *,
     struct B_Identity **client_identity,
     struct B_AnyQuestion **,
-    struct B_QuestionVTable const **,
-    struct B_Exception **);
+    struct B_QuestionVTable const **);
 
 static struct B_Exception *
 b_worker_handle_broker(
@@ -157,13 +156,12 @@ b_worker_handle_broker(
     struct B_Identity *client_identity;
     struct B_AnyQuestion *question;
     struct B_QuestionVTable const *question_vtable;
-    b_worker_parse_request(
+    ex = b_worker_parse_request(
         broker_req,
         question_vtables,
         &client_identity,
         &question,
-        &question_vtable,
-        &ex);
+        &question_vtable);
     if (ex) {
         return ex;
     }
@@ -222,48 +220,50 @@ b_worker_handle_broker(
     return NULL;
 }
 
-static void
+static struct B_Exception *
 b_worker_parse_request(
     void *socket_zmq,
     struct B_QuestionVTableList const *question_vtables,
     struct B_Identity **client_identity,
     struct B_AnyQuestion **question,
-    struct B_QuestionVTable const **question_vtable,
-    struct B_Exception **ex) {
+    struct B_QuestionVTable const **question_vtable) {
+
+    struct B_Exception *ex = NULL;
 
     *client_identity = b_protocol_recv_identity_envelope(
         socket_zmq,
         0,  // flags
-        ex);
-    if (*ex) {
-        return;
+        &ex);
+    if (ex) {
+        return ex;
     }
 
     struct B_UUID question_uuid = b_protocol_recv_uuid(
         socket_zmq,
         0,  // flags
-        ex);
-    if (*ex) {
-        return;
+        &ex);
+    if (ex) {
+        return ex;
     }
 
     *question_vtable = b_question_vtable_list_find_by_uuid(
         question_vtables,
         question_uuid);
     if (!*question_vtable) {
-        *ex = b_exception_string(
+        return b_exception_string(
             "Could not find question vtable from UUID");
-        return;
     }
 
     *question = b_protocol_recv_question(
         socket_zmq,
         *question_vtable,
         0,  // flags
-        ex);
-    if (*ex) {
-        return;
+        &ex);
+    if (ex) {
+        return ex;
     }
+
+    return NULL;
 }
 
 static struct B_Exception *
