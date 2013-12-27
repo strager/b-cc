@@ -11,6 +11,60 @@
 static const size_t
 log_bytes_per_line = 16;
 
+B_ERRFUNC
+b_zmq_socket_connect(
+    void *context_zmq,
+    int socket_type,
+    char const *endpoint,
+    void **out_socket_zmq) {
+
+    void *socket_zmq = zmq_socket(context_zmq, socket_type);
+    if (!socket_zmq) {
+        return b_exception_errno("zmq_socket", errno);
+    }
+
+    int rc = zmq_connect(socket_zmq, endpoint);
+    if (rc == -1) {
+        return b_exception_errno("zmq_connect", errno);
+    }
+
+    *out_socket_zmq = socket_zmq;
+    return NULL;
+}
+
+B_ERRFUNC
+b_zmq_socket_bind(
+    void *context_zmq,
+    int socket_type,
+    char const *endpoint,
+    void **out_socket_zmq) {
+
+    void *socket_zmq = zmq_socket(context_zmq, socket_type);
+    if (!socket_zmq) {
+        return b_exception_errno("zmq_socket", errno);
+    }
+
+    int rc = zmq_bind(socket_zmq, endpoint);
+    if (rc == -1) {
+        return b_exception_errno("zmq_bind", errno);
+    }
+
+    *out_socket_zmq = socket_zmq;
+    return NULL;
+}
+
+B_ERRFUNC
+b_zmq_close(
+    void *socket_zmq) {
+
+    int rc = zmq_close(socket_zmq);
+    if (rc == -1) {
+        return b_exception_errno("zmq_close", errno);
+    }
+
+    return NULL;
+}
+
 static void
 b_log_msg_zmq(
     zmq_msg_t *message);

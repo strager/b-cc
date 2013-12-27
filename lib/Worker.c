@@ -9,6 +9,7 @@
 #include "Rule.h"
 #include "RuleQueryList.h"
 #include "Worker.h"
+#include "ZMQ.h"
 
 #include <zmq.h>
 
@@ -46,24 +47,25 @@ b_worker_connect(
     struct B_Broker const *broker,
     void **out_broker_req) {
 
-    char buffer[1024];
+    struct B_Exception *ex;
+
+    char endpoint_buffer[1024];
     bool ok = b_protocol_worker_endpoint(
-        buffer,
-        sizeof(buffer),
+        endpoint_buffer,
+        sizeof(endpoint_buffer),
         broker);
     assert(ok);
 
-    void *broker_req = zmq_socket(context_zmq, ZMQ_REQ);
-    if (!broker_req) {
-        return b_exception_errno("zmq_socket", errno);
+    void *broker_req;
+    ex = b_zmq_socket_connect(
+        context_zmq,
+        ZMQ_REQ,
+        endpoint_buffer,
+        &broker_req);
+    if (ex) {
+        return ex;
     }
 
-    int rc = zmq_connect(broker_req, buffer);
-    if (rc == -1) {
-        return b_exception_errno("zmq_connect", errno);
-    }
-
-    struct B_Exception *ex = NULL;
     b_protocol_send_worker_command(
         broker_req,
         B_WORKER_READY,

@@ -46,7 +46,10 @@ struct B_Broker {
 
 static struct B_Exception *
 b_broker_bind_process(
-    struct B_Broker *);
+    struct B_Broker const *,
+    void *context_zmq,
+    void **out_client_router,
+    void **out_worker_router);
 
 static struct B_Exception *
 b_broker_handle_client(
@@ -67,24 +70,33 @@ b_broker_allocate_bind(
     struct B_DatabaseVTable const *database_vtable,
     struct B_Broker **out) {
 
-    void *client_router
-        = zmq_socket(context_zmq, ZMQ_ROUTER);
-    void *worker_router
-        = zmq_socket(context_zmq, ZMQ_ROUTER);
+    // The b_protocol_*_endpoint functions only use the
+    // pointer value of a Broker, so it is safe to give them
+    // uninitialized memory.
+    struct B_Broker *broker
+        = malloc(sizeof(struct B_Broker));
 
-    B_ALLOCATE(struct B_Broker, broker, {
+    void *client_router;
+    void *worker_router;
+    {
+        struct B_Exception *ex = b_broker_bind_process(
+            broker,
+            context_zmq,
+            &client_router,
+            &worker_router);
+        if (ex) {
+            free(broker);
+            return ex;
+        }
+    }
+
+    *broker = (struct B_Broker) {
         .database = database,
         .database_vtable = database_vtable,
 
         .client_router = client_router,
         .worker_router = worker_router,
-    });
-
-    struct B_Exception *ex = b_broker_bind_process(broker);
-    if (ex) {
-        // TODO(strager): Cleanup.
-        return ex;
-    }
+    };
 
     *out = broker;
     return NULL;
@@ -121,28 +133,53 @@ b_broker_deallocate_unbind(
 
 static struct B_Exception *
 b_broker_bind_process(
-    struct B_Broker *broker) {
+    struct B_Broker const *broker,
+    void *context_zmq,
+    void **out_client_router,
+    void **out_worker_router) {
 
-    int rc;
     bool ok;
-    char buffer[1024];
+    char endpoint_buffer[1024];
 
     ok = b_protocol_client_endpoint(
-        buffer,
-        sizeof(buffer),
+        endpoint_buffer,
+        sizeof(endpoint_buffer),
         broker);
     assert(ok);
-    rc = zmq_bind(broker->client_router, buffer);
-    assert(rc == 0);  // TODO(strager)
+
+    void *client_router;
+    {
+        struct B_Exception *ex = b_zmq_socket_bind(
+            context_zmq,
+            ZMQ_ROUTER,
+            endpoint_buffer,
+            &client_router);
+        if (ex) {
+            return ex;
+        }
+    }
 
     ok = b_protocol_worker_endpoint(
-        buffer,
-        sizeof(buffer),
+        endpoint_buffer,
+        sizeof(endpoint_buffer),
         broker);
     assert(ok);
-    rc = zmq_bind(broker->worker_router, buffer);
-    assert(rc == 0);  // TODO(strager)
 
+    void *worker_router;
+    {
+        struct B_Exception *ex = b_zmq_socket_bind(
+            context_zmq,
+            ZMQ_ROUTER,
+            endpoint_buffer,
+            &worker_router);
+        if (ex) {
+            (void) b_zmq_close(client_router);
+            return ex;
+        }
+    }
+
+    *out_client_router = client_router;
+    *out_worker_router = worker_router;
     return NULL;
 }
 

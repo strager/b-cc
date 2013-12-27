@@ -5,6 +5,7 @@
 #include "Log.h"
 #include "Protocol.h"
 #include "Question.h"
+#include "ZMQ.h"
 
 #include <zmq.h>
 
@@ -22,22 +23,23 @@ b_client_allocate_connect(
     struct B_Broker const *broker,
     struct B_Client **out) {
 
-    char buffer[1024];
+    struct B_Exception *ex;
+
+    char endpoint_buffer[1024];
     bool ok = b_protocol_client_endpoint(
-        buffer,
-        sizeof(buffer),
+        endpoint_buffer,
+        sizeof(endpoint_buffer),
         broker);
     assert(ok);
 
-    void *broker_req
-        = zmq_socket(context_zmq, ZMQ_REQ);
-    if (!broker_req) {
-        return b_exception_errno("zmq_socket", errno);
-    }
-    int rc = zmq_connect(broker_req, buffer);
-    if (rc == -1) {
-        (void) zmq_close(broker_req);
-        return b_exception_errno("zmq_connect", errno);
+    void *broker_req;
+    ex = b_zmq_socket_connect(
+        context_zmq,
+        ZMQ_REQ,
+        endpoint_buffer,
+        &broker_req);
+    if (ex) {
+        return ex;
     }
 
     B_ALLOCATE(struct B_Client, client, {

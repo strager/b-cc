@@ -15,6 +15,24 @@ extern "C" {
 // via B_Exception and optionally adds logging
 // functionality.
 
+B_ERRFUNC
+b_zmq_socket_connect(
+    void *context_zmq,
+    int socket_type,  // ZMQ_REQ, ZMQ_SUB, etc.
+    char const *endpoint,
+    void **out_socket_zmq);
+
+B_ERRFUNC
+b_zmq_socket_bind(
+    void *context_zmq,
+    int socket_type,  // ZMQ_REQ, ZMQ_SUB, etc.
+    char const *endpoint,
+    void **out_socket_zmq);
+
+B_ERRFUNC
+b_zmq_close(
+    void *socket_zmq);
+
 void
 b_zmq_msg_init(
     zmq_msg_t *);
