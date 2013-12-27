@@ -4,19 +4,19 @@
 // recompilation.  I consider this a bug, but rule maps
 // aren't implemented yet.
 
-#include "../lib/Allocate.h"
-#include "../lib/Broker.h"
-#include "../lib/BuildContext.h"
-#include "../lib/Client.h"
-#include "../lib/Database.h"
-#include "../lib/DatabaseInMemory.h"
-#include "../lib/Exception.h"
-#include "../lib/FileQuestion.h"
-#include "../lib/FileRule.h"
-#include "../lib/Log.h"
-#include "../lib/Portable.h"
-#include "../lib/QuestionVTableList.h"
-#include "../lib/Worker.h"
+#include <B/Allocate.h>
+#include <B/Broker.h>
+#include <B/BuildContext.h>
+#include <B/Client.h>
+#include <B/Database.h>
+#include <B/DatabaseInMemory.h>
+#include <B/Exception.h>
+#include <B/FileQuestion.h>
+#include <B/FileRule.h>
+#include <B/Log.h>
+#include <B/Portable.h>
+#include <B/QuestionVTableList.h>
+#include <B/Worker.h>
 
 #include <zmq.h>
 
@@ -33,27 +33,27 @@
 static const char *
 c_object_files[] = {
     "example/Example2.c.o",
-    "lib/Answer.c.o",
-    "lib/Broker.c.o",
-    "lib/BuildContext.c.o",
-    "lib/Client.c.o",
-    "lib/Database.c.o",
-    "lib/FileQuestion.c.o",
-    "lib/FileRule.c.o",
-    "lib/Identity.c.o",
-    "lib/Log.c.o",
-    "lib/MessageListInternal.c.o",
-    "lib/Portable.c.o",
-    "lib/Protocol.c.o",
-    "lib/Question.c.o",
-    "lib/QuestionVTableList.c.o",
-    "lib/Rule.c.o",
-    "lib/RuleQueryList.c.o",
-    "lib/Serialize.c.o",
-    "lib/UUID.c.o",
-    "lib/Util.c.o",
-    "lib/Worker.c.o",
-    "lib/ZMQ.c.o",
+    "lib/src/Answer.c.o",
+    "lib/src/Broker.c.o",
+    "lib/src/BuildContext.c.o",
+    "lib/src/Client.c.o",
+    "lib/src/Database.c.o",
+    "lib/src/FileQuestion.c.o",
+    "lib/src/FileRule.c.o",
+    "lib/src/Identity.c.o",
+    "lib/src/Log.c.o",
+    "lib/src/MessageListInternal.c.o",
+    "lib/src/Portable.c.o",
+    "lib/src/Protocol.c.o",
+    "lib/src/Question.c.o",
+    "lib/src/QuestionVTableList.c.o",
+    "lib/src/Rule.c.o",
+    "lib/src/RuleQueryList.c.o",
+    "lib/src/Serialize.c.o",
+    "lib/src/UUID.c.o",
+    "lib/src/Util.c.o",
+    "lib/src/Worker.c.o",
+    "lib/src/ZMQ.c.o",
 };
 
 static const size_t
@@ -61,8 +61,8 @@ c_object_files_count = sizeof(c_object_files) / sizeof(*c_object_files);
 
 static const char *
 cc_object_files[] = {
-    "lib/DatabaseInMemory.cc.o",
-    "lib/Exception.cc.o",
+    "lib/src/DatabaseInMemory.cc.o",
+    "lib/src/Exception.cc.o",
 };
 
 static const size_t
@@ -162,6 +162,7 @@ run_c_compile(
 
     run_command((const char *[]) {
         "cc",
+        "-Ilib/include",
         "-o", object_path,
         "-c", c_path,
         NULL,
@@ -196,6 +197,7 @@ run_cc_compile(
         "c++",
         "-std=c++11",
         "-stdlib=libc++",
+        "-Ilib/include",
         "-o", object_path,
         "-c", cc_path,
         NULL,

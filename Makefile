@@ -1,9 +1,9 @@
 OUT_DIR := out
-OUT_DIRS := $(OUT_DIR)/lib $(OUT_DIR)/example
+OUT_DIRS := $(OUT_DIR)/lib/src $(OUT_DIR)/example
 
-LIB_H_FILES := $(wildcard lib/*.h)
-LIB_C_FILES := $(wildcard lib/*.c)
-LIB_CXX_FILES := $(wildcard lib/*.cc)
+LIB_H_FILES := $(wildcard lib/include/B/*.h)
+LIB_C_FILES := $(wildcard lib/src/*.c)
+LIB_CXX_FILES := $(wildcard lib/src/*.cc)
 
 EXAMPLE_C_FILES := example/Example2.c
 
@@ -29,8 +29,8 @@ LIB := $(OUT_DIR)/lib/libb$(SHARED_EXT)
 EXAMPLE := $(OUT_DIR)/example/example
 
 WARNING_FLAGS := -Wall -Werror
-CC_FLAGS := $(CFLAGS) $(WARNING_FLAGS) -g -std=c99
-CXX_FLAGS := $(CFLAGS) $(CXXFLAGS) $(WARNING_FLAGS) -g -std=c++11 -stdlib=libc++
+CC_FLAGS := $(CFLAGS) $(WARNING_FLAGS) -Ilib/include -g -std=c99
+CXX_FLAGS := $(CFLAGS) $(CXXFLAGS) $(WARNING_FLAGS) -Ilib/include -g -std=c++11 -stdlib=libc++
 LD_FLAGS := $(CFLAGS) $(LDFLAGS) $(WARNING_FLAGS) -L$(OUT_DIR)/lib $(LIBS) -stdlib=libc++
 
 .PHONY: all
