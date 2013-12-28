@@ -25,7 +25,15 @@ b_worker_build(
     struct B_QuestionVTable const *);
 
 static struct B_Exception *
-b_worker_parse_request(
+b_worker_send_response(
+    void *broker_dealer,
+    struct B_Identity const *client_identity,
+    struct B_RequestID const *request_id,
+    struct B_AnyAnswer const *answer,
+    struct B_AnswerVTable const *answer_vtable);
+
+static struct B_Exception *
+b_worker_recv_request(
     void *socket_zmq,
     struct B_RequestID *,
     struct B_QuestionVTableList const *,
@@ -161,7 +169,7 @@ b_worker_handle_broker(
     struct B_RequestID request_id;
     struct B_AnyQuestion *question;
     struct B_QuestionVTable const *question_vtable;
-    ex = b_worker_parse_request(
+    ex = b_worker_recv_request(
         broker_dealer,
         &request_id,
         question_vtables,
@@ -184,8 +192,7 @@ b_worker_handle_broker(
         return ex;
     }
 
-    // Send reply.
-    // TODO(strager): Move into a function.
+    // Send response.
     struct B_AnyAnswer *answer
         = question_vtable->answer(question, &ex);
     if (ex) {
@@ -193,41 +200,12 @@ b_worker_handle_broker(
         return ex;
     }
 
-    b_protocol_send_worker_command(
-        broker_dealer,
-        B_WORKER_DONE_AND_READY,
-        ZMQ_SNDMORE, // flags
-        &ex);
-    if (ex) {
-        // TODO(strager): Clean up.
-        return ex;
-    }
-
-    b_protocol_send_identity_envelope(
+    ex = b_worker_send_response(
         broker_dealer,
         client_identity,
-        ZMQ_SNDMORE,
-        &ex);
-    if (ex) {
-        // TODO(strager): Clean up.
-        return ex;
-    }
-
-    ex = b_protocol_send_request_id(
-        broker_dealer,
         &request_id,
-        ZMQ_SNDMORE);
-    if (ex) {
-        // TODO(strager): Clean up.
-        return ex;
-    }
-
-    b_protocol_send_answer(
-        broker_dealer,
         answer,
-        question_vtable->answer_vtable,
-        0,  // flags
-        &ex);
+        question_vtable->answer_vtable);
     if (ex) {
         // TODO(strager): Clean up.
         return ex;
@@ -237,7 +215,56 @@ b_worker_handle_broker(
 }
 
 static struct B_Exception *
-b_worker_parse_request(
+b_worker_send_response(
+    void *broker_dealer,
+    struct B_Identity const *client_identity,
+    struct B_RequestID const *request_id,
+    struct B_AnyAnswer const *answer,
+    struct B_AnswerVTable const *answer_vtable) {
+
+    struct B_Exception *ex = NULL;
+
+    b_protocol_send_worker_command(
+        broker_dealer,
+        B_WORKER_DONE_AND_READY,
+        ZMQ_SNDMORE, // flags
+        &ex);
+    if (ex) {
+        return ex;
+    }
+
+    b_protocol_send_identity_envelope(
+        broker_dealer,
+        client_identity,
+        ZMQ_SNDMORE,
+        &ex);
+    if (ex) {
+        return ex;
+    }
+
+    ex = b_protocol_send_request_id(
+        broker_dealer,
+        request_id,
+        ZMQ_SNDMORE);
+    if (ex) {
+        return ex;
+    }
+
+    b_protocol_send_answer(
+        broker_dealer,
+        answer,
+        answer_vtable,
+        0,  // flags
+        &ex);
+    if (ex) {
+        return ex;
+    }
+
+    return NULL;
+}
+
+static struct B_Exception *
+b_worker_recv_request(
     void *socket_zmq,
     struct B_RequestID *request_id,
     struct B_QuestionVTableList const *question_vtables,
