@@ -44,7 +44,7 @@ c_object_files[] = {
     "lib/src/FileQuestion.c.o",
     "lib/src/FileRule.c.o",
     "lib/src/Internal/Identity.c.o",
-    "lib/src/Internal/MessageListInternal.c.o",
+    "lib/src/Internal/MessageList.c.o",
     "lib/src/Internal/Portable.c.o",
     "lib/src/Internal/Protocol.c.o",
     "lib/src/Internal/Util.c.o",

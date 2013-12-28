@@ -2,7 +2,7 @@
 #include <B/Exception.h>
 #include <B/Internal/Allocate.h>
 #include <B/Internal/Identity.h>
-#include <B/Internal/MessageListInternal.h>
+#include <B/Internal/MessageList.h>
 #include <B/Internal/Protocol.h>
 #include <B/Internal/ZMQ.h>
 #include <B/Log.h>
