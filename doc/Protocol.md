@@ -31,6 +31,6 @@ design][Distributed-Design.md].
 
     Response:
     Frame 1-2: Client identity envelope.
-    Frame 3-4: Copy of client request frames 1-2.
+    Frame 3-4: Copy of client request frames 1-3.
 
 [Distributed-Design.md]: Distributed-Design.md
