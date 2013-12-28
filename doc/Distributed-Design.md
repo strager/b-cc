@@ -43,7 +43,7 @@ is depicted in the following diagram:
     #--------#  #--------#  +--------+    |
                             | Client |    |
                             +--------+    |
-                            |  REQ   |    |
+                            | DEALER |    |
                             '---+----'    |
                                 |         |
                                 '---------'
