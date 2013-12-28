@@ -95,6 +95,16 @@ b_protocol_recv_identity_envelope(
     int flags,
     struct B_Exception **);
 
+B_ERRFUNC
+b_protocol_send_identity_delimiter(
+    void *socket_zmq,
+    int flags);
+
+B_ERRFUNC
+b_protocol_recv_identity_delimiter(
+    void *socket_zmq,
+    int flags);
+
 void
 b_protocol_send_worker_command(
     void *socket_zmq,

@@ -17,9 +17,9 @@ The connection between these components in a single process
 is depicted in the following diagram:
 
     #--------#  #--------#  #--------#
-    | Worker |  | Worker |  | Client |
+    | Client |  | Client |  | Client |
     +--------+  +--------+  +--------+
-    |  REQ   |  |  REQ   |  |  REQ   |
+    | DEALER |  | DEALER |  | DEALER |
     '---+----'  '---+----'  '---+----'
         |           |           |
         '-----------+-----------'
@@ -41,17 +41,19 @@ is depicted in the following diagram:
     +--------+  +--------+  +--------+    |
     | Worker |  | Worker |  | Worker |    |
     #--------#  #--------#  +--------+    |
+                            | Client |    |
+                            +--------+    |
                             |  REQ   |    |
                             '---+----'    |
                                 |         |
                                 '---------'
 
 This follows the [Load Balancing
-Pattern][load-balancing-pattern].  Workers (in addition to
-clients) can connect to a broker to ask for work to be
-performed.  Connections can be circular: a worker can
-connect to a broker and that broker can connect back to the
-same worker.
+Pattern][load-balancing-pattern], with the exception that
+clients are DEALERs.  Workers can connect to a broker to ask
+for work to be performed.  Connections can be circular: a
+worker can connect to a broker (via a client socket) and
+that broker can connect back to the same worker.
 
 Because the process broker and workers are in the same
 process, reliability is guaranteed.  Additional fault

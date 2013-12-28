@@ -195,10 +195,8 @@ b_protocol_send_identity_envelope(
         return;
     }
 
-    *ex = b_zmq_send(
+    *ex = b_protocol_send_identity_delimiter(
         socket_zmq,
-        NULL,
-        0,
         flags);
     if (*ex) {
         return;
@@ -220,18 +218,10 @@ b_protocol_recv_identity_envelope(
         return NULL;
     }
 
-    size_t delimiter_size = 0;
-    *ex = b_zmq_recv(
+    *ex = b_protocol_recv_identity_delimiter(
         socket_zmq,
-        NULL,
-        &delimiter_size,
         flags);
     if (*ex) {
-        b_zmq_msg_close(&identity_message);
-        return NULL;
-    }
-    if (delimiter_size != 0) {
-        *ex = b_exception_string("Expected empty delimiter");
         b_zmq_msg_close(&identity_message);
         return NULL;
     }
@@ -241,6 +231,45 @@ b_protocol_recv_identity_envelope(
         zmq_msg_size(&identity_message));
     b_zmq_msg_close(&identity_message);
     return identity;
+}
+
+B_ERRFUNC
+b_protocol_send_identity_delimiter(
+    void *socket_zmq,
+    int flags) {
+
+    struct B_Exception *ex;
+
+    ex = b_zmq_send(socket_zmq, NULL, 0, flags);
+    if (ex) {
+        return ex;
+    }
+
+    return NULL;
+}
+
+B_ERRFUNC
+b_protocol_recv_identity_delimiter(
+    void *socket_zmq,
+    int flags) {
+
+    struct B_Exception *ex;
+
+    size_t delimiter_size = 0;
+    ex = b_zmq_recv(
+        socket_zmq,
+        NULL,
+        &delimiter_size,
+        flags);
+    if (ex) {
+        return ex;
+    }
+    if (delimiter_size != 0) {
+        return b_exception_string(
+            "Expected empty delimiter");
+    }
+
+    return NULL;
 }
 
 void

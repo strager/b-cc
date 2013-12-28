@@ -5,9 +5,10 @@
 #include <B/Internal/Validate.h>
 #include <B/UUID.h>
 
+#include <zmq.h>
+
 #include <assert.h>
 #include <stddef.h>
-#include <string.h>
 
 static struct B_UUID
 b_exception_errno_uuid = B_UUID("160EEE36-0217-4C19-9C4F-890011328893");
@@ -73,7 +74,7 @@ b_exception_errno_allocate_message(
             &message,
             "%s: %s (%d)",
             ex->function_name,
-            strerror(ex->errno_value),
+            zmq_strerror(ex->errno_value),
             ex->errno_value);
         assert(rc > 0);  // FIXME(strager)
     }

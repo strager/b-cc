@@ -15,8 +15,24 @@
 
 struct B_Client {
     // ZeroMQ sockets
-    void *const broker_req;
+    void *const broker_dealer;
 };
+
+static struct B_Exception *
+b_client_send_request(
+    void *broker_dealer,
+    size_t request_index,
+    struct B_AnyQuestion const *,
+    struct B_QuestionVTable const *);
+
+static void
+serialize_request_index(
+    size_t request_index,
+    struct B_RequestID *out_request_id);
+
+static size_t
+deserialize_request_index(
+    struct B_RequestID const *request_id);
 
 struct B_Exception *
 b_client_allocate_connect(
@@ -33,18 +49,18 @@ b_client_allocate_connect(
         broker);
     assert(ok);
 
-    void *broker_req;
+    void *broker_dealer;
     ex = b_zmq_socket_connect(
         context_zmq,
-        ZMQ_REQ,
+        ZMQ_DEALER,
         endpoint_buffer,
-        &broker_req);
+        &broker_dealer);
     if (ex) {
         return ex;
     }
 
     B_ALLOCATE(struct B_Client, client, {
-        .broker_req = broker_req,
+        .broker_dealer = broker_dealer,
     });
     *out = client;
 
@@ -55,7 +71,7 @@ struct B_Exception *
 b_client_deallocate_disconnect(
     struct B_Client *client) {
 
-    int rc = zmq_close(client->broker_req);
+    int rc = zmq_close(client->broker_dealer);
     if (rc == -1) {
         return b_exception_errno("zmq_close", errno);
     }
@@ -73,75 +89,70 @@ b_client_need_answers(
     struct B_AnyAnswer **answers,
     size_t count) {
 
-    // TODO(strager): Parallelize.
     for (size_t i = 0; i < count; ++i) {
         struct B_Exception *ex;
 
-        struct B_RequestID const request_id = {
-            .bytes = {
-                i >> 0,
-                i >> 8,
-                i >> 16,
-                i >> 24,
-            },
-        };
-
-        ex = b_protocol_send_request_id(
-            client->broker_req,
-            &request_id,
-            ZMQ_SNDMORE);
-        if (ex) {
-            return ex;
-        }
-
-        b_protocol_send_uuid(
-            client->broker_req,
-            question_vtables[i]->uuid,
-            ZMQ_SNDMORE,
-            &ex);
-        if (ex) {
-            return ex;
-        }
-
-        B_LOG(B_INFO, "Sending question to broker.");
-        b_protocol_send_question(
-            client->broker_req,
+        B_LOG(B_INFO, "Sending request %zu to broker.", i);
+        ex = b_client_send_request(
+            client->broker_dealer,
+            i,
             questions[i],
-            question_vtables[i],
-            0,  // flags
-            &ex);
+            question_vtables[i]);
         if (ex) {
             return ex;
         }
+    }
 
-        struct B_RequestID received_request_id;
-        ex = b_protocol_recv_request_id(
-            client->broker_req,
-            &received_request_id,
+    for (size_t i = 0; i < count; ++i) {
+        answers[i] = NULL;
+    }
+
+    for (size_t i = 0; i < count; ++i) {
+        struct B_Exception *ex;
+
+        ex = b_protocol_recv_identity_delimiter(
+            client->broker_dealer,
             0);  // flags
         if (ex) {
             return ex;
         }
 
-        if (memcmp(
-            &received_request_id,
+        struct B_RequestID request_id;
+        ex = b_protocol_recv_request_id(
+            client->broker_dealer,
             &request_id,
-            sizeof(request_id)) != 0) {
-            return b_exception_string(
-                "Received request ID does not match send request ID");
+            0);  // flags
+        if (ex) {
+            // TODO(strager): Cleanup.
+            return ex;
         }
 
-        B_LOG(B_INFO, "Receiving answer from broker.");
-        answers[i] = b_protocol_recv_answer(
-            client->broker_req,
-            question_vtables[i]->answer_vtable,
+        size_t request_index
+            = deserialize_request_index(&request_id);
+
+        if (request_index >= count) {
+            // TODO(strager): Cleanup.
+            return b_exception_format_string(
+                "Request %zu out of range",
+                request_index);
+        }
+        if (answers[request_index]) {
+            // TODO(strager): Cleanup.
+            return b_exception_format_string(
+                "Request %zu already received",
+                request_index);
+        }
+
+        answers[request_index] = b_protocol_recv_answer(
+            client->broker_dealer,
+            question_vtables[request_index]->answer_vtable,
             0,  // flags
             &ex);
         if (ex) {
             return ex;
         }
 
-        B_LOG(B_INFO, "Ding!");
+        B_LOG(B_INFO, "Received reply %zu from broker.", request_index);
     }
 
     return NULL;
@@ -156,6 +167,10 @@ b_client_need(
 
     // TODO(strager): Don't allocate/deallocate answers.
     struct B_AnyAnswer *answers[count];
+    for (size_t i = 0; i < count; ++i) {
+        answers[i] = NULL;
+    }
+
     struct B_Exception *ex = b_client_need_answers(
         client,
         questions,
@@ -163,8 +178,10 @@ b_client_need(
         answers,
         count);
     for (size_t i = 0; i < count; ++i) {
-        question_vtables[i]->answer_vtable
-            ->deallocate(answers[i]);
+        if (answers[i]) {
+            question_vtables[i]->answer_vtable
+                ->deallocate(answers[i]);
+        }
     }
     if (ex) {
         return ex;
@@ -184,4 +201,77 @@ b_client_need_one(
         &question,
         &question_vtable,
         1);  // count
+}
+
+static struct B_Exception *
+b_client_send_request(
+    void *broker_dealer,
+    size_t request_index,
+    struct B_AnyQuestion const *question,
+    struct B_QuestionVTable const *question_vtable) {
+
+    struct B_Exception *ex;
+
+    ex = b_protocol_send_identity_delimiter(
+        broker_dealer,
+        ZMQ_SNDMORE);
+    if (ex) {
+        return ex;
+    }
+
+    struct B_RequestID request_id;
+    serialize_request_index(request_index, &request_id);
+    ex = b_protocol_send_request_id(
+        broker_dealer,
+        &request_id,
+        ZMQ_SNDMORE);
+    if (ex) {
+        return ex;
+    }
+
+    b_protocol_send_uuid(
+        broker_dealer,
+        question_vtable->uuid,
+        ZMQ_SNDMORE,
+        &ex);
+    if (ex) {
+        return ex;
+    }
+
+    b_protocol_send_question(
+        broker_dealer,
+        question,
+        question_vtable,
+        0,  // flags
+        &ex);
+    if (ex) {
+        return ex;
+    }
+
+    return NULL;
+}
+
+static void
+serialize_request_index(
+    size_t request_index,
+    struct B_RequestID *out_request_id) {
+
+    *out_request_id = (struct B_RequestID) {
+        .bytes = {
+            request_index >> 0,
+            request_index >> 8,
+            request_index >> 16,
+            request_index >> 24,
+        },
+    };
+}
+
+static size_t
+deserialize_request_index(
+    struct B_RequestID const *request_id) {
+
+    return (request_id->bytes[0] << 0)
+        | (request_id->bytes[1] << 8)
+        | (request_id->bytes[2] << 16)
+        | (request_id->bytes[3] << 24);
 }

@@ -5,7 +5,7 @@
 For architectural documentation, see [B distributed
 design][Distributed-Design.md].
 
-### Client (REQ) - Broker (ROUTER)
+### Client (DEALER) - Broker (ROUTER)
 
     Request:
     Frame 1: Request ID (arbitrary 4 bytes).
