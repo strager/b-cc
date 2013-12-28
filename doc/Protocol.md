@@ -17,7 +17,7 @@ design][Distributed-Design.md].
     Frame 1: Copy of worker request (WORKER_DONE_AND_READY)
              frame 4.
 
-### Worker (REQ) - Broker (ROUTER)
+### Worker (DEALER) - Broker (ROUTER)
 
     Request (WORKER_READY):
     Frame 1: Single byte 0x01.

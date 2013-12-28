@@ -35,7 +35,7 @@ b_worker_parse_request(
 
 static struct B_Exception *
 b_worker_handle_broker(
-    void *broker_req,
+    void *broker_dealer,
     struct B_Client *,
     struct B_AnyRule const *,
     struct B_RuleVTable const *,
@@ -45,7 +45,7 @@ static struct B_Exception *
 b_worker_connect(
     void *context_zmq,
     struct B_Broker const *broker,
-    void **out_broker_req) {
+    void **out_broker_dealer) {
 
     struct B_Exception *ex;
 
@@ -56,18 +56,18 @@ b_worker_connect(
         broker);
     assert(ok);
 
-    void *broker_req;
+    void *broker_dealer;
     ex = b_zmq_socket_connect(
         context_zmq,
-        ZMQ_REQ,
+        ZMQ_DEALER,
         endpoint_buffer,
-        &broker_req);
+        &broker_dealer);
     if (ex) {
         return ex;
     }
 
     b_protocol_send_worker_command(
-        broker_req,
+        broker_dealer,
         B_WORKER_READY,
         0, // flags
         &ex);
@@ -75,7 +75,7 @@ b_worker_connect(
         return ex;
     }
 
-    *out_broker_req = broker_req;
+    *out_broker_dealer = broker_dealer;
     return NULL;
 }
 
@@ -89,8 +89,11 @@ b_worker_work(
 
     struct B_Exception *ex;
 
-    void *broker_req;
-    ex = b_worker_connect(context_zmq, broker, &broker_req);
+    void *broker_dealer;
+    ex = b_worker_connect(
+        context_zmq,
+        broker,
+        &broker_dealer);
     if (ex) {
         return ex;
     }
@@ -105,7 +108,7 @@ b_worker_work(
     }
 
     zmq_pollitem_t poll_items[] = {
-        { broker_req, 0, ZMQ_POLLIN, 0 },
+        { broker_dealer, 0, ZMQ_POLLIN, 0 },
     };
     for (;;) {
         const long timeout = -1;
@@ -125,7 +128,7 @@ b_worker_work(
 
         if (poll_items[0].revents & ZMQ_POLLIN) {
             ex = b_worker_handle_broker(
-                broker_req,
+                broker_dealer,
                 client,
                 rule,
                 rule_vtable,
@@ -138,14 +141,14 @@ b_worker_work(
 
     // TODO(strager): Error checking.
     (void) b_client_deallocate_disconnect(client);
-    (void) zmq_close(broker_req);
+    (void) zmq_close(broker_dealer);
 
     return NULL;
 }
 
 static struct B_Exception *
 b_worker_handle_broker(
-    void *broker_req,
+    void *broker_dealer,
     struct B_Client *client,
     struct B_AnyRule const *rule,
     struct B_RuleVTable const *rule_vtable,
@@ -159,7 +162,7 @@ b_worker_handle_broker(
     struct B_AnyQuestion *question;
     struct B_QuestionVTable const *question_vtable;
     ex = b_worker_parse_request(
-        broker_req,
+        broker_dealer,
         &request_id,
         question_vtables,
         &client_identity,
@@ -182,6 +185,7 @@ b_worker_handle_broker(
     }
 
     // Send reply.
+    // TODO(strager): Move into a function.
     struct B_AnyAnswer *answer
         = question_vtable->answer(question, &ex);
     if (ex) {
@@ -190,7 +194,7 @@ b_worker_handle_broker(
     }
 
     b_protocol_send_worker_command(
-        broker_req,
+        broker_dealer,
         B_WORKER_DONE_AND_READY,
         ZMQ_SNDMORE, // flags
         &ex);
@@ -200,7 +204,7 @@ b_worker_handle_broker(
     }
 
     b_protocol_send_identity_envelope(
-        broker_req,
+        broker_dealer,
         client_identity,
         ZMQ_SNDMORE,
         &ex);
@@ -210,7 +214,7 @@ b_worker_handle_broker(
     }
 
     ex = b_protocol_send_request_id(
-        broker_req,
+        broker_dealer,
         &request_id,
         ZMQ_SNDMORE);
     if (ex) {
@@ -219,7 +223,7 @@ b_worker_handle_broker(
     }
 
     b_protocol_send_answer(
-        broker_req,
+        broker_dealer,
         answer,
         question_vtable->answer_vtable,
         0,  // flags
@@ -242,6 +246,13 @@ b_worker_parse_request(
     struct B_QuestionVTable const **question_vtable) {
 
     struct B_Exception *ex = NULL;
+
+    ex = b_protocol_recv_identity_delimiter(
+        socket_zmq,
+        0);  // flags
+    if (ex) {
+        return ex;
+    }
 
     *client_identity = b_protocol_recv_identity_envelope(
         socket_zmq,

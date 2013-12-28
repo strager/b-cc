@@ -37,7 +37,7 @@ is depicted in the following diagram:
         .-----------+-----------.         |
         |           |           |         |
     .---+----.  .---+----.  .---+----.    |
-    |  REQ   |  |  REQ   |  |  REQ   |    |
+    | DEALER |  | DEALER |  | DEALER |    |
     +--------+  +--------+  +--------+    |
     | Worker |  | Worker |  | Worker |    |
     #--------#  #--------#  +--------+    |
@@ -50,10 +50,14 @@ is depicted in the following diagram:
 
 This follows the [Load Balancing
 Pattern][load-balancing-pattern], with the exception that
-clients are DEALERs.  Workers can connect to a broker to ask
-for work to be performed.  Connections can be circular: a
-worker can connect to a broker (via a client socket) and
-that broker can connect back to the same worker.
+clients and workers have DEALER sockets instead of REQ
+sockets.  Workers can connect to a broker to ask for work to
+be performed.  Both clients and workers can have multiple
+requests in flight at the same time.
+
+Connections can be circular: a worker can connect to a
+broker (via a client socket) and that broker can connect
+back to the same worker.
 
 Because the process broker and workers are in the same
 process, reliability is guaranteed.  Additional fault

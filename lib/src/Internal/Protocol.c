@@ -279,6 +279,13 @@ b_protocol_send_worker_command(
     int flags,
     struct B_Exception **ex) {
 
+    *ex = b_protocol_send_identity_delimiter(
+        socket_zmq,
+        flags | ZMQ_SNDMORE);
+    if (*ex) {
+        return;
+    }
+
     uint8_t command_byte = command;
     *ex = b_zmq_send(
         socket_zmq,
