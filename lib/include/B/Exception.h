@@ -1,6 +1,8 @@
 #ifndef EXCEPTION_H_9451BAF7_374C_4B0F_83D2_FCEC16055154
 #define EXCEPTION_H_9451BAF7_374C_4B0F_83D2_FCEC16055154
 
+#include <B/Common.h>
+#include <B/Serialize.h>
 #include <B/UUID.h>
 
 #include <stddef.h>
@@ -13,10 +15,24 @@ extern "C" {
 // Objective-C, POSIX, and other kinds of exception and
 // error types may be encoded in a B_Exception type.
 struct B_Exception {
+    struct B_ExceptionVTable const *const vtable;
+};
+
+// Virtual table for Exceptions.  See PATTERNS.md.
+struct B_ExceptionVTable {
     struct B_UUID uuid;
-    const char *message;
-    void *data;
-    void (*deallocate)(struct B_Exception *);
+
+    B_MUST_USE_RESULT char const *
+    (*allocate_message)(
+        struct B_Exception const *);
+
+    void
+    (*deallocate_message)(
+        char const *);
+
+    void
+    (*deallocate)(
+        struct B_Exception *);
 };
 
 // Creates a plain-text Exception with the given message.
@@ -35,13 +51,22 @@ b_exception_format_string(
 struct B_Exception *
 b_exception_errno(
     const char *function,
-    int errno_);
+    int errno_value);
 // Warning: errno is a macro on some platforms.
 
 // Destroys any type of Exception.
 void
 b_exception_deallocate(
     struct B_Exception *);
+
+char const *
+b_exception_allocate_message(
+    struct B_Exception const *);
+
+void
+b_exception_deallocate_message(
+    struct B_Exception const *,
+    char const *);
 
 // Creates an Exception which is the combination of multiple
 // exceptions.  Deallocating the returned Exception will
@@ -53,7 +78,7 @@ b_exception_aggregate(
 
 void
 b_exception_validate(
-    struct B_Exception *);
+    struct B_Exception const *);
 
 #define B_EXCEPTION_THEN(ex_var, ...) \
     do { \
@@ -66,7 +91,7 @@ b_exception_validate(
 }
 #endif
 
-#ifdef __cplusplus
+#if defined(__cplusplus)
 #include <exception>
 #include <memory>
 #include <stdexcept>
@@ -123,7 +148,17 @@ b_exception_try_cxx(
         return result_type();
     }
 }
+#undef B_RETHROW_STD_EXCEPTION
 #undef B_RESULT_OF_EXCEPTION_FUNC
+
+struct B_ExceptionDeleter {
+    void operator()(B_Exception *ex) const {
+        b_exception_deallocate(ex);
+    }
+};
+
+typedef std::unique_ptr<B_Exception, B_ExceptionDeleter>
+    B_ExceptionUniquePtr;
 #endif
 
 #endif

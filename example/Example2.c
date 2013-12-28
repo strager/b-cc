@@ -38,6 +38,9 @@ c_object_files[] = {
     "lib/src/BuildContext.c.o",
     "lib/src/Client.c.o",
     "lib/src/Database.c.o",
+    "lib/src/Exception.c.o",
+    "lib/src/ExceptionErrno.c.o",
+    "lib/src/ExceptionString.c.o",
     "lib/src/FileQuestion.c.o",
     "lib/src/FileRule.c.o",
     "lib/src/Identity.c.o",
@@ -62,7 +65,8 @@ c_object_files_count = sizeof(c_object_files) / sizeof(*c_object_files);
 static const char *
 cc_object_files[] = {
     "lib/src/DatabaseInMemory.cc.o",
-    "lib/src/Exception.cc.o",
+    "lib/src/ExceptionAggregate.cc.o",
+    "lib/src/ExceptionCXX.cc.o",
 };
 
 static const size_t
@@ -319,10 +323,7 @@ load_database(
     struct B_Exception *ex = NULL;
     b_database_in_memory_recheck_all(database, &ex);
     if (ex) {
-        fprintf(
-            stderr,
-            "Exception occured while rechecking:\n  %s\n",
-            ex->message);
+        B_LOG_EXCEPTION(ex);
         return NULL;
     }
 

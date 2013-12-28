@@ -74,7 +74,9 @@ void
 b_log_exception(
     struct B_Exception const *ex) {
 
-    b_log_format(B_EXCEPTION, "%s", ex->message);
+    char const *message = b_exception_allocate_message(ex);
+    b_log_format(B_EXCEPTION, "%s", message);
+    b_exception_deallocate_message(ex, message);
 }
 
 void
