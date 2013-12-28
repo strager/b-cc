@@ -1,7 +1,7 @@
 #ifndef BROKER_H_639BF0A4_565A_4687_B404_812552C251E6
 #define BROKER_H_639BF0A4_565A_4687_B404_812552C251E6
 
-#include <B/Common.h>
+#include <B/Internal/Common.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -4,7 +4,6 @@
 // recompilation.  I consider this a bug, but rule maps
 // aren't implemented yet.
 
-#include <B/Allocate.h>
 #include <B/Broker.h>
 #include <B/BuildContext.h>
 #include <B/Client.h>
@@ -13,8 +12,9 @@
 #include <B/Exception.h>
 #include <B/FileQuestion.h>
 #include <B/FileRule.h>
+#include <B/Internal/Allocate.h>
+#include <B/Internal/Portable.h>
 #include <B/Log.h>
-#include <B/Portable.h>
 #include <B/QuestionVTableList.h>
 #include <B/Worker.h>
 
@@ -43,20 +43,20 @@ c_object_files[] = {
     "lib/src/ExceptionString.c.o",
     "lib/src/FileQuestion.c.o",
     "lib/src/FileRule.c.o",
-    "lib/src/Identity.c.o",
+    "lib/src/Internal/Identity.c.o",
+    "lib/src/Internal/MessageListInternal.c.o",
+    "lib/src/Internal/Portable.c.o",
+    "lib/src/Internal/Protocol.c.o",
+    "lib/src/Internal/Util.c.o",
+    "lib/src/Internal/ZMQ.c.o",
     "lib/src/Log.c.o",
-    "lib/src/MessageListInternal.c.o",
-    "lib/src/Portable.c.o",
-    "lib/src/Protocol.c.o",
     "lib/src/Question.c.o",
     "lib/src/QuestionVTableList.c.o",
     "lib/src/Rule.c.o",
     "lib/src/RuleQueryList.c.o",
     "lib/src/Serialize.c.o",
     "lib/src/UUID.c.o",
-    "lib/src/Util.c.o",
     "lib/src/Worker.c.o",
-    "lib/src/ZMQ.c.o",
 };
 
 static const size_t

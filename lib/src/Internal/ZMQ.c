@@ -1,8 +1,8 @@
 #include <B/Exception.h>
+#include <B/Internal/Portable.h>
+#include <B/Internal/Util.h>
+#include <B/Internal/ZMQ.h>
 #include <B/Log.h>
-#include <B/Portable.h>
-#include <B/Util.h>
-#include <B/ZMQ.h>
 
 #include <zmq.h>
 

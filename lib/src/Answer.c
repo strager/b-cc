@@ -1,5 +1,5 @@
 #include <B/Answer.h>
-#include <B/Validate.h>
+#include <B/Internal/Validate.h>
 
 void
 b_answer_validate(

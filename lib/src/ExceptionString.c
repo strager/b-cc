@@ -1,9 +1,9 @@
-#include <B/Allocate.h>
 #include <B/Exception.h>
-#include <B/Portable.h>
+#include <B/Internal/Allocate.h>
+#include <B/Internal/Portable.h>
+#include <B/Internal/VTable.h>
+#include <B/Internal/Validate.h>
 #include <B/UUID.h>
-#include <B/VTable.h>
-#include <B/Validate.h>
 
 #include <stdarg.h>
 #include <stddef.h>

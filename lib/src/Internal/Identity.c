@@ -1,6 +1,6 @@
-#include <B/Allocate.h>
-#include <B/Identity.h>
-#include <B/Portable.h>
+#include <B/Internal/Allocate.h>
+#include <B/Internal/Identity.h>
+#include <B/Internal/Portable.h>
 
 #include <stdlib.h>
 

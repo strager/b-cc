@@ -1,7 +1,7 @@
 #ifndef WORKER_H_6BDDD03D_93FC_4FCF_8D50_20EFA7A811B3
 #define WORKER_H_6BDDD03D_93FC_4FCF_8D50_20EFA7A811B3
 
-#include <B/Common.h>
+#include <B/Internal/Common.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,7 +1,7 @@
 #include <B/Answer.h>
+#include <B/Internal/Validate.h>
 #include <B/Question.h>
 #include <B/UUID.h>
-#include <B/Validate.h>
 
 void
 b_question_validate(

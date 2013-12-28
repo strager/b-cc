@@ -1,5 +1,5 @@
-#include <B/Allocate.h>
 #include <B/BuildContext.h>
+#include <B/Internal/Allocate.h>
 
 struct B_BuildContext {
     struct B_Client *const client;

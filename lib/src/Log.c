@@ -1,6 +1,6 @@
 #include <B/Exception.h>
+#include <B/Internal/Portable.h>
 #include <B/Log.h>
-#include <B/Portable.h>
 
 #include <pthread.h>
 #include <stdarg.h>

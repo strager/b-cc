@@ -1,7 +1,7 @@
 #ifndef UTIL_H_7447E8FE_9310_4BE3_AA3E_1411FFDC10FC
 #define UTIL_H_7447E8FE_9310_4BE3_AA3E_1411FFDC10FC
 
-#include <B/Common.h>
+#include <B/Internal/Common.h>
 
 #include <stddef.h>
 #include <stdint.h>

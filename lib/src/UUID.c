@@ -1,7 +1,7 @@
-#include <B/Allocate.h>
-#include <B/Portable.h>
+#include <B/Internal/Allocate.h>
+#include <B/Internal/Portable.h>
+#include <B/Internal/Validate.h>
 #include <B/UUID.h>
-#include <B/Validate.h>
 
 #include <stdlib.h>
 #include <string.h>

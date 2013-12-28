@@ -1,11 +1,11 @@
-#include <B/Allocate.h>
 #include <B/Broker.h>
 #include <B/Exception.h>
-#include <B/Identity.h>
+#include <B/Internal/Allocate.h>
+#include <B/Internal/Identity.h>
+#include <B/Internal/MessageListInternal.h>
+#include <B/Internal/Protocol.h>
+#include <B/Internal/ZMQ.h>
 #include <B/Log.h>
-#include <B/MessageListInternal.h>
-#include <B/Protocol.h>
-#include <B/ZMQ.h>
 
 #include <zmq.h>
 

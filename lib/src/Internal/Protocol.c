@@ -1,10 +1,10 @@
 #include <B/Answer.h>
 #include <B/Exception.h>
-#include <B/Identity.h>
-#include <B/Protocol.h>
+#include <B/Internal/Identity.h>
+#include <B/Internal/Protocol.h>
+#include <B/Internal/ZMQ.h>
 #include <B/Question.h>
 #include <B/Serialize.h>
-#include <B/ZMQ.h>
 
 #include <zmq.h>
 

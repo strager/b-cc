@@ -1,15 +1,15 @@
-#include <B/Allocate.h>
 #include <B/BuildContext.h>
 #include <B/Client.h>
 #include <B/Exception.h>
+#include <B/Internal/Allocate.h>
+#include <B/Internal/Protocol.h>
+#include <B/Internal/ZMQ.h>
 #include <B/Log.h>
-#include <B/Protocol.h>
 #include <B/Question.h>
 #include <B/QuestionVTableList.h>
 #include <B/Rule.h>
 #include <B/RuleQueryList.h>
 #include <B/Worker.h>
-#include <B/ZMQ.h>
 
 #include <zmq.h>
 

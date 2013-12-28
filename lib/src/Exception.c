@@ -1,6 +1,6 @@
 #include <B/Exception.h>
+#include <B/Internal/Validate.h>
 #include <B/UUID.h>
-#include <B/Validate.h>
 
 void
 b_exception_deallocate(

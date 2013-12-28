@@ -1,7 +1,7 @@
 #ifndef CLIENT_H_D074DEDB_276B_4567_A269_B65D4219C265
 #define CLIENT_H_D074DEDB_276B_4567_A269_B65D4219C265
 
-#include <B/Common.h>
+#include <B/Internal/Common.h>
 
 #include <stddef.h>
 

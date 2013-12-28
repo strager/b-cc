@@ -1,9 +1,12 @@
 OUT_DIR := out
-OUT_DIRS := $(OUT_DIR)/lib/src $(OUT_DIR)/example
+OUT_DIRS := \
+	$(OUT_DIR)/lib/src \
+	$(OUT_DIR)/lib/src/Internal \
+	$(OUT_DIR)/example
 
-LIB_H_FILES := $(wildcard lib/include/B/*.h)
-LIB_C_FILES := $(wildcard lib/src/*.c)
-LIB_CXX_FILES := $(wildcard lib/src/*.cc)
+LIB_H_FILES := $(wildcard lib/include/B/*.h) $(wildcard lib/include/B/Internal/*.h)
+LIB_C_FILES := $(wildcard lib/src/*.c) $(wildcard lib/src/Internal/*.c)
+LIB_CXX_FILES := $(wildcard lib/src/*.cc) $(wildcard lib/src/Internal/*.cc)
 
 EXAMPLE_C_FILES := example/Example2.c
 

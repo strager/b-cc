@@ -1,5 +1,5 @@
 #include <B/Exception.h>
-#include <B/MessageListInternal.h>
+#include <B/Internal/MessageListInternal.h>
 
 #include <zmq.h>
 

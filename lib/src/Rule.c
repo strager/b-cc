@@ -1,7 +1,7 @@
+#include <B/Internal/Validate.h>
 #include <B/Question.h>
 #include <B/Rule.h>
 #include <B/UUID.h>
-#include <B/Validate.h>
 
 void
 b_rule_vtable_validate(

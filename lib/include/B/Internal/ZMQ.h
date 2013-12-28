@@ -1,7 +1,7 @@
 #ifndef ZMQ_H_D9C4D3FF_FB0A_46FF_990B_59D6D3A89BC0
 #define ZMQ_H_D9C4D3FF_FB0A_46FF_990B_59D6D3A89BC0
 
-#include <B/Common.h>
+#include <B/Internal/Common.h>
 
 #include <zmq.h>
 

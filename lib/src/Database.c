@@ -1,5 +1,5 @@
 #include <B/Database.h>
-#include <B/Validate.h>
+#include <B/Internal/Validate.h>
 
 void
 b_database_vtable_validate(

@@ -1,6 +1,6 @@
-#include <B/Allocate.h>
 #include <B/FileQuestion.h>
 #include <B/FileRule.h>
+#include <B/Internal/Allocate.h>
 #include <B/Question.h>
 #include <B/Rule.h>
 #include <B/UUID.h>

@@ -1,8 +1,8 @@
-#include <B/Allocate.h>
 #include <B/Answer.h>
 #include <B/Exception.h>
 #include <B/FileQuestion.h>
-#include <B/Portable.h>
+#include <B/Internal/Allocate.h>
+#include <B/Internal/Portable.h>
 #include <B/Question.h>
 
 #include <errno.h>

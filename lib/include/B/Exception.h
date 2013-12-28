@@ -1,7 +1,7 @@
 #ifndef EXCEPTION_H_9451BAF7_374C_4B0F_83D2_FCEC16055154
 #define EXCEPTION_H_9451BAF7_374C_4B0F_83D2_FCEC16055154
 
-#include <B/Common.h>
+#include <B/Internal/Common.h>
 #include <B/Serialize.h>
 #include <B/UUID.h>
 

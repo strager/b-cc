@@ -1,4 +1,4 @@
-#include <B/Allocate.h>
+#include <B/Internal/Allocate.h>
 #include <B/Question.h>
 #include <B/QuestionVTableList.h>
 

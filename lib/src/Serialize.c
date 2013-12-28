@@ -1,4 +1,4 @@
-#include <B/Portable.h>
+#include <B/Internal/Portable.h>
 #include <B/Serialize.h>
 
 #include <assert.h>

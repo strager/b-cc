@@ -1,7 +1,7 @@
 #include <B/Exception.h>
+#include <B/Internal/VTable.h>
+#include <B/Internal/Validate.h>
 #include <B/UUID.h>
-#include <B/VTable.h>
-#include <B/Validate.h>
 
 #include <cstddef>
 #include <memory>
