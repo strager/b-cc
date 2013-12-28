@@ -1,6 +1,7 @@
 #include <B/BuildContext.h>
 #include <B/Client.h>
 #include <B/Exception.h>
+#include <B/Fiber.h>
 #include <B/Internal/Allocate.h>
 #include <B/Internal/Protocol.h>
 #include <B/Internal/ZMQ.h>
@@ -18,6 +19,7 @@
 
 static struct B_Exception *
 b_worker_build(
+    struct B_FiberContext *,
     struct B_Client *,
     struct B_AnyRule const *,
     struct B_RuleVTable const *,
@@ -44,6 +46,7 @@ b_worker_recv_request(
 static struct B_Exception *
 b_worker_handle_broker(
     void *broker_dealer,
+    struct B_FiberContext *,
     struct B_Client *,
     struct B_AnyRule const *,
     struct B_RuleVTable const *,
@@ -97,12 +100,19 @@ b_worker_work(
 
     struct B_Exception *ex;
 
+    struct B_FiberContext *fiber_context;
+    ex = b_fiber_context_allocate(&fiber_context);
+    if (ex) {
+        return ex;
+    }
+
     void *broker_dealer;
     ex = b_worker_connect(
         context_zmq,
         broker,
         &broker_dealer);
     if (ex) {
+        // TODO(strager): Cleanup.
         return ex;
     }
 
@@ -110,8 +120,10 @@ b_worker_work(
     ex = b_client_allocate_connect(
         context_zmq,
         broker,
+        fiber_context,
         &client);
     if (ex) {
+        // TODO(strager): Cleanup.
         return ex;
     }
 
@@ -119,24 +131,28 @@ b_worker_work(
         { broker_dealer, 0, ZMQ_POLLIN, 0 },
     };
     for (;;) {
-        const long timeout = -1;
-        int rc = zmq_poll(
+        const long timeout_milliseconds = -1;
+        ex = b_fiber_context_poll_zmq(
+            fiber_context,
             poll_items,
             sizeof(poll_items) / sizeof(*poll_items),
-            timeout);
-        if (rc == -1) {
-            if (errno == ETERM) {
+            timeout_milliseconds,
+            NULL);
+        if (ex) {
+            int errno_value = b_exception_errno_value(ex);
+            if (errno_value == ETERM) {
                 break;
             }
-            if (errno == EINTR) {
+            if (errno_value == EINTR) {
                 continue;
             }
-            return b_exception_errno("zmq_poll", errno);
+            return ex;
         }
 
         if (poll_items[0].revents & ZMQ_POLLIN) {
             ex = b_worker_handle_broker(
                 broker_dealer,
+                fiber_context,
                 client,
                 rule,
                 rule_vtable,
@@ -150,6 +166,7 @@ b_worker_work(
     // TODO(strager): Error checking.
     (void) b_client_deallocate_disconnect(client);
     (void) zmq_close(broker_dealer);
+    (void) b_fiber_context_deallocate(fiber_context);
 
     return NULL;
 }
@@ -157,6 +174,7 @@ b_worker_work(
 static struct B_Exception *
 b_worker_handle_broker(
     void *broker_dealer,
+    struct B_FiberContext *fiber_context,
     struct B_Client *client,
     struct B_AnyRule const *rule,
     struct B_RuleVTable const *rule_vtable,
@@ -182,6 +200,7 @@ b_worker_handle_broker(
 
     // Do work.
     ex = b_worker_build(
+        fiber_context,
         client,
         rule,
         rule_vtable,
@@ -325,8 +344,31 @@ b_worker_recv_request(
     return NULL;
 }
 
+struct B_WorkerQueryClosure {
+    B_RuleQueryFunction rule_query_function;
+    struct B_BuildContext *build_context;
+    struct B_AnyQuestion const *question;
+    void *closure;
+};
+
+// TODO(strager): Better function name.
+static void *
+b_worker_query(
+    void *closure_raw) {
+
+    struct B_Exception *ex = NULL;
+    struct B_WorkerQueryClosure *closure = closure_raw;
+    closure->rule_query_function(
+        closure->build_context,
+        closure->question,
+        closure->closure,
+        &ex);
+    return NULL;
+}
+
 static struct B_Exception *
 b_worker_build(
+    struct B_FiberContext *fiber_context,
     struct B_Client *client,
     struct B_AnyRule const *rule,
     struct B_RuleVTable const *rule_vtable,
@@ -364,13 +406,25 @@ b_worker_build(
     case 1: {
         B_LOG(B_INFO, "Executing rule.");
 
-        const struct B_RuleQuery *rule_query
+        struct B_RuleQuery const *rule_query
             = b_rule_query_list_get(rule_query_list, 0);
-        rule_query->function(
-            build_context,
-            question,
-            rule_query->closure,
-            &ex);
+
+        struct B_WorkerQueryClosure closure = {
+            .rule_query_function = rule_query->function,
+            .build_context = build_context,
+            .question = question,
+            .closure = rule_query->closure,
+        };
+        struct B_Exception *fork_ex
+            = b_fiber_context_fork(
+                fiber_context,
+                b_worker_query,
+                &closure,
+                (void **) &ex);
+        B_EXCEPTION_THEN(&fork_ex, {
+            ex = fork_ex;
+            goto done;
+        });
         B_EXCEPTION_THEN(&ex, {
             goto done;
         });

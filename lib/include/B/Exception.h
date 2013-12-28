@@ -76,6 +76,11 @@ b_exception_aggregate(
     struct B_Exception **,
     size_t count);
 
+// Gets the value of 'errno' from an errno Exception.
+int
+b_exception_errno_value(
+    struct B_Exception const *);
+
 void
 b_exception_validate(
     struct B_Exception const *);

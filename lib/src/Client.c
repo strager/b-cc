@@ -1,6 +1,7 @@
 #include <B/Answer.h>
 #include <B/Client.h>
 #include <B/Exception.h>
+#include <B/Fiber.h>
 #include <B/Internal/Allocate.h>
 #include <B/Internal/Protocol.h>
 #include <B/Internal/ZMQ.h>
@@ -14,6 +15,8 @@
 #include <string.h>
 
 struct B_Client {
+    struct B_FiberContext *fiber_context;
+
     // ZeroMQ sockets
     void *const broker_dealer;
 };
@@ -24,6 +27,13 @@ b_client_send_request(
     size_t request_index,
     struct B_AnyQuestion const *,
     struct B_QuestionVTable const *);
+
+static struct B_Exception *
+b_client_recv_reply(
+    struct B_Client *,
+    struct B_QuestionVTable const *const *question_vtables,
+    struct B_AnyAnswer **answers,
+    size_t count);
 
 static void
 serialize_request_index(
@@ -38,6 +48,7 @@ struct B_Exception *
 b_client_allocate_connect(
     void *context_zmq,
     struct B_Broker const *broker,
+    struct B_FiberContext *fiber_context,
     struct B_Client **out) {
 
     struct B_Exception *ex;
@@ -60,6 +71,7 @@ b_client_allocate_connect(
     }
 
     B_ALLOCATE(struct B_Client, client, {
+        .fiber_context = fiber_context,
         .broker_dealer = broker_dealer,
     });
     *out = client;
@@ -107,53 +119,94 @@ b_client_need_answers(
         answers[i] = NULL;
     }
 
+    zmq_pollitem_t poll_items[] = {
+        { client->broker_dealer, 0, ZMQ_POLLIN, 0 },
+    };
     for (size_t i = 0; i < count; ++i) {
         struct B_Exception *ex;
 
-        ex = b_protocol_recv_identity_delimiter(
-            client->broker_dealer,
-            0);  // flags
+        const long timeout_milliseconds = -1;
+        ex = b_fiber_context_poll_zmq(
+            client->fiber_context,
+            poll_items,
+            sizeof(poll_items) / sizeof(*poll_items),
+            timeout_milliseconds,
+            NULL);
         if (ex) {
+            int errno_value = b_exception_errno_value(ex);
+            if (errno_value == ETERM) {
+                break;
+            }
+            if (errno_value == EINTR) {
+                continue;
+            }
             return ex;
         }
 
-        struct B_RequestID request_id;
-        ex = b_protocol_recv_request_id(
-            client->broker_dealer,
-            &request_id,
-            0);  // flags
-        if (ex) {
-            // TODO(strager): Cleanup.
-            return ex;
+        if (poll_items[0].revents & ZMQ_POLLIN) {
+            ex = b_client_recv_reply(
+                client,
+                question_vtables,
+                answers,
+                count);
+            if (ex) {
+                return ex;
+            }
         }
-
-        size_t request_index
-            = deserialize_request_index(&request_id);
-
-        if (request_index >= count) {
-            // TODO(strager): Cleanup.
-            return b_exception_format_string(
-                "Request %zu out of range",
-                request_index);
-        }
-        if (answers[request_index]) {
-            // TODO(strager): Cleanup.
-            return b_exception_format_string(
-                "Request %zu already received",
-                request_index);
-        }
-
-        answers[request_index] = b_protocol_recv_answer(
-            client->broker_dealer,
-            question_vtables[request_index]->answer_vtable,
-            0,  // flags
-            &ex);
-        if (ex) {
-            return ex;
-        }
-
-        B_LOG(B_INFO, "Received reply %zu from broker.", request_index);
     }
+
+    return NULL;
+}
+
+static struct B_Exception *
+b_client_recv_reply(
+    struct B_Client *client,
+    struct B_QuestionVTable const *const *question_vtables,
+    struct B_AnyAnswer **answers,
+    size_t count) {
+
+    struct B_Exception *ex;
+
+    ex = b_protocol_recv_identity_delimiter(
+        client->broker_dealer,
+        0);  // flags
+    if (ex) {
+        return ex;
+    }
+
+    struct B_RequestID request_id;
+    ex = b_protocol_recv_request_id(
+        client->broker_dealer,
+        &request_id,
+        0);  // flags
+    if (ex) {
+        return ex;
+    }
+
+    size_t request_index
+        = deserialize_request_index(&request_id);
+
+    if (request_index >= count) {
+        return b_exception_format_string(
+            "Request %zu out of range",
+            request_index);
+    }
+    if (answers[request_index]) {
+        return b_exception_format_string(
+            "Request %zu already received",
+            request_index);
+    }
+
+    answers[request_index] = b_protocol_recv_answer(
+        client->broker_dealer,
+        question_vtables[request_index]->answer_vtable,
+        0,  // flags
+        &ex);
+    if (ex) {
+        return ex;
+    }
+
+    B_LOG(B_INFO, "Received reply %zu from broker.", request_index);
 
     return NULL;
 }

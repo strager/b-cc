@@ -10,6 +10,7 @@
 #include <B/Database.h>
 #include <B/DatabaseInMemory.h>
 #include <B/Exception.h>
+#include <B/Fiber.h>
 #include <B/FileQuestion.h>
 #include <B/FileRule.h>
 #include <B/Internal/Allocate.h>
@@ -41,6 +42,7 @@ c_object_files[] = {
     "lib/src/Exception.c.o",
     "lib/src/ExceptionErrno.c.o",
     "lib/src/ExceptionString.c.o",
+    "lib/src/Fiber.c.o",
     "lib/src/FileQuestion.c.o",
     "lib/src/FileRule.c.o",
     "lib/src/Internal/Identity.c.o",
@@ -479,11 +481,22 @@ main(
         }
     }
 
+    struct B_FiberContext *fiber_context;
+    {
+        struct B_Exception *ex = b_fiber_context_allocate(
+            &fiber_context);
+        if (ex) {
+            B_LOG_EXCEPTION(ex);
+            abort();  // TODO(strager): Cleanup.
+        }
+    }
+
     struct B_Client *client;
     {
         struct B_Exception *ex = b_client_allocate_connect(
             context_zmq,
             broker,
+            fiber_context,
             &client);
         if (ex) {
             B_LOG_EXCEPTION(ex);
@@ -514,6 +527,7 @@ main(
     }
 
     (void) b_client_deallocate_disconnect(client);
+    (void) b_fiber_context_deallocate(fiber_context);
     (void) b_broker_deallocate_unbind(broker);
     zmq_ctx_term(context_zmq);
     b_question_vtable_list_deallocate(question_vtables);

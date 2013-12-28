@@ -61,6 +61,22 @@ b_exception_errno(
     return &ex->ex;
 }
 
+int
+b_exception_errno_value(
+    struct B_Exception const *ex_raw) {
+
+    if (!b_uuid_equal(
+        ex_raw->vtable->uuid,
+        b_exception_errno_uuid)) {
+
+        return -1;
+    }
+
+    struct B_ExceptionErrno const *ex
+        = b_exception_errno_validate(ex_raw);
+    return ex->errno_value;
+}
+
 static char const *
 b_exception_errno_allocate_message(
     struct B_Exception const *ex_raw) {
