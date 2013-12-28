@@ -27,6 +27,7 @@ b_worker_build(
 static struct B_Exception *
 b_worker_parse_request(
     void *socket_zmq,
+    struct B_RequestID *,
     struct B_QuestionVTableList const *,
     struct B_Identity **client_identity,
     struct B_AnyQuestion **,
@@ -154,10 +155,12 @@ b_worker_handle_broker(
 
     // Receive request.
     struct B_Identity *client_identity;
+    struct B_RequestID request_id;
     struct B_AnyQuestion *question;
     struct B_QuestionVTable const *question_vtable;
     ex = b_worker_parse_request(
         broker_req,
+        &request_id,
         question_vtables,
         &client_identity,
         &question,
@@ -206,6 +209,15 @@ b_worker_handle_broker(
         return ex;
     }
 
+    ex = b_protocol_send_request_id(
+        broker_req,
+        &request_id,
+        ZMQ_SNDMORE);
+    if (ex) {
+        // TODO(strager): Clean up.
+        return ex;
+    }
+
     b_protocol_send_answer(
         broker_req,
         answer,
@@ -223,6 +235,7 @@ b_worker_handle_broker(
 static struct B_Exception *
 b_worker_parse_request(
     void *socket_zmq,
+    struct B_RequestID *request_id,
     struct B_QuestionVTableList const *question_vtables,
     struct B_Identity **client_identity,
     struct B_AnyQuestion **question,
@@ -234,6 +247,14 @@ b_worker_parse_request(
         socket_zmq,
         0,  // flags
         &ex);
+    if (ex) {
+        return ex;
+    }
+
+    ex = b_protocol_recv_request_id(
+        socket_zmq,
+        request_id,
+        0);  // flags
     if (ex) {
         return ex;
     }

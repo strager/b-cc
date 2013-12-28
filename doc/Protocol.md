@@ -8,8 +8,9 @@ design][Distributed-Design.md].
 ### Client (REQ) - Broker (ROUTER)
 
     Request:
-    Frame 1: UUID of question being asked.
-    Frame 2: Question data, serialized per question type's
+    Frame 1: Request ID (arbitrary 4 bytes).
+    Frame 2: UUID of question being asked.
+    Frame 3: Question data, serialized per question type's
              specificiation.
 
     Response:
@@ -24,7 +25,8 @@ design][Distributed-Design.md].
     Request (WORKER_DONE_AND_READY):
     Frame 1: Single byte 0x02.
     Frame 2-3: Client identity envelope.
-    Frame 4: Answer data, serialized per question's answer's
+    Frame 4: Copy of client request frame 1 (request ID).
+    Frame 5: Answer data, serialized per question's answer's
              type specification.
 
     Response:

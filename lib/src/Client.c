@@ -11,6 +11,7 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <string.h>
 
 struct B_Client {
     // ZeroMQ sockets
@@ -76,6 +77,23 @@ b_client_need_answers(
     for (size_t i = 0; i < count; ++i) {
         struct B_Exception *ex;
 
+        struct B_RequestID const request_id = {
+            .bytes = {
+                i >> 0,
+                i >> 8,
+                i >> 16,
+                i >> 24,
+            },
+        };
+
+        ex = b_protocol_send_request_id(
+            client->broker_req,
+            &request_id,
+            ZMQ_SNDMORE);
+        if (ex) {
+            return ex;
+        }
+
         b_protocol_send_uuid(
             client->broker_req,
             question_vtables[i]->uuid,
@@ -94,6 +112,23 @@ b_client_need_answers(
             &ex);
         if (ex) {
             return ex;
+        }
+
+        struct B_RequestID received_request_id;
+        ex = b_protocol_recv_request_id(
+            client->broker_req,
+            &received_request_id,
+            0);  // flags
+        if (ex) {
+            return ex;
+        }
+
+        if (memcmp(
+            &received_request_id,
+            &request_id,
+            sizeof(request_id)) != 0) {
+            return b_exception_string(
+                "Received request ID does not match send request ID");
         }
 
         B_LOG(B_INFO, "Receiving answer from broker.");

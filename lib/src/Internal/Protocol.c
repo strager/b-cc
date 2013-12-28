@@ -286,3 +286,48 @@ b_protocol_recv_worker_command(
     // TODO(strager): Validate byte.
     return (enum B_WorkerCommand) command_byte;
 }
+
+B_ERRFUNC
+b_protocol_send_request_id(
+    void *socket_zmq,
+    struct B_RequestID const *request_id,
+    int flags) {
+
+    struct B_Exception *ex = b_zmq_send(
+        socket_zmq,
+        request_id->bytes,
+        sizeof(request_id->bytes),
+        flags);
+    if (ex) {
+        return ex;
+    }
+
+    return NULL;
+}
+
+B_ERRFUNC
+b_protocol_recv_request_id(
+    void *socket_zmq,
+    struct B_RequestID *request_id,
+    int flags) {
+
+    size_t bytes_expected = sizeof(request_id->bytes);
+    size_t bytes_received = bytes_expected;
+    struct B_Exception *ex = b_zmq_recv(
+        socket_zmq,
+        request_id->bytes,
+        &bytes_received,
+        flags);
+    if (ex) {
+        return ex;
+    }
+
+    if (bytes_received != bytes_expected) {
+        return b_exception_format_string(
+            "Expected request ID (%zu bytes) but got %zu bytes",
+            bytes_expected,
+            bytes_received);
+    }
+
+    return NULL;
+}

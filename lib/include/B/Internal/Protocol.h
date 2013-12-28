@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,6 +21,10 @@ struct B_UUID;
 enum B_WorkerCommand {
     B_WORKER_READY = 1,
     B_WORKER_DONE_AND_READY = 2,
+};
+
+struct B_RequestID {
+    uint8_t bytes[4];
 };
 
 bool
@@ -102,6 +107,18 @@ b_protocol_recv_worker_command(
     void *socket_zmq,
     int flags,
     struct B_Exception **);
+
+B_ERRFUNC
+b_protocol_send_request_id(
+    void *socket_zmq,
+    struct B_RequestID const *,
+    int flags);
+
+B_ERRFUNC
+b_protocol_recv_request_id(
+    void *socket_zmq,
+    struct B_RequestID *,
+    int flags);
 
 #ifdef __cplusplus
 }
