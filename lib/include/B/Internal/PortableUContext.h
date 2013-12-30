@@ -1,46 +1,50 @@
 #ifndef PORTABLEUCONTEXT_H_57A8A442_D623_4C0C_BD64_EA2A0E092519
 #define PORTABLEUCONTEXT_H_57A8A442_D623_4C0C_BD64_EA2A0E092519
 
-#if defined(__APPLE__) && !defined(_XOPEN_SOURCE)
-# if defined(_STRUCT_UCONTEXT)
-#  error ucontext_t already defined; please include PortableUContext.h before other headers
-# endif
+#include <B/Internal/Common.h>
 
-# if !defined(_DARWIN_C_SOURCE)
-#  define _DARWIN_C_SOURCE
-#  define B_DEFINED_DARWIN_C_SOURCE
-# endif
-# define _XOPEN_SOURCE 600
-
-# include <ucontext.h>
-
-# undef _XOPEN_SOURCE
-// TODO(strager): Figure out why we must leak
-// _DARWIN_C_SOURCE.
-//# if defined(B_DEFINED_DARWIN_C_SOURCE)
-//#  undef _DARWIN_C_SOURCE
-//# endif
-
-_Static_assert(
-    sizeof(((ucontext_t *) 0)->__mcontext_data) == sizeof(_STRUCT_MCONTEXT),
-    "ucontext_t should have __mcontext_data member");
-
-// Sorry!  Apple says ucontext functions are deprecated.
-# pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#else
-# include <ucontext.h>
-#endif
-
+#include <stddef.h>
 #include <stdint.h>
 
+struct B_UContext;
+
+#if defined(B_UCONTEXT_IMPL)
+struct B_UContextOpaque {
+#else
+struct B_UContext {
+#endif
+#if defined(__x86_64__) && defined(__LP64__)
+    uint8_t bytes[72];
+#else
+#error Unsupported architecture
+#endif
+};
+
 void
-b_ucontext_init(
-    ucontext_t *);
+b_ucontext_getcontext(
+    struct B_UContext *);
+
+void B_NO_RETURN
+b_ucontext_setcontext(
+    struct B_UContext const *);
+
+void
+b_ucontext_makecontext(
+    struct B_UContext *,
+    void *stack,
+    size_t stack_size,
+    void B_NO_RETURN (*callback)(void *user_closure),
+    void *user_closure);
+
+void
+b_ucontext_swapcontext(
+    struct B_UContext *from,
+    struct B_UContext const *to);
 
 void
 b_ucontext_copy(
-    ucontext_t *dest,
-    ucontext_t const *source);
+    struct B_UContext *dest,
+    struct B_UContext const *source);
 
 // For makecontext's callback.  Declares int parameters for
 // B_UCONTEXT_POINTER.

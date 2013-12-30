@@ -32,7 +32,7 @@ struct B_FiberPoll {
 };
 
 struct B_Fiber {
-    ucontext_t context;
+    struct B_UContext context;
 
 #if defined(B_VALGRIND)
     unsigned int valgrind_stack_id;
@@ -189,35 +189,35 @@ b_fiber_context_poll_zmq(
 }
 
 struct B_FiberTrampolineClosure {
+    struct B_FiberContext *fiber_context;
     void *(*callback)(void *user_closure);
     void *user_closure;
     void **out_callback_result;
+
+    struct B_UContext const *parent_context;
+    struct B_UContext *child_context;
 };
 
 static void B_NO_RETURN
 b_fiber_trampoline(
-    B_UCONTEXT_POINTER_PARAMS(fiber_context)) {
-    //B_UCONTEXT_POINTER_PARAMS(callback),
-    //B_UCONTEXT_POINTER_PARAMS(user_closure),
-    //B_UCONTEXT_POINTER_PARAMS(out_callback_result)) {
+    void *closure_raw) {
 
-    struct B_FiberContext *fiber_context
-        = B_UCONTEXT_POINTER(fiber_context);
-    printf("fiber_context %p\n", fiber_context);
-#if 0
-    void *(*callback)(void *user_closure)
-        = B_UCONTEXT_POINTER(callback);
-    void *user_closure = B_UCONTEXT_POINTER(user_closure);
-    void **out_callback_result
-        = B_UCONTEXT_POINTER(out_callback_result);
+    struct B_FiberTrampolineClosure closure
+        = *(struct B_FiberTrampolineClosure *) closure_raw;
 
-    void *result = callback(user_closure);
-    if (out_callback_result) {
-        *out_callback_result = result;
+    // See corresponding b_ucontext_swapcontext in
+    // b_fiber_context_fork.
+    b_ucontext_swapcontext(
+        closure.child_context,
+        closure.parent_context);
+    // closure_raw is now invalid.
+
+    void *result = closure.callback(closure.user_closure);
+    if (closure.out_callback_result) {
+        *closure.out_callback_result = result;
     }
-#endif
 
-    b_fiber_yield_end(fiber_context);
+    b_fiber_yield_end(closure.fiber_context);
 }
 
 B_ERRFUNC
@@ -237,32 +237,38 @@ b_fiber_context_fork(
     }
     fiber->poll = NULL;
 
-    ucontext_t *context = &fiber->context;
-    int rc = getcontext(context);
-    assert(rc == 0);
-    context->uc_link = NULL;
+    struct B_UContext *context = &fiber->context;
+
     // TODO(strager): Factor out stack allocation.
     // TODO(strager): Free the stacks!
-    context->uc_stack.ss_sp = malloc(SIGSTKSZ);
-    context->uc_stack.ss_size = SIGSTKSZ;
+    size_t stack_size = SIGSTKSZ;
+    void *stack = malloc(stack_size);
 #if defined(B_VALGRIND)
     fiber->valgrind_stack_id = VALGRIND_STACK_REGISTER(
-        context->uc_stack.ss_sp,
-        context->uc_stack.ss_size + context->uc_stack.ss_sp);
+        stack,
+        stack + stack_size);
 #endif
-    printf("stack is %p\n", context->uc_stack.ss_sp);
 
-    makecontext(
+    struct B_UContext self_context;
+    struct B_FiberTrampolineClosure trampoline_closure = {
+        .fiber_context = fiber_context,
+        .callback = callback,
+        .user_closure = user_closure,
+        .out_callback_result = out_callback_result,
+
+        .parent_context = &self_context,
+        .child_context = context,
+    };
+
+    b_ucontext_makecontext(
         context,
+        stack,
+        stack_size,
         b_fiber_trampoline,
-        1 * B_UCONTEXT_POINTER_ARG_COUNT,
-        B_UCONTEXT_POINTER_ARGS(fiber_context));
-        //B_UCONTEXT_POINTER_ARGS(callback),
-        //B_UCONTEXT_POINTER_ARGS(user_closure),
-        //B_UCONTEXT_POINTER_ARGS(out_callback_result));
-#if defined(__APPLE__)
-    assert(context->uc_mcsize > 0);
-#endif
+        &trampoline_closure);
+
+    // Trampoline should call us back ASAP.
+    b_ucontext_swapcontext(&self_context, context);
 
     return NULL;
 }
@@ -294,10 +300,6 @@ b_fiber_context_get_free_fiber(
                 &old_fibers[i].context);
         }
         free(old_fibers);
-
-        for (size_t i = old_size; i < new_size; ++i) {
-            b_ucontext_init(&new_fibers[i].context);
-        }
 
         fiber_context->fibers_size = new_size;
         fiber_context->fibers = new_fibers;
@@ -438,19 +440,17 @@ b_fiber_context_switch(
 
     assert(!fiber->poll);
 
-    ucontext_t other_fiber_context;
+    struct B_UContext other_fiber_context;
     b_ucontext_copy(
         &other_fiber_context,
         &fiber->context);
 
     fiber->poll = poll;
-    printf("swapcontext stack is %p\n", other_fiber_context.uc_stack.ss_sp);
     // NOTE(strager): fiber (the pointer) is invalid after
     // calling swapcontext.
-    int rc = swapcontext(
+    b_ucontext_swapcontext(
         &fiber->context,
         &other_fiber_context);
-    assert(rc == 0);
 }
 
 static B_ERRFUNC
@@ -534,7 +534,7 @@ b_fiber_yield_end(
 
     // Pull the context out of the list by moving the last
     // fiber into non_polling_fiber.
-    ucontext_t context;
+    struct B_UContext context;
     b_ucontext_copy(
         &context,
         &non_polling_fiber->context);
@@ -550,9 +550,7 @@ b_fiber_yield_end(
 
     fiber_context->fiber_count -= 1;
 
-    int rc = setcontext(&context);
-    assert(rc == 0);
-    abort();
+    b_ucontext_setcontext(&context);
 }
 
 static struct B_Fiber *

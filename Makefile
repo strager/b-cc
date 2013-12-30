@@ -11,6 +11,7 @@ OUT_DIRS := \
 LIB_H_FILES := $(wildcard lib/include/B/*.h) $(wildcard lib/include/B/Internal/*.h)
 LIB_C_FILES := $(wildcard lib/src/*.c) $(wildcard lib/src/Internal/*.c)
 LIB_CXX_FILES := $(wildcard lib/src/*.cc) $(wildcard lib/src/Internal/*.cc)
+LIB_S_FILES := $(wildcard lib/src/Internal/*.S)
 
 EXAMPLE_C_FILES := example/Example2.c
 
@@ -23,7 +24,8 @@ BUILD_FILES := Makefile
 
 LIB_O_FILES := \
 	$(addprefix $(OUT_DIR)/,$(LIB_C_FILES:.c=.c.o)) \
-	$(addprefix $(OUT_DIR)/,$(LIB_CXX_FILES:.cc=.cc.o))
+	$(addprefix $(OUT_DIR)/,$(LIB_CXX_FILES:.cc=.cc.o)) \
+	$(addprefix $(OUT_DIR)/,$(LIB_S_FILES:.S=.S.o))
 
 EXAMPLE_O_FILES := \
 	$(addprefix $(OUT_DIR)/,$(EXAMPLE_C_FILES:.c=.c.o))
@@ -86,6 +88,9 @@ $(OUT_DIR)/%.c.o: %.c $(LIB_H_FILES) $(BUILD_FILES) | $(OUT_DIRS)
 
 $(OUT_DIR)/%.cc.o: %.cc $(LIB_H_FILES) $(BUILD_FILES) | $(OUT_DIRS)
 	$(CXX) $(CXX_FLAGS) -Ilib/include -c -o $@ $<
+
+$(OUT_DIR)/%.S.o: %.S $(BUILD_FILES) | $(OUT_DIRS)
+	$(CC) $(CC_FLAGS) -c -o $@ $<
 
 $(OUT_DIRS):
 	@mkdir -p $@
