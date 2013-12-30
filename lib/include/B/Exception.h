@@ -54,6 +54,13 @@ b_exception_errno(
     int errno_value);
 // Warning: errno is a macro on some platforms.
 
+// Creates an Exception indicating an allocation (e.g.
+// out-of-memory failure).  Does not perform allocations
+// itself; returns a singleton instance.
+struct B_Exception *
+b_exception_memory(
+    void);
+
 // Destroys any type of Exception.
 void
 b_exception_deallocate(
