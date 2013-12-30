@@ -1,6 +1,7 @@
 #include <B/Exception.h>
 #include <B/Fiber.h>
 #include <B/Internal/Allocate.h>
+#include <B/Internal/Portable.h>
 
 #include <zmq.h>
 
@@ -57,7 +58,7 @@ b_fiber_context_get_free_fiber(
     struct B_FiberContext *,
     struct B_Fiber **out);
 
-static B_ERRFUNC
+static void
 b_fibers_poll(
     struct B_Fiber *fibers,
     size_t fiber_count);
@@ -68,9 +69,13 @@ b_fiber_context_switch(
     struct B_FiberPoll *);
 
 static B_ERRFUNC
-b_fiber_context_yield(
+b_fiber_yield(
     struct B_FiberContext *,
     struct B_FiberPoll *);
+
+static void B_NO_RETURN
+b_fiber_yield_end(
+    struct B_FiberContext *);
 
 B_ERRFUNC
 b_fiber_context_allocate(
@@ -103,7 +108,7 @@ b_fiber_context_finish(
     struct B_FiberContext *fiber_context) {
 
     // TODO(strager)
-    (void) fiber_context;
+    assert(fiber_context->fiber_count == 0);
     return NULL;
 }
 
@@ -127,9 +132,8 @@ b_fiber_context_poll_zmq(
         .ex = NULL,
     };
 
-    struct B_Exception *ex = b_fiber_context_yield(
-        fiber_context,
-        &fiber_poll);
+    struct B_Exception *ex
+        = b_fiber_yield(fiber_context, &fiber_poll);
     if (ex) {
         return ex;
     }
@@ -141,6 +145,35 @@ b_fiber_context_poll_zmq(
     return fiber_poll.ex;
 }
 
+struct B_FiberTrampolineClosure {
+    void *(*callback)(void *user_closure);
+    void *user_closure;
+    void **out_callback_result;
+};
+
+static void B_NO_RETURN
+b_fiber_trampoline(
+    B_UCONTEXT_POINTER_PARAMS(fiber_context),
+    B_UCONTEXT_POINTER_PARAMS(callback),
+    B_UCONTEXT_POINTER_PARAMS(user_closure),
+    B_UCONTEXT_POINTER_PARAMS(out_callback_result)) {
+
+    struct B_FiberContext *fiber_context
+        = B_UCONTEXT_POINTER(fiber_context);
+    void *(*callback)(void *user_closure)
+        = B_UCONTEXT_POINTER(callback);
+    void *user_closure = B_UCONTEXT_POINTER(user_closure);
+    void **out_callback_result
+        = B_UCONTEXT_POINTER(out_callback_result);
+
+    void *result = callback(user_closure);
+    if (out_callback_result) {
+        *out_callback_result = result;
+    }
+
+    b_fiber_yield_end(fiber_context);
+}
+
 B_ERRFUNC
 b_fiber_context_fork(
     struct B_FiberContext *fiber_context,
@@ -148,14 +181,32 @@ b_fiber_context_fork(
     void *user_closure,
     void **out_callback_result) {
 
-    // TODO(strager)
-
-    (void) fiber_context;
-
-    void *callback_result = callback(user_closure);
-    if (out_callback_result) {
-        *out_callback_result = callback_result;
+    struct B_Fiber *fiber;
+    struct B_Exception *ex
+        = b_fiber_context_get_free_fiber(
+            fiber_context,
+            &fiber);
+    if (ex) {
+        return ex;
     }
+    fiber->poll = NULL;
+
+    int rc = getcontext(&fiber->context);
+    assert(rc == 0);
+    fiber->context.uc_link = NULL;
+    // TODO(strager): Factor out stack allocation.
+    // TODO(strager): Free the stacks!
+    fiber->context.uc_stack.ss_sp = malloc(SIGSTKSZ);
+    fiber->context.uc_stack.ss_size = SIGSTKSZ;
+
+    makecontext(
+        &fiber->context,
+        b_fiber_trampoline,
+        4 * B_UCONTEXT_POINTER_ARG_COUNT,
+        B_UCONTEXT_POINTER_ARGS(fiber_context),
+        B_UCONTEXT_POINTER_ARGS(callback),
+        B_UCONTEXT_POINTER_ARGS(user_closure),
+        B_UCONTEXT_POINTER_ARGS(out_callback_result));
 
     return NULL;
 }
@@ -192,7 +243,7 @@ b_fiber_context_get_free_fiber(
 }
 
 // Poll results (and errors) are stored in the fibers.
-static B_ERRFUNC
+static void
 b_fibers_poll(
     struct B_Fiber *fibers,
     size_t fiber_count) {
@@ -307,18 +358,17 @@ b_fibers_poll(
         }
         assert(woken_fibers > 0);
     }
-
-    return NULL;
 }
 
+// Switch to another fiber, putting the current context
+// (fiber) in its place.
 static void
 b_fiber_context_switch(
     struct B_Fiber *fiber,
     struct B_FiberPoll *poll) {
 
-    // Switch to the fiber, putting the current context
-    // (fiber) in its place.
     assert(!fiber->poll);
+
     ucontext_t other_fiber_context;
     memcpy(
         &other_fiber_context,
@@ -335,7 +385,7 @@ b_fiber_context_switch(
 }
 
 static B_ERRFUNC
-b_fiber_context_yield(
+b_fiber_yield(
     struct B_FiberContext *fiber_context,
     struct B_FiberPoll *poll) {
 
@@ -366,17 +416,12 @@ b_fiber_context_yield(
             return ex;
         }
     }
-
-    // fiber->context is not used by b_fibers_poll.
     fiber->poll = poll;
-    {
-        struct B_Exception *ex = b_fibers_poll(
-            fiber_context->fibers,
-            fiber_context->fiber_count);
-        if (ex) {
-            return ex;
-        }
-    }
+    // NOTE(strager): struct B_Fiber::context is not used by
+    // b_fibers_poll.
+    b_fibers_poll(
+        fiber_context->fibers,
+        fiber_context->fiber_count);
 
     // Remove the current fiber.
     assert(fiber == &fiber_context
@@ -396,6 +441,45 @@ b_fiber_context_yield(
             return NULL;
         }
     }
+}
+
+static void B_NO_RETURN
+b_fiber_yield_end(
+    struct B_FiberContext *fiber_context) {
+
+    assert(fiber_context->fiber_count > 0);
+
+    b_fibers_poll(
+        fiber_context->fibers,
+        fiber_context->fiber_count);
+
+    struct B_Fiber *non_polling_fiber
+        = b_fiber_context_get_non_polling_fiber(
+            fiber_context);
+    assert(non_polling_fiber);
+
+    // Pull the context out of the list by moving the last
+    // fiber into non_polling_fiber.
+    ucontext_t context;
+    memcpy(
+        &context,
+        &non_polling_fiber->context,
+        sizeof(ucontext_t));
+
+    struct B_Fiber *last_fiber = &fiber_context
+        ->fibers[fiber_context->fiber_count - 1];
+    if (non_polling_fiber != last_fiber) {
+        memcpy(
+            non_polling_fiber,
+            last_fiber,
+            sizeof(struct B_Fiber));
+    }
+
+    fiber_context->fiber_count -= 1;
+
+    int rc = setcontext(&context);
+    assert(rc == 0);
+    abort();
 }
 
 static struct B_Fiber *

@@ -9,6 +9,12 @@ struct B_Exception;
 #define B_MUST_USE_RESULT
 #endif
 
+#if defined(__GNUC__)
+#define B_NO_RETURN __attribute__((noreturn))
+#else
+#define B_NO_RETURN
+#endif
+
 #define B_ERRFUNC \
     B_MUST_USE_RESULT struct B_Exception *
 
