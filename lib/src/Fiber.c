@@ -77,6 +77,9 @@ b_fiber_context_allocate(
     struct B_FiberContext **out) {
 
     B_ALLOCATE(struct B_FiberContext, fiber_context, {
+        .fibers_size = 0,
+        .fiber_count = 0,
+        .fibers = NULL,
     });
     *out = fiber_context;
 
@@ -87,6 +90,9 @@ B_ERRFUNC
 b_fiber_context_deallocate(
     struct B_FiberContext *fiber_context) {
 
+    // TODO(strager): Ensure no fibers are alive (except the
+    // current one, of course).
+    free(fiber_context->fibers);
     free(fiber_context);
 
     return NULL;
@@ -104,28 +110,35 @@ b_fiber_context_finish(
 B_ERRFUNC
 b_fiber_context_poll_zmq(
     struct B_FiberContext *fiber_context,
-    zmq_pollitem_t pollitems[],
+    zmq_pollitem_t *pollitems,
     int pollitem_count,
     long timeout_milliseconds,
     int *ready_pollitems) {
 
     (void) fiber_context;
 
-    (void) b_fiber_context_yield; // TODO(strager)
+    struct B_FiberPoll fiber_poll = {
+        .pollitem_count = pollitem_count,
+        .timeout_milliseconds = timeout_milliseconds,
 
-    int rc = zmq_poll(
-        pollitems,
-        pollitem_count,
-        timeout_milliseconds);
-    if (rc == -1) {
-        return b_exception_errno("zmq_poll", errno);
+        .pollitems = pollitems,
+
+        .ready_pollitems = 0,
+        .ex = NULL,
+    };
+
+    struct B_Exception *ex = b_fiber_context_yield(
+        fiber_context,
+        &fiber_poll);
+    if (ex) {
+        return ex;
     }
 
     if (ready_pollitems) {
-        *ready_pollitems = rc;
+        *ready_pollitems = fiber_poll.ready_pollitems;
     }
 
-    return NULL;
+    return fiber_poll.ex;
 }
 
 B_ERRFUNC
@@ -156,8 +169,9 @@ b_fiber_context_get_free_fiber(
     if (fiber_context->fiber_count
         >= fiber_context->fibers_size) {
 
-        size_t new_size = fiber_context->fibers_size * 2;
-        assert(new_size > fiber_context->fibers_size);
+        size_t old_size = fiber_context->fibers_size;
+        size_t new_size = old_size ? old_size * 2 : 2;
+        assert(new_size > old_size);
         struct B_Fiber *new_fibers = realloc(
             fiber_context->fibers,
             sizeof(struct B_Fiber) * new_size);
@@ -170,7 +184,7 @@ b_fiber_context_get_free_fiber(
     }
 
     assert(fiber_context->fiber_count + 1
-        > fiber_context->fibers_size);
+        < fiber_context->fibers_size);
     *out = &fiber_context
         ->fibers[fiber_context->fiber_count];
     fiber_context->fiber_count += 1;
@@ -227,7 +241,7 @@ b_fibers_poll(
     struct B_Exception *poll_ex = NULL;
     int ready_pollitems = 0;
     if (rc == -1) {
-        poll_ex = b_exception_errno("zmq_poll", rc);
+        poll_ex = b_exception_errno("zmq_poll", errno);
     } else {
         ready_pollitems = rc;
     }
@@ -374,11 +388,14 @@ b_fiber_context_yield(
         struct B_Fiber *non_polling_fiber
             = b_fiber_context_get_non_polling_fiber(
                 fiber_context);
-        assert(non_polling_fiber);
-        b_fiber_context_switch(non_polling_fiber, poll);
+        if (non_polling_fiber) {
+            b_fiber_context_switch(non_polling_fiber, poll);
+            return NULL;
+        } else {
+            // The current fiber was woken.
+            return NULL;
+        }
     }
-
-    return NULL;
 }
 
 static struct B_Fiber *
