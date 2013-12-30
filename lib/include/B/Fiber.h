@@ -39,7 +39,8 @@ b_fiber_context_poll_zmq(
     zmq_pollitem_t *pollitems,
     int pollitem_count,
     long timeout_milliseconds,
-    int *ready_pollitems);
+    int *ready_pollitems,
+    bool *is_finished);
 
 B_ERRFUNC
 b_fiber_context_fork(

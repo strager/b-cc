@@ -132,12 +132,14 @@ b_worker_work(
     };
     for (;;) {
         const long timeout_milliseconds = -1;
+        bool is_finished;
         ex = b_fiber_context_poll_zmq(
             fiber_context,
             poll_items,
             sizeof(poll_items) / sizeof(*poll_items),
             timeout_milliseconds,
-            NULL);
+            NULL,
+            &is_finished);
         if (ex) {
             int errno_value = b_exception_errno_value(ex);
             if (errno_value == ETERM) {
@@ -147,6 +149,9 @@ b_worker_work(
                 continue;
             }
             return ex;
+        }
+        if (is_finished) {
+            break;
         }
 
         if (poll_items[0].revents & ZMQ_POLLIN) {

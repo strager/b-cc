@@ -125,13 +125,15 @@ b_client_need_answers(
     for (size_t i = 0; i < count; ++i) {
         struct B_Exception *ex;
 
-        const long timeout_milliseconds = -1;
+        long const timeout_milliseconds = -1;
+        bool is_finished = 0;
         ex = b_fiber_context_poll_zmq(
             client->fiber_context,
             poll_items,
             sizeof(poll_items) / sizeof(*poll_items),
             timeout_milliseconds,
-            NULL);
+            NULL,
+            &is_finished);
         if (ex) {
             int errno_value = b_exception_errno_value(ex);
             if (errno_value == ETERM) {
@@ -141,6 +143,9 @@ b_client_need_answers(
                 continue;
             }
             return ex;
+        }
+        if (is_finished) {
+            break;
         }
 
         if (poll_items[0].revents & ZMQ_POLLIN) {

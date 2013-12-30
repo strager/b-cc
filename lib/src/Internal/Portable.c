@@ -1,3 +1,5 @@
+#include <B/Internal/PortableUContext.h>
+
 #include <B/Internal/Portable.h>
 
 #include <assert.h>
@@ -185,5 +187,48 @@ b_current_thread_string(
 
 #else
 #error Unsupported platform
+#endif
+}
+
+void
+b_ucontext_init(
+    ucontext_t *context) {
+
+    if (!context) {
+        return;
+    }
+
+#if defined(__APPLE__)
+    context->uc_mcontext = &context->__mcontext_data;
+    context->uc_mcsize = sizeof(context->__mcontext_data);
+#endif
+}
+
+void
+b_ucontext_copy(
+    ucontext_t *dest,
+    ucontext_t const *source) {
+
+    if (!dest || !source) {
+        return;
+    }
+
+    if (dest == source) {
+        return;
+    }
+
+#if defined(__APPLE__)
+    assert(source->uc_mcsize
+            == sizeof(source->__mcontext_data));
+    assert(source->uc_mcontext == &source->__mcontext_data);
+#endif
+
+    memcpy(
+        dest,
+        source,
+        sizeof(ucontext_t));
+
+#if defined(__APPLE__)
+    dest->uc_mcontext = &dest->__mcontext_data;
 #endif
 }
