@@ -13,7 +13,9 @@
 #if defined(__x86_64__) && defined(__LP64__)
 
 #if !defined(__APPLE__)
-#error TODO
+// TODO(strager): Whitelist other platforms (Linux, Android,
+// FreeBSD?).
+#error Only System V AMD64 ABI is supported
 #endif
 
 // See System V AMD64 ABI:

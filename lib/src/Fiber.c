@@ -185,6 +185,7 @@ b_fiber_context_poll_zmq(
         *ready_pollitems = fiber_poll.ready_pollitems;
     }
 
+    *is_finished = false;
     return fiber_poll.ex;
 }
 
