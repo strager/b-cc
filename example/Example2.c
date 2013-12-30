@@ -41,6 +41,7 @@ c_object_files[] = {
     "lib/src/Database.c.o",
     "lib/src/Exception.c.o",
     "lib/src/ExceptionErrno.c.o",
+    "lib/src/ExceptionMemory.c.o",
     "lib/src/ExceptionString.c.o",
     "lib/src/Fiber.c.o",
     "lib/src/FileQuestion.c.o",

@@ -12,9 +12,9 @@
 // These functions are available, but deprecated, in Apple's
 // libSystem implementation.
 int getcontext(ucontext_t *);
-void makecontext(ucontext_t *, void (*)(), int, ...);
+void makecontext(ucontext_t *, void (*)(/* not void! */), int, ...);
 int setcontext(ucontext_t const *);
-int swapcontext(ucontext_t *, const ucontext_t *);
+int swapcontext(ucontext_t *, ucontext_t const *);
 #else
 # include <ucontext.h>
 #endif
