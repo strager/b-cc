@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-// b_ucontext_setcontext is implemented in assembly in
-// PortableUContextASM.S.
+// b_ucontext_setcontext and b_ucontext_getcontext are
+// implemented in assembly in PortableUContextASM.S.
 
 #if defined(__x86_64__) && defined(__LP64__)
 
@@ -33,7 +33,8 @@ struct B_UContext {
 
     // TODO(strager): x87 control word.
 
-    // Used for the first argument (void *user_context).
+    // Used only for the first argument of the
+    // b_ucontext_makecontext callback (void *user_context).
     uint64_t rdi;  // 64
 };
 
@@ -50,7 +51,7 @@ b_ucontext_makecontext(
     void (*callback)(void *user_closure),
     void *user_closure) {
 
-    memset(&context, 0, sizeof(*context));
+    memset(context, 0, sizeof(*context));
 
     // Stack (grows down).
     uint64_t *sp = (void *) ((uintptr_t) stack + stack_size);

@@ -19,6 +19,28 @@ B_LABEL(b_ucontext_setcontext):
     pushq 56(%rdi)  // rip
     movq 64(%rdi), %rdi
     ret  // pop %rip
+
+.p2align 2
+.global B_LABEL(b_ucontext_getcontext)
+B_LABEL(b_ucontext_getcontext):
+    movq %rbx,  0(%rdi)
+    movq %rbp, 16(%rdi)
+    movq %r12, 24(%rdi)
+    movq %r13, 32(%rdi)
+    movq %r14, 40(%rdi)
+    movq %r15, 48(%rdi)
+
+    // rip (rax can safely be discarded)
+    movq (%rsp), %rax
+    movq %rax, 56(%rdi)
+
+    // rsp
+    leaq 8(%rsp), %rax
+    movq %rax, 8(%rdi)
+
+    // rdi is only used for setcontext(makecontext()).
+
+    ret
 #else
 #error Unsupported architecture
 #endif
