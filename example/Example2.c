@@ -49,6 +49,7 @@ c_object_files[] = {
     "lib/src/Internal/Identity.c.o",
     "lib/src/Internal/MessageList.c.o",
     "lib/src/Internal/Portable.c.o",
+    "lib/src/Internal/PortableUContext.c.o",
     "lib/src/Internal/Protocol.c.o",
     "lib/src/Internal/Util.c.o",
     "lib/src/Internal/ZMQ.c.o",
@@ -75,8 +76,19 @@ cc_object_files[] = {
 static const size_t
 cc_object_files_count = sizeof(cc_object_files) / sizeof(*cc_object_files);
 
+static const char *
+s_object_files[] = {
+    "lib/src/Internal/PortableUContextASM.S.o",
+};
+
 static const size_t
-object_files_count = c_object_files_count + cc_object_files_count;
+s_object_files_count = sizeof(s_object_files) / sizeof(*s_object_files);
+
+static const size_t
+object_files_count
+    = c_object_files_count
+    + cc_object_files_count
+    + s_object_files_count;
 
 static const char *
 output_file = "b-cc-example";
@@ -213,6 +225,15 @@ run_cc_compile(
 }
 
 static void
+run_s_compile(
+    struct B_BuildContext *build_context,
+    const char *object_path,
+    struct B_Exception **ex) {
+
+    run_c_compile(build_context, object_path, ex);
+}
+
+static void
 depend_upon_object_files(
     struct B_Client *client,
     struct B_Exception **ex) {
@@ -231,6 +252,11 @@ depend_upon_object_files(
         for (size_t i = 0; i < cc_object_files_count; ++i, ++question) {
             questions[question]
                 = b_file_question_allocate(cc_object_files[i]);
+            question_vtables[question] = question_vtable;
+        }
+        for (size_t i = 0; i < s_object_files_count; ++i, ++question) {
+            questions[question]
+                = b_file_question_allocate(s_object_files[i]);
             question_vtables[question] = question_vtable;
         }
     }
@@ -264,7 +290,7 @@ run_cc_link(
     // What is two lines in other languages:
     //
     // > ["c++", "-stdlib=libc++", "-lzmq", "-o", output_path]
-    // > ++ c_object_files ++ cc_object_files
+    // > ++ c_object_files ++ cc_object_files ++ s_object_files
     //
     // Is over ten lines in C99.
 
@@ -289,6 +315,9 @@ run_cc_link(
         }
         for (size_t i = 0; i < cc_object_files_count; ++i, ++arg) {
             args[arg] = cc_object_files[i];
+        }
+        for (size_t i = 0; i < s_object_files_count; ++i, ++arg) {
+            args[arg] = s_object_files[i];
         }
         args[arg] = NULL;
     }
@@ -441,6 +470,11 @@ main(
         cc_object_files,
         cc_object_files_count,
         run_cc_compile);
+    b_file_rule_add_many(
+        rule,
+        s_object_files,
+        s_object_files_count,
+        run_s_compile);
     b_file_rule_add(
         rule,
         output_file,
