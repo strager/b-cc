@@ -33,7 +33,8 @@ b_client_recv_reply(
     struct B_Client *,
     struct B_QuestionVTable const *const *question_vtables,
     struct B_AnyAnswer **answers,
-    size_t count);
+    size_t count,
+    int flags);
 
 static void
 serialize_request_index(
@@ -163,7 +164,8 @@ b_client_need_answers(
                 client,
                 question_vtables,
                 answers,
-                count);
+                count,
+                ZMQ_DONTWAIT);
             if (ex) {
                 return ex;
             }
@@ -178,13 +180,14 @@ b_client_recv_reply(
     struct B_Client *client,
     struct B_QuestionVTable const *const *question_vtables,
     struct B_AnyAnswer **answers,
-    size_t count) {
+    size_t count,
+    int flags) {
 
     struct B_Exception *ex;
 
     ex = b_protocol_recv_identity_delimiter(
         client->broker_dealer,
-        0);  // flags
+        flags);
     if (ex) {
         return ex;
     }
@@ -193,7 +196,7 @@ b_client_recv_reply(
     ex = b_protocol_recv_request_id(
         client->broker_dealer,
         &request_id,
-        0);  // flags
+        flags);
     if (ex) {
         return ex;
     }
@@ -215,7 +218,7 @@ b_client_recv_reply(
     answers[request_index] = b_protocol_recv_answer(
         client->broker_dealer,
         question_vtables[request_index]->answer_vtable,
-        0,  // flags
+        flags,
         &ex);
     if (ex) {
         return ex;

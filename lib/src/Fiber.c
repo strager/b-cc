@@ -21,8 +21,20 @@
 #include <stdio.h>
 
 enum B_FiberContextYieldType {
+    // 1. Polls with timeout=0, ignoring non-polling fibers.
+    // 2. Inspects non-polling fibers (except self).
+    // 3. Polls with timeout=N, ignoring non-polling fibers.
     B_FIBER_CONTEXT_YIELD_HARD,
+
+    // 1. Inspects non-polling fibers (including self).
+    // 2. Polls with timeout=N.  (There should be no
+    //    non-polling fibers.)
     B_FIBER_CONTEXT_YIELD_SOFT,
+};
+
+enum B_FiberContextPollType {
+    B_FIBER_CONTEXT_POLL_BLOCKING,
+    B_FIBER_CONTEXT_POLL_NONBLOCKING,
 };
 
 struct B_FiberPoll {
@@ -72,7 +84,8 @@ b_fiber_context_get_free_fiber(
 static void
 b_fibers_poll(
     struct B_Fiber *fibers,
-    size_t fiber_count);
+    size_t fiber_count,
+    enum B_FiberContextPollType);
 
 static void
 b_fiber_context_switch(
@@ -369,7 +382,8 @@ b_fiber_context_get_free_fiber(
 static void
 b_fibers_poll(
     struct B_Fiber *fibers,
-    size_t fiber_count) {
+    size_t fiber_count,
+    enum B_FiberContextPollType poll_type) {
 
     // Count poll items.
     size_t pollitem_total_count = 0;
@@ -436,7 +450,16 @@ b_fibers_poll(
         }
     }
 
-    const long timeout_milliseconds = -1;
+    long timeout_milliseconds;
+    switch (poll_type) {
+    case B_FIBER_CONTEXT_POLL_BLOCKING:
+        timeout_milliseconds = -1;
+        break;
+    case B_FIBER_CONTEXT_POLL_NONBLOCKING:
+        timeout_milliseconds = 0;
+        break;
+    }
+
     int rc = zmq_poll(
         pollitems,
         pollitem_total_count,
@@ -451,7 +474,9 @@ b_fibers_poll(
     }
 
     bool const waken_all_fibers
-        = poll_ex || (ready_pollitems == 0);
+        = poll_ex || (
+            ready_pollitems == 0
+            && poll_type == B_FIBER_CONTEXT_POLL_BLOCKING);
 
     // Copy results of polling to fibers.
     {
@@ -544,6 +569,30 @@ b_fiber_context_yield(
     struct B_FiberPoll *poll,
     enum B_FiberContextYieldType yield_type) {
 
+    if (yield_type == B_FIBER_CONTEXT_YIELD_HARD) {
+        b_fibers_poll(
+            fiber_context->fibers,
+            fiber_context->fiber_count,
+            B_FIBER_CONTEXT_POLL_NONBLOCKING);
+    }
+
+    // Switch to a woken fiber.
+    {
+        struct B_Fiber *non_polling_fiber
+            = b_fiber_context_get_non_polling_fiber(
+                fiber_context);
+        if (non_polling_fiber) {
+            b_fiber_context_switch(non_polling_fiber, poll);
+            return NULL;
+        } else if (poll) {
+            // The current fiber was woken.
+            return NULL;
+        } else {
+            // FIXME(strager): When does this occur?  When
+            // this is the only fiber?
+            abort();
+        }
+    }
     {
         struct B_Fiber *non_polling_fiber
             = b_fiber_context_get_non_polling_fiber(
@@ -573,13 +622,14 @@ b_fiber_context_yield(
             }
         }
         fiber->poll = poll;
+        // NOTE(strager): struct B_Fiber::context is not
+        // used by b_fibers_poll.
     }
 
-    // NOTE(strager): struct B_Fiber::context is not used by
-    // b_fibers_poll.
     b_fibers_poll(
         fiber_context->fibers,
-        fiber_context->fiber_count);
+        fiber_context->fiber_count,
+        B_FIBER_CONTEXT_POLL_BLOCKING);
 
     // Remove the current fiber.
     if (poll) {
@@ -619,7 +669,8 @@ b_fiber_yield_end(
     if (!non_polling_fiber) {
         b_fibers_poll(
             fiber_context->fibers,
-            fiber_context->fiber_count);
+            fiber_context->fiber_count,
+            B_FIBER_CONTEXT_POLL_BLOCKING);
 
         non_polling_fiber
             = b_fiber_context_get_non_polling_fiber(

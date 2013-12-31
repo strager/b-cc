@@ -28,6 +28,8 @@ b_zmq_socket_connect(
         return b_exception_errno("zmq_connect", errno);
     }
 
+    B_LOG(B_ZMQ, "Socket %p created and connected.", socket_zmq);
+
     *out_socket_zmq = socket_zmq;
     return NULL;
 }
@@ -49,6 +51,8 @@ b_zmq_socket_bind(
         return b_exception_errno("zmq_bind", errno);
     }
 
+    B_LOG(B_ZMQ, "Socket %p created and bound.", socket_zmq);
+
     *out_socket_zmq = socket_zmq;
     return NULL;
 }
@@ -56,6 +60,8 @@ b_zmq_socket_bind(
 B_ERRFUNC
 b_zmq_close(
     void *socket_zmq) {
+
+    B_LOG(B_ZMQ, "Closing socket %p.", socket_zmq);
 
     int rc = zmq_close(socket_zmq);
     if (rc == -1) {

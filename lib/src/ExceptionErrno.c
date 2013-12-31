@@ -51,6 +51,8 @@ b_exception_errno(
     char const *function,
     int errno_value) {
 
+    if (errno_value == 38) __builtin_trap();
+
     B_ALLOCATE(struct B_ExceptionErrno, ex, {
         .ex = {
             .vtable = b_exception_errno_vtable(),

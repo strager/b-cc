@@ -412,7 +412,7 @@ b_broker_worker_ready(
 static B_ERRFUNC
 b_broker_worker_exit(
     struct B_Broker *broker,
-    struct B_Identity *identity) {
+    struct B_Identity *worker_identity) {
 
     // Remove the worker with 'identity' from the queue.
     struct B_WorkerQueue **prev_next
@@ -422,7 +422,7 @@ b_broker_worker_exit(
     while (queue_item) {
         if (b_identity_equal(
             queue_item->worker_identity,
-            identity)) {
+            worker_identity)) {
 
             *prev_next = queue_item->next;
             b_identity_deallocate(
@@ -436,7 +436,29 @@ b_broker_worker_exit(
         queue_item = queue_item->next;
     }
 
-    B_LOG(B_INFO, "Worker which requested exit wasn't found");
+    B_LOG(B_INFO, "Worker which requested exit wasn't found.");
+
+    // Reply.
+    {
+        struct B_Exception *ex = NULL;
+        b_protocol_send_identity_envelope(
+            broker->worker_router,
+            worker_identity,
+            ZMQ_SNDMORE,
+            &ex);
+        if (ex) {
+            return ex;
+        }
+
+        ex = b_zmq_send(
+            broker->worker_router,
+            NULL,
+            0,
+            0);  // flags
+        if (ex) {
+            return ex;
+        }
+    }
 
     return NULL;
 }
@@ -535,7 +557,7 @@ b_broker_handle_client(
     struct B_Broker *broker) {
 
     // TODO(strager): Remove duplication with
-    // b_Broker_worker_abandon.
+    // b_broker_worker_abandon.
 
     if (broker->ready_workers) {
         B_LOG(B_INFO, "Sending worker work to do.");
@@ -632,15 +654,6 @@ b_broker_handle_worker(
         B_LOG(B_INFO, "Worker is exiting.");
 
         ex = b_broker_worker_exit(broker, worker_identity);
-        if (ex) {
-            return ex;
-        }
-
-        ex = b_zmq_send(
-            broker->worker_router,
-            NULL,
-            0,
-            0);  // flags
         if (ex) {
             return ex;
         }
