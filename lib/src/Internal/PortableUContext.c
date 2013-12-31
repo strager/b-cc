@@ -56,21 +56,21 @@ b_ucontext_makecontext(
     memset(context, 0, sizeof(*context));
 
     // Stack (grows down).
-    uint64_t *sp = (void *) ((uintptr_t) stack + stack_size);
+    uintptr_t sp = (uintptr_t) stack + stack_size;
 #if defined(__APPLE__)
     // Align down to 16 bytes.
-    sp = (void *) ((uintptr_t) sp & ~0xF);
+    sp &= ~0xF;
 #endif
 
     // Return address.
-    sp -= 1;
-    *sp = (uint64_t) (uintptr_t) (void *) abort;
+    sp -= sizeof(uint64_t);
+    *(void (**)(void)) sp = abort;
 
     // Arguments.
     context->rdi = (uint64_t) (uintptr_t) user_closure;
 
     context->rip = (uint64_t) (uintptr_t) callback;
-    context->rsp = (uint64_t) (uintptr_t) sp;
+    context->rsp = (uint64_t) sp;
 }
 
 void
