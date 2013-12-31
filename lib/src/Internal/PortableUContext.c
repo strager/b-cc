@@ -83,6 +83,9 @@ b_ucontext_swapcontext(
     if (!did_swap) {
         did_swap = true;
         b_ucontext_setcontext(to);
+#if defined(B_DEBUG)
+        abort();
+#endif
     }
 }
 
