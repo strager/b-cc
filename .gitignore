@@ -5,6 +5,7 @@
 /example/*.c.o
 /lib/src/*.c.o
 /lib/src/*.cc.o
+/lib/src/Internal/*.S.o
 /lib/src/Internal/*.c.o
 /lib/src/Internal/*.cc.o
 /out/
