@@ -39,18 +39,24 @@ struct B_MessageQueue {
 };
 
 struct B_Broker {
+    void *const context_zmq;
+
     struct B_AnyDatabase const *const database;
     struct B_DatabaseVTable const *const database_vtable;
 
     // ZeroMQ sockets
-    void *const client_router;
-    void *const worker_router;
+    void *client_router;
+    void *worker_router;
 
     // Invariant:
     // (ready_workers == NULL) != (work_queue == NULL)
     struct B_WorkerQueue *ready_workers;
     struct B_MessageQueue *work_queue;
 };
+
+static B_ERRFUNC
+b_broker_run_loop(
+    struct B_Broker *);
 
 static struct B_Exception *
 b_broker_bind_process(
@@ -86,33 +92,18 @@ b_broker_allocate_bind(
     struct B_DatabaseVTable const *database_vtable,
     struct B_Broker **out) {
 
-    // The b_protocol_*_endpoint functions only use the
-    // pointer value of a Broker, so it is safe to give them
-    // uninitialized memory.
-    struct B_Broker *broker
-        = malloc(sizeof(struct B_Broker));
+    B_ALLOCATE(struct B_Broker, broker, {
+        .context_zmq = context_zmq,
 
-    void *client_router;
-    void *worker_router;
-    {
-        struct B_Exception *ex = b_broker_bind_process(
-            broker,
-            context_zmq,
-            &client_router,
-            &worker_router);
-        if (ex) {
-            free(broker);
-            return ex;
-        }
-    }
-
-    *broker = (struct B_Broker) {
         .database = database,
         .database_vtable = database_vtable,
 
-        .client_router = client_router,
-        .worker_router = worker_router,
-    };
+        .client_router = NULL,
+        .worker_router = NULL,
+
+        .ready_workers = NULL,
+        .work_queue = NULL,
+    });
 
     *out = broker;
     return NULL;
@@ -197,6 +188,36 @@ b_broker_bind_process(
 
 struct B_Exception *
 b_broker_run(
+    struct B_Broker *broker) {
+
+    struct B_Exception *ex;
+
+    // The b_protocol_*_endpoint functions only use the
+    // pointer value of a Broker, so it is safe to give them
+    // an incomplete broker.
+    // TODO(strager): Better design.  =]
+    ex = b_broker_bind_process(
+        broker,
+        broker->context_zmq,
+        &broker->client_router,
+        &broker->worker_router);
+    if (ex) {
+        return ex;
+    }
+
+    ex = b_broker_run_loop(broker);
+    // TODO(strager): Capture close errors.
+    (void) b_zmq_close(broker->client_router);
+    (void) b_zmq_close(broker->worker_router);
+    if (ex) {
+        return ex;
+    }
+
+    return NULL;
+}
+
+static B_ERRFUNC
+b_broker_run_loop(
     struct B_Broker *broker) {
 
     zmq_pollitem_t poll_items[] = {
