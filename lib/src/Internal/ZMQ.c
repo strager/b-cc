@@ -172,6 +172,20 @@ b_zmq_msg_send(
 }
 
 struct B_Exception *
+b_zmq_msg_resend(
+    zmq_msg_t *message,
+    void *socket_zmq,
+    int flags) {
+
+    int extra_flags
+        = zmq_msg_more(message) ? ZMQ_SNDMORE : 0;
+    return b_zmq_msg_send(
+        message,
+        socket_zmq,
+        flags | extra_flags);
+}
+
+struct B_Exception *
 b_zmq_send(
     void *socket_zmq,
     void const *data,
@@ -242,6 +256,40 @@ b_zmq_socket_more(
     assert(rc == 0);
 
     return more;
+}
+
+B_ERRFUNC
+b_zmq_copy(
+    void *from_socket_zmq,
+    void *to_socket_zmq,
+    int flags) {
+
+    bool more_messages = true;
+    while (more_messages) {
+        zmq_msg_t message;
+
+        struct B_Exception *ex = b_zmq_msg_init_recv(
+            &message,
+            from_socket_zmq,
+            0);  // flags
+        if (ex) {
+            return ex;
+        }
+
+        more_messages = zmq_msg_more(&message);
+
+        int extra_flags = more_messages ? ZMQ_SNDMORE : 0;
+        ex = b_zmq_msg_send(
+            &message,
+            to_socket_zmq,
+            flags | extra_flags);
+        b_zmq_msg_close(&message);
+        if (ex) {
+            return ex;
+        }
+    }
+
+    return NULL;
 }
 
 static void

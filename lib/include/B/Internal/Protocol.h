@@ -21,6 +21,8 @@ struct B_UUID;
 enum B_WorkerCommand {
     B_WORKER_READY = 1,
     B_WORKER_DONE_AND_READY = 2,
+    B_WORKER_EXIT = 3,
+    B_WORKER_ABANDON = 4,
 };
 
 struct B_RequestID {

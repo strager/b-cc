@@ -3,6 +3,7 @@
 #include <B/Internal/Portable.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 struct B_Identity *
 b_identity_allocate(
@@ -26,4 +27,13 @@ b_identity_deallocate(
 
     free((char *) identity->data);
     free(identity);
+}
+
+bool
+b_identity_equal(
+    struct B_Identity const *x,
+    struct B_Identity const *y) {
+
+    return x->data_size == y->data_size
+        && memcmp(x->data, y->data, x->data_size) == 0;
 }

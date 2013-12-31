@@ -59,6 +59,14 @@ b_zmq_msg_send(
     void *socket_zmq,
     int flags);
 
+// Sets ZMQ_SNDMORE if the zmq_msg_more(&message) returns
+// nonzero.
+B_ERRFUNC
+b_zmq_msg_resend(
+    zmq_msg_t *message,
+    void *socket_zmq,
+    int flags);
+
 B_ERRFUNC
 b_zmq_send(
     void *socket_zmq,
@@ -76,6 +84,12 @@ b_zmq_recv(
 bool
 b_zmq_socket_more(
     void *socket_zmq);
+
+B_ERRFUNC
+b_zmq_copy(
+    void *from_socket_zmq,
+    void *to_socket_zmq,
+    int flags);
 
 #ifdef __cplusplus
 }

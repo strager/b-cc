@@ -230,10 +230,13 @@ b_fiber_trampoline(
     // closure_raw is now invalid.
 
     printf("callback=%p\n", closure.callback);
+    B_LOG(B_FIBER, "Fiber started");
     void *result = closure.callback(closure.user_closure);
     if (closure.out_callback_result) {
         *closure.out_callback_result = result;
     }
+
+    B_LOG(B_FIBER, "Fiber dying");
 
     b_fiber_yield_end(closure.fiber_context);
 }
@@ -642,6 +645,7 @@ b_fiber_yield_end(
 
     fiber_context->fiber_count -= 1;
 
+    B_LOG(B_FIBER, "Fiber dead");
     b_ucontext_setcontext(&context);
 }
 

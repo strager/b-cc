@@ -40,6 +40,10 @@ b_worker_work_fiber(
     struct B_Worker const *,
     bool const volatile *should_die);
 
+static B_ERRFUNC
+b_worker_exit_abandon(
+    struct B_Worker const *);
+
 static void *
 b_worker_work_fiber_wrapper(
     void *);
@@ -246,13 +250,140 @@ b_worker_work_fiber(
 
             if (fiber_ex) {
                 // FIXME(strager): This shouldn't terminate
-                // this thread.
+                // this fiber.
                 return fiber_ex;
             }
         }
     }
-    if (*should_die) {
-        B_LOG(B_INFO, "Death upon me!");
+
+    // Tell the broker we are done.
+    {
+        struct B_Exception *ex
+            = b_worker_exit_abandon(worker);
+        if (ex) {
+            return ex;
+        }
+    }
+
+    return NULL;
+}
+
+static B_ERRFUNC
+b_worker_exit_abandon(
+    struct B_Worker const *worker) {
+
+    {
+        struct B_Exception *ex = NULL;
+        b_protocol_send_worker_command(
+            worker->broker_dealer,
+            B_WORKER_EXIT,
+            0, // flags
+            &ex);
+        if (ex) {
+            return ex;
+        }
+    }
+
+    // Possible response orderings:
+    // * ready, then exit, then abandon
+    // * exit only
+    bool expecting_ready_response = true;
+    bool expecting_exit_response = true;
+    bool expecting_abandon_response = false;
+
+    zmq_pollitem_t poll_items[] = {
+        { worker->broker_dealer, 0, ZMQ_POLLIN, 0 },
+    };
+    for (;;) {
+        // FIXME(strager): We should probably have a reasonable
+        // timeout (1 second?).
+        const long timeout_milliseconds = -1;
+        bool is_finished;
+        struct B_Exception *ex = b_fiber_context_poll_zmq(
+            worker->fiber_context,
+            poll_items,
+            sizeof(poll_items) / sizeof(*poll_items),
+            timeout_milliseconds,
+            NULL,
+            &is_finished);
+        if (ex) {
+            int errno_value = b_exception_errno_value(ex);
+            if (errno_value == ETERM) {
+                break;
+            }
+            if (errno_value == EINTR) {
+                continue;
+            }
+            return ex;
+        }
+        if (is_finished) {
+            break;
+        }
+
+        // Received response from broker.
+        // TODO(strager): Factor into some function
+        // goodness.
+        if (poll_items[0].revents & ZMQ_POLLIN) {
+            zmq_msg_t first_message;
+            ex = b_zmq_msg_init_recv(
+                &first_message,
+                worker->broker_dealer,
+                0);  // flags
+            if (ex) {
+                return ex;
+            }
+
+            if (zmq_msg_size(&first_message) == 0) {
+                // Broker has confirmed our WORKER_EXIT or
+                // WORKER_ABANDON request.
+                b_zmq_msg_close(&first_message);
+
+                if (expecting_exit_response) {
+                    B_LOG(B_INFO, "WORKER_EXIT response received.");
+                    expecting_exit_response = false;
+                }
+                if (expecting_abandon_response) {
+                    B_LOG(B_INFO, "WORKER_ABANDON response received.");
+                    expecting_abandon_response = false;
+                }
+
+                if (!expecting_exit_response
+                    && !expecting_abandon_response) {
+                    break;
+                }
+            } else {
+                // Broker is sending us work.  Send it back.
+
+                if (!expecting_ready_response) {
+                    b_zmq_msg_close(&first_message);
+                    return b_exception_string(
+                        "Received multiple work responses");
+                }
+                expecting_ready_response = false;
+
+                B_LOG(B_INFO, "Received work load; sending back as abandoned.");
+                b_protocol_send_worker_command(
+                    worker->broker_dealer,
+                    B_WORKER_ABANDON,
+                    ZMQ_SNDMORE,
+                    &ex);
+                if (ex) {
+                    b_zmq_msg_close(&first_message);
+                    return ex;
+                }
+
+                ex = b_zmq_msg_resend(
+                    &first_message,
+                    worker->broker_dealer,
+                    0);  // flags
+                b_zmq_msg_close(&first_message);
+                if (ex) {
+                    return ex;
+                }
+
+                expecting_abandon_response = true;
+            }
+        }
     }
 
     return NULL;
@@ -341,7 +472,7 @@ b_worker_send_response(
     b_protocol_send_worker_command(
         broker_dealer,
         B_WORKER_DONE_AND_READY,
-        ZMQ_SNDMORE, // flags
+        ZMQ_SNDMORE,
         &ex);
     if (ex) {
         return ex;

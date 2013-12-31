@@ -1,6 +1,9 @@
 #ifndef IDENTITY_H_1D83BD3B_407B_466A_B7CD_51C87B765678
 #define IDENTITY_H_1D83BD3B_407B_466A_B7CD_51C87B765678
 
+#include <stdbool.h>
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,6 +21,11 @@ b_identity_allocate(
 void
 b_identity_deallocate(
     struct B_Identity *);
+
+bool
+b_identity_equal(
+    struct B_Identity const *,
+    struct B_Identity const *);
 
 #if 0
 struct B_Identity *

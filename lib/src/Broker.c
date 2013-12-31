@@ -16,7 +16,15 @@
 
 struct B_WorkerQueue {
     // Owned.
-    struct B_WorkerQueue *const next;
+    struct B_WorkerQueue *next;
+
+    // Owned.
+    struct B_Identity *const worker_identity;
+};
+
+struct B_WorkerList {
+    // Owned.
+    struct B_WorkerList *next;
 
     // Owned.
     struct B_Identity *const worker_identity;
@@ -50,6 +58,10 @@ b_broker_bind_process(
     void *context_zmq,
     void **out_client_router,
     void **out_worker_router);
+
+static struct B_Identity *
+b_broker_take_ready_worker(
+    struct B_Broker *);
 
 static struct B_Exception *
 b_broker_handle_client(
@@ -238,29 +250,11 @@ b_broker_copy_messages(
     void *to_socket_zmq,
     struct B_Exception **ex) {
 
-    bool more_messages = true;
-    while (more_messages) {
-        zmq_msg_t message;
+    *ex = b_zmq_copy(
+        from_socket_zmq,
+        to_socket_zmq,
+        0);  // flags
 
-        *ex = b_zmq_msg_init_recv(
-            &message,
-            from_socket_zmq,
-            0);
-        if (*ex) {
-            return;
-        }
-
-        more_messages = zmq_msg_more(&message);
-
-        *ex = b_zmq_msg_send(
-            &message,
-            to_socket_zmq,
-            more_messages ? ZMQ_SNDMORE : 0);
-        b_zmq_msg_close(&message);
-        if (*ex) {
-            return;
-        }
-    }
 }
 
 static struct B_Exception *
@@ -394,6 +388,112 @@ b_broker_worker_ready(
     }
 }
 
+static B_ERRFUNC
+b_broker_worker_exit(
+    struct B_Broker *broker,
+    struct B_Identity *identity) {
+
+    // Remove the worker with 'identity' from the queue.
+    struct B_WorkerQueue **prev_next
+        = &broker->ready_workers;
+    struct B_WorkerQueue *queue_item
+        = broker->ready_workers;
+    while (queue_item) {
+        if (b_identity_equal(
+            queue_item->worker_identity,
+            identity)) {
+
+            *prev_next = queue_item->next;
+            b_identity_deallocate(
+                queue_item->worker_identity);
+            free(queue_item);
+
+            return NULL;
+        }
+
+        prev_next = &queue_item->next;
+        queue_item = queue_item->next;
+    }
+
+    B_LOG(B_INFO, "Worker which requested exit wasn't found");
+
+    return NULL;
+}
+
+static B_ERRFUNC
+b_broker_worker_abandon(
+    struct B_Broker *broker,
+    struct B_Identity const *abandoning_worker_identity) {
+
+    // TODO(strager): Remove duplication with
+    // b_broker_handle_client.
+
+    if (broker->ready_workers) {
+        B_LOG(B_INFO, "Sending worker work to do.");
+
+        struct B_Identity *worker_identity
+            = b_broker_take_ready_worker(broker);
+        assert(worker_identity);
+
+        struct B_Exception *ex = NULL;
+        b_protocol_send_identity_envelope(
+            broker->worker_router,
+            worker_identity,
+            ZMQ_SNDMORE,
+            &ex);
+        if (ex) {
+            return ex;
+        }
+
+        // NOTE(strager): This looks weird, be are routing
+        // from one worker to another.
+        b_broker_copy_messages(
+            broker->worker_router,
+            broker->worker_router,
+            &ex);
+        if (ex) {
+            return ex;
+        }
+    } else {
+        B_LOG(B_INFO, "No workers available; queueing work for next available worker.");
+
+        struct B_Exception *ex = NULL;
+        struct B_MessageList *message_list
+            = b_message_list_allocate_from_socket(
+                broker->worker_router,
+                0,  // flags
+                &ex);
+        if (ex) {
+            return ex;
+        }
+        b_broker_enqueue_work(broker, message_list);
+    }
+
+    // Reply.
+    {
+        struct B_Exception *ex = NULL;
+        b_protocol_send_identity_envelope(
+            broker->worker_router,
+            abandoning_worker_identity,
+            ZMQ_SNDMORE,
+            &ex);
+        if (ex) {
+            return ex;
+        }
+
+        ex = b_zmq_send(
+            broker->worker_router,
+            NULL,
+            0,
+            0);  // flags
+        if (ex) {
+            return ex;
+        }
+    }
+
+    return NULL;
+}
+
 static struct B_Identity *
 b_broker_take_ready_worker(
     struct B_Broker *broker) {
@@ -412,6 +512,9 @@ b_broker_take_ready_worker(
 static struct B_Exception *
 b_broker_handle_client(
     struct B_Broker *broker) {
+
+    // TODO(strager): Remove duplication with
+    // b_Broker_worker_abandon.
 
     if (broker->ready_workers) {
         B_LOG(B_INFO, "Sending worker work to do.");
@@ -479,7 +582,7 @@ b_broker_handle_worker(
 
         ex = b_broker_worker_ready(broker, worker_identity);
         if (ex) {
-            return NULL;
+            return ex;
         }
 
         return NULL;
@@ -489,7 +592,7 @@ b_broker_handle_worker(
 
         ex = b_broker_worker_ready(broker, worker_identity);
         if (ex) {
-            return NULL;
+            return ex;
         }
 
         // Send identity and answer back to client.
@@ -503,6 +606,37 @@ b_broker_handle_worker(
 
         return NULL;
     }
+
+    case B_WORKER_EXIT:
+        B_LOG(B_INFO, "Worker is exiting.");
+
+        ex = b_broker_worker_exit(broker, worker_identity);
+        if (ex) {
+            return ex;
+        }
+
+        ex = b_zmq_send(
+            broker->worker_router,
+            NULL,
+            0,
+            0);  // flags
+        if (ex) {
+            return ex;
+        }
+
+        return NULL;
+
+    case B_WORKER_ABANDON:
+        B_LOG(B_INFO, "Worker is abandoning work.");
+
+        ex = b_broker_worker_abandon(
+            broker,
+            worker_identity);
+        if (ex) {
+            return ex;
+        }
+
+        return NULL;
 
     default:
         assert(0);  // FIXME(strager)
