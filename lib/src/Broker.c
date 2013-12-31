@@ -63,6 +63,10 @@ static void
 b_ready_workers_deallocate(
     struct B_WorkerQueue *);
 
+static void
+b_message_queue_deallocate(
+    struct B_MessageQueue *);
+
 struct B_Exception *
 b_broker_allocate_bind(
     void *context_zmq,
@@ -120,11 +124,7 @@ b_broker_deallocate_unbind(
     }
 
     b_ready_workers_deallocate(broker->ready_workers);
-
-    if (broker->work_queue) {
-        // TODO(strager)
-        abort();
-    }
+    b_message_queue_deallocate(broker->work_queue);
 
     free(broker);
 
@@ -289,6 +289,33 @@ b_broker_copy_request_to_worker(
     return NULL;
 }
 
+static B_ERRFUNC
+b_broker_send_request_to_worker(
+    struct B_Broker *broker,
+    struct B_Identity const *worker_identity,
+    struct B_MessageList *message_list) {
+
+    struct B_Exception *ex = NULL;
+    b_protocol_send_identity_envelope(
+        broker->worker_router,
+        worker_identity,
+        ZMQ_SNDMORE,
+        &ex);
+    if (ex) {
+        return ex;
+    }
+
+    ex = b_message_list_send(
+        message_list,
+        broker->worker_router,
+        0);  // flags
+    if (ex) {
+        return ex;
+    }
+
+    return NULL;
+}
+
 static void
 b_broker_enqueue_work(
     struct B_Broker *broker,
@@ -308,7 +335,8 @@ b_ready_workers_deallocate(
     while (worker_queue) {
         struct B_WorkerQueue *next = worker_queue->next;
 
-        b_identity_deallocate(worker_queue->worker_identity);
+        b_identity_deallocate(
+            worker_queue->worker_identity);
         free(worker_queue);
 
         worker_queue = next;
@@ -316,15 +344,54 @@ b_ready_workers_deallocate(
 }
 
 static void
-b_broker_add_ready_worker(
+b_message_queue_deallocate(
+    struct B_MessageQueue *message_queue) {
+
+    while (message_queue) {
+        struct B_MessageQueue *next = message_queue->next;
+
+        b_message_list_deallocate(
+            message_queue->messages);
+        free(message_queue);
+
+        message_queue = next;
+    }
+}
+
+static B_ERRFUNC
+b_broker_worker_ready(
     struct B_Broker *broker,
     struct B_Identity *identity) {
 
-    B_ALLOCATE(struct B_WorkerQueue, queue_item, {
-        .next = broker->ready_workers,
-        .worker_identity = identity,
-    });
-    broker->ready_workers = queue_item;
+    if (broker->work_queue) {
+        // Work queued; send to worker immediately.
+        struct B_MessageQueue work_item
+            = *broker->work_queue;
+        free(broker->work_queue);
+        broker->work_queue = work_item.next;
+
+        struct B_Exception *ex
+            = b_broker_send_request_to_worker(
+                broker,
+                identity,
+                work_item.messages);
+        b_message_list_deallocate(work_item.messages);
+
+        if (ex) {
+            return ex;
+        }
+
+        return NULL;
+    } else {
+        // No work queued; queue the worker.
+        B_ALLOCATE(struct B_WorkerQueue, queue_item, {
+            .next = broker->ready_workers,
+            .worker_identity = identity,
+        });
+        broker->ready_workers = queue_item;
+
+        return NULL;
+    }
 }
 
 static struct B_Identity *
@@ -409,13 +476,21 @@ b_broker_handle_worker(
     switch (worker_command) {
     case B_WORKER_READY:
         B_LOG(B_INFO, "Worker marked as ready.");
-        b_broker_add_ready_worker(broker, worker_identity);
+
+        ex = b_broker_worker_ready(broker, worker_identity);
+        if (ex) {
+            return NULL;
+        }
+
         return NULL;
 
     case B_WORKER_DONE_AND_READY: {
         B_LOG(B_INFO, "Worker is done and marked as ready.");
 
-        b_broker_add_ready_worker(broker, worker_identity);
+        ex = b_broker_worker_ready(broker, worker_identity);
+        if (ex) {
+            return NULL;
+        }
 
         // Send identity and answer back to client.
         b_broker_copy_messages(

@@ -9,6 +9,7 @@ struct B_Exception;
 
 enum B_LogLevel {
     B_ZMQ,
+    B_FIBER,
     B_INFO,
     B_EXCEPTION,
 };

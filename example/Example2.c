@@ -502,7 +502,7 @@ main(
         b_create_thread("broker", broker_thread, broker);
     }
 
-    for (size_t i = 0; i < 40; ++i) {
+    for (size_t i = 0; i < 1; ++i) {
         struct B_Exception *ex = create_worker_async(
             i,
             context_zmq,

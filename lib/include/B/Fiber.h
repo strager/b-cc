@@ -49,6 +49,19 @@ b_fiber_context_fork(
     void *user_closure,
     void **out_callback_result);
 
+B_ERRFUNC
+b_fiber_context_soft_yield(
+    struct B_FiberContext *);
+
+// Yields and waits for one of the following conditions:
+//
+// * This fiber is the only fiber for the context, or
+// * At least one fiber woke up from a
+//   b_fiber_context_poll_zmq call.
+B_ERRFUNC
+b_fiber_context_hard_yield(
+    struct B_FiberContext *);
+
 #ifdef __cplusplus
 }
 #endif

@@ -29,15 +29,20 @@ struct B_Worker {
     void *const broker_dealer;
 };
 
-#if 0
-static void *
-b_worker_work_fiber_wrapper(
-    void *);
-#endif
+struct B_WorkerFiberClosure {
+    struct B_Worker const *const worker;
+    bool volatile should_die;
+    bool volatile did_die;
+};
 
 static B_ERRFUNC
 b_worker_work_fiber(
-    struct B_Worker const *);
+    struct B_Worker const *,
+    bool const volatile *should_die);
+
+static void *
+b_worker_work_fiber_wrapper(
+    void *);
 
 static struct B_Exception *
 b_worker_build(
@@ -72,8 +77,6 @@ b_worker_connect(
     struct B_Broker const *broker,
     void **out_broker_dealer) {
 
-    struct B_Exception *ex;
-
     char endpoint_buffer[1024];
     bool ok = b_protocol_worker_endpoint(
         endpoint_buffer,
@@ -82,7 +85,7 @@ b_worker_connect(
     assert(ok);
 
     void *broker_dealer;
-    ex = b_zmq_socket_connect(
+    struct B_Exception *ex = b_zmq_socket_connect(
         context_zmq,
         ZMQ_DEALER,
         endpoint_buffer,
@@ -143,7 +146,8 @@ b_worker_work(
         .broker_dealer = broker_dealer,
     };
 
-    ex = b_worker_work_fiber(&worker);
+    bool volatile const should_die = false;
+    ex = b_worker_work_fiber(&worker, &should_die);
     if (ex) {
         // TODO(strager): Cleanup.
         return ex;
@@ -160,7 +164,10 @@ b_worker_work(
 
 static B_ERRFUNC
 b_worker_work_fiber(
-    struct B_Worker const *worker) {
+    struct B_Worker const *worker,
+    bool const volatile *should_die) {
+
+    B_LOG(B_INFO, "Worker fiber started.");
 
     {
         struct B_Exception *ex = NULL;
@@ -178,7 +185,7 @@ b_worker_work_fiber(
     zmq_pollitem_t poll_items[] = {
         { worker->broker_dealer, 0, ZMQ_POLLIN, 0 },
     };
-    for (;;) {
+    while (!*should_die) {
         const long timeout_milliseconds = -1;
         bool is_finished;
         struct B_Exception *ex = b_fiber_context_poll_zmq(
@@ -203,11 +210,65 @@ b_worker_work_fiber(
         }
 
         if (poll_items[0].revents & ZMQ_POLLIN) {
+            // Fork off a fiber which will do work while a
+            // Client waits for a response from other
+            // workers.
+            struct B_WorkerFiberClosure fiber_closure = {
+                .worker = worker,
+                .should_die = false,
+            };
+            struct B_Exception *fiber_ex;
+            ex = b_fiber_context_fork(
+                worker->fiber_context,
+                b_worker_work_fiber_wrapper,
+                &fiber_closure,
+                (void *) &fiber_ex);
+            if (ex) {
+                return ex;
+            }
+
+            B_LOG(B_INFO, "BEGIN handle request.");
             ex = b_worker_handle_broker(worker);
             if (ex) {
                 return ex;
             }
+            B_LOG(B_INFO, "END handle request.");
+
+            // Kill fiber and wait for it to die.
+            fiber_closure.should_die = true;
+            while (!fiber_closure.did_die) {
+                ex = b_fiber_context_hard_yield(
+                    worker->fiber_context);
+                if (ex) {
+                    return ex;
+                }
+            }
+
+            if (fiber_ex) {
+                // FIXME(strager): This shouldn't terminate
+                // this thread.
+                return fiber_ex;
+            }
         }
+    }
+    if (*should_die) {
+        B_LOG(B_INFO, "Death upon me!");
+    }
+
+    return NULL;
+}
+
+static void *
+b_worker_work_fiber_wrapper(
+    void *closure_raw) {
+
+    struct B_WorkerFiberClosure *closure = closure_raw;
+    struct B_Exception *ex = b_worker_work_fiber(
+        closure->worker,
+        &closure->should_die);
+    closure->did_die = true;
+    if (ex) {
+        return ex;
     }
 
     return NULL;

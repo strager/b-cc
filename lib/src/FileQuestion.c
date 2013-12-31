@@ -73,6 +73,20 @@ b_file_question_deallocate(
     free((char *) question);
 }
 
+static char const *
+b_file_question_allocate_human_message(
+    struct B_AnyQuestion const *question) {
+
+    return (char const *) question;
+}
+
+static void
+b_file_question_deallocate_human_message(
+    char const *message) {
+
+    (void) message;
+}
+
 void
 b_file_question_serialize(
     const void *value,
@@ -198,6 +212,8 @@ b_file_question_vtable(void) {
         .equal = b_file_question_equal,
         .replicate = b_file_question_replicate,
         .deallocate = b_file_question_deallocate,
+        .allocate_human_message = b_file_question_allocate_human_message,
+        .deallocate_human_message = b_file_question_deallocate_human_message,
         .serialize = b_file_question_serialize,
         .deserialize = b_file_question_deserialize,
     };

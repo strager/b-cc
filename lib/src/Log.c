@@ -21,7 +21,8 @@ b_log_is_level_enabled(
 
     switch (log_level) {
     case B_ZMQ:       return false;
-    case B_INFO:      return false;
+    case B_FIBER:     return true;
+    case B_INFO:      return true;
     case B_EXCEPTION: return true;
     default:          return false;
     }

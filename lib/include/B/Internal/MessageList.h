@@ -1,6 +1,8 @@
 #ifndef MESSAGELISTINTERNAL_H_116E8008_B367_4F5C_923C_14993AD2E62E
 #define MESSAGELISTINTERNAL_H_116E8008_B367_4F5C_923C_14993AD2E62E
 
+#include <B/Internal/Common.h>
+
 #include <zmq.h>
 
 #include <stddef.h>
@@ -34,6 +36,12 @@ struct B_MessageList *
 b_message_list_append_message_move(
     struct B_MessageList *,
     zmq_msg_t *);
+
+B_ERRFUNC
+b_message_list_send(
+    struct B_MessageList *,
+    void *socket_zmq,
+    int flags);
 
 #ifdef __cplusplus
 }

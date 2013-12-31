@@ -1,5 +1,6 @@
 #include <B/Exception.h>
 #include <B/Internal/MessageList.h>
+#include <B/Internal/ZMQ.h>
 
 #include <zmq.h>
 
@@ -115,4 +116,25 @@ b_message_list_append_message_move(
     assert(rc == 0);
 
     return new_message_list;
+}
+
+B_ERRFUNC
+b_message_list_send(
+    struct B_MessageList *message_list,
+    void *socket_zmq,
+    int flags) {
+
+    size_t count = message_list->message_count;
+    for (size_t i = 0; i < count; ++i) {
+        bool last_message = i == count - 1;
+        struct B_Exception *ex = b_zmq_msg_send(
+            &message_list->messages[i],
+            socket_zmq,
+            flags | (last_message ? 0 : ZMQ_SNDMORE));
+        if (ex) {
+            return ex;
+        }
+    }
+
+    return NULL;
 }

@@ -104,7 +104,17 @@ b_client_need_answers(
     for (size_t i = 0; i < count; ++i) {
         struct B_Exception *ex;
 
-        B_LOG(B_INFO, "Sending request %zu to broker.", i);
+        char const *question_message
+            = question_vtables[i]->allocate_human_message(
+                questions[i]);
+        B_LOG(
+            B_INFO,
+            "Sending request %zu (for %s) to broker.",
+            i,
+            question_message);
+        question_vtables[i]->deallocate_human_message(
+            question_message);
+
         ex = b_client_send_request(
             client->broker_dealer,
             i,

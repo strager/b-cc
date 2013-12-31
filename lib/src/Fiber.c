@@ -1,11 +1,12 @@
+#define B_DEBUG
 #define B_VALGRIND
-
-#include <B/Internal/PortableUContext.h>
 
 #include <B/Exception.h>
 #include <B/Fiber.h>
 #include <B/Internal/Allocate.h>
 #include <B/Internal/Portable.h>
+#include <B/Internal/PortableUContext.h>
+#include <B/Log.h>
 
 #include <zmq.h>
 
@@ -16,6 +17,13 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
+
+#include <stdio.h>
+
+enum B_FiberContextYieldType {
+    B_FIBER_CONTEXT_YIELD_HARD,
+    B_FIBER_CONTEXT_YIELD_SOFT,
+};
 
 struct B_FiberPoll {
     // Inputs.
@@ -72,9 +80,10 @@ b_fiber_context_switch(
     struct B_FiberPoll *);
 
 static B_ERRFUNC
-b_fiber_yield(
+b_fiber_context_yield(
     struct B_FiberContext *,
-    struct B_FiberPoll *);
+    struct B_FiberPoll *,
+    enum B_FiberContextYieldType);
 
 static void B_NO_RETURN
 b_fiber_yield_end(
@@ -126,7 +135,10 @@ b_fiber_context_finish(
     {
         {
             struct B_Exception *ex
-                = b_fiber_yield(fiber_context, NULL);
+                = b_fiber_context_yield(
+                    fiber_context,
+                    NULL,
+                    B_FIBER_CONTEXT_YIELD_HARD);
             if (ex) {
                 return ex;
             }
@@ -171,7 +183,10 @@ b_fiber_context_poll_zmq(
     };
 
     struct B_Exception *ex
-        = b_fiber_yield(fiber_context, &fiber_poll);
+        = b_fiber_context_yield(
+            fiber_context,
+            &fiber_poll,
+            B_FIBER_CONTEXT_YIELD_SOFT);
     if (ex) {
         return ex;
     }
@@ -203,6 +218,7 @@ static void B_NO_RETURN
 b_fiber_trampoline(
     void *closure_raw) {
 
+    printf("closure_raw=%p\n", closure_raw);
     struct B_FiberTrampolineClosure closure
         = *(struct B_FiberTrampolineClosure *) closure_raw;
 
@@ -213,6 +229,7 @@ b_fiber_trampoline(
         closure.parent_context);
     // closure_raw is now invalid.
 
+    printf("callback=%p\n", closure.callback);
     void *result = closure.callback(closure.user_closure);
     if (closure.out_callback_result) {
         *closure.out_callback_result = result;
@@ -274,6 +291,36 @@ b_fiber_context_fork(
     return NULL;
 }
 
+B_ERRFUNC
+b_fiber_context_soft_yield(
+    struct B_FiberContext *fiber_context) {
+
+    struct B_Exception *ex = b_fiber_context_yield(
+        fiber_context,
+        NULL,
+        B_FIBER_CONTEXT_YIELD_SOFT);
+    if (ex) {
+        return ex;
+    }
+
+    return NULL;
+}
+
+B_ERRFUNC
+b_fiber_context_hard_yield(
+    struct B_FiberContext *fiber_context) {
+
+    struct B_Exception *ex = b_fiber_context_yield(
+        fiber_context,
+        NULL,
+        B_FIBER_CONTEXT_YIELD_HARD);
+    if (ex) {
+        return ex;
+    }
+
+    return NULL;
+}
+
 static B_ERRFUNC
 b_fiber_context_get_free_fiber(
     struct B_FiberContext *fiber_context,
@@ -299,6 +346,7 @@ b_fiber_context_get_free_fiber(
             b_ucontext_copy(
                 &new_fibers[i].context,
                 &old_fibers[i].context);
+            new_fibers[i].poll = old_fibers[i].poll;
         }
         free(old_fibers);
 
@@ -307,7 +355,7 @@ b_fiber_context_get_free_fiber(
     }
 
     assert(fiber_context->fiber_count + 1
-        < fiber_context->fibers_size);
+        <= fiber_context->fibers_size);
     *out = &fiber_context
         ->fibers[fiber_context->fiber_count];
     fiber_context->fiber_count += 1;
@@ -324,8 +372,10 @@ b_fibers_poll(
     size_t pollitem_total_count = 0;
     for (size_t i = 0; i < fiber_count; ++i) {
         struct B_Fiber const *fiber = &fibers[i];
-        assert(fiber->poll);
-        pollitem_total_count += fiber->poll->pollitem_count;
+        if (fiber->poll) {
+            pollitem_total_count
+                += fiber->poll->pollitem_count;
+        }
     }
 
     // Put poll items into a single array.
@@ -335,7 +385,10 @@ b_fibers_poll(
         zmq_pollitem_t *cur_pollitem = pollitems;
         for (size_t i = 0; i < fiber_count; ++i) {
             struct B_Fiber const *fiber = &fibers[i];
-            assert(fiber->poll);
+            if (!fiber->poll) {
+                continue;
+            }
+
             assert(fiber->poll->pollitems);
             memcpy(
                 cur_pollitem,
@@ -351,10 +404,35 @@ b_fibers_poll(
 
     // TODO(strager): Support timeouts.
     for (size_t i = 0; i < fiber_count; ++i) {
-        assert(fibers[i].poll->timeout_milliseconds < 0);
+        if (fibers[i].poll) {
+            assert(fibers[i].poll->timeout_milliseconds
+                < 0);
+        }
     }
 
     // Poll!
+    B_LOG(
+        B_FIBER,
+        "Polling %zu pollitems across %zu fibers",
+        pollitem_total_count,
+        fiber_count);
+    for (size_t i = 0; i < fiber_count; ++i) {
+        struct B_Fiber const *fiber = &fibers[i];
+        if (!fiber->poll) {
+            continue;
+        }
+
+        for (size_t j = 0; j < fiber->poll->pollitem_count; ++j) {
+            B_LOG(
+                B_FIBER,
+                "fiber[%zu] pollitem[%zu] socket=%p events=%x",
+                i,
+                j,
+                fiber->poll->pollitems[j].socket,
+                fiber->poll->pollitems[j].events);
+        }
+    }
+
     const long timeout_milliseconds = -1;
     int rc = zmq_poll(
         pollitems,
@@ -382,7 +460,10 @@ b_fibers_poll(
             ++fiber_index) {
 
             struct B_Fiber *fiber = &fibers[fiber_index];
-            assert(fiber->poll);
+            if (!fiber->poll) {
+                continue;
+            }
+
             assert(fiber->poll->pollitems);
 
             zmq_pollitem_t *pollitems
@@ -455,9 +536,10 @@ b_fiber_context_switch(
 }
 
 static B_ERRFUNC
-b_fiber_yield(
+b_fiber_context_yield(
     struct B_FiberContext *fiber_context,
-    struct B_FiberPoll *poll) {
+    struct B_FiberPoll *poll,
+    enum B_FiberContextYieldType yield_type) {
 
     {
         struct B_Fiber *non_polling_fiber
@@ -469,24 +551,27 @@ b_fiber_yield(
         }
     }
 
-    if (!poll) {
-        // There are no other fibers, and we are not
-        // polling, so there is nothing to do.
+    if (yield_type == B_FIBER_CONTEXT_YIELD_SOFT && !poll) {
+        // All fibers are polling, but we are not, so we can
+        // resume this fiber.
         return NULL;
     }
 
-    // Poll for this fiber and all other fibers.
+    // Add this fiber to the poll list.
     struct B_Fiber *fiber;
-    {
-        struct B_Exception *ex
-            = b_fiber_context_get_free_fiber(
-                fiber_context,
-                &fiber);
-        if (ex) {
-            return ex;
+    if (poll) {
+        {
+            struct B_Exception *ex
+                = b_fiber_context_get_free_fiber(
+                    fiber_context,
+                    &fiber);
+            if (ex) {
+                return ex;
+            }
         }
+        fiber->poll = poll;
     }
-    fiber->poll = poll;
+
     // NOTE(strager): struct B_Fiber::context is not used by
     // b_fibers_poll.
     b_fibers_poll(
@@ -494,9 +579,11 @@ b_fiber_yield(
         fiber_context->fiber_count);
 
     // Remove the current fiber.
-    assert(fiber == &fiber_context
-        ->fibers[fiber_context->fiber_count - 1]);
-    fiber_context->fiber_count -= 1;
+    if (poll) {
+        assert(fiber == &fiber_context
+            ->fibers[fiber_context->fiber_count - 1]);
+        fiber_context->fiber_count -= 1;
+    }
 
     // Switch to a woken fiber.
     {
@@ -506,9 +593,13 @@ b_fiber_yield(
         if (non_polling_fiber) {
             b_fiber_context_switch(non_polling_fiber, poll);
             return NULL;
-        } else {
+        } else if (poll) {
             // The current fiber was woken.
             return NULL;
+        } else {
+            // FIXME(strager): When does this occur?  When
+            // this is the only fiber?
+            abort();
         }
     }
 }

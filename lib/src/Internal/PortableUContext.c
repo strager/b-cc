@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <stdio.h>
+
 // b_ucontext_setcontext and b_ucontext_getcontext are
 // implemented in assembly in PortableUContextASM.S.
 
@@ -65,6 +67,13 @@ b_ucontext_makecontext(
     // Return address.
     sp -= sizeof(uint64_t);
     *(void (**)(void)) sp = abort;
+
+    printf(
+        "makecontext stack=%p sp=%p callback=%p user_closure=%p\n",
+        stack,
+        (void *) sp,
+        callback,
+        user_closure);
 
     // Arguments.
     context->rdi = (uint64_t) (uintptr_t) user_closure;

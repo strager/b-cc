@@ -57,6 +57,11 @@ struct B_QuestionVTable {
     void (*deallocate)(
         struct B_AnyQuestion *);
 
+    char const *(*allocate_human_message)(
+        struct B_AnyQuestion const *);
+    void (*deallocate_human_message)(
+        char const *);
+
     B_SerializeFunc serialize;
     B_DeserializeFunc0 deserialize;
 };
