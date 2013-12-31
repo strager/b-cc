@@ -17,12 +17,31 @@
 #include <assert.h>
 #include <stdbool.h>
 
+struct B_Worker {
+    struct B_QuestionVTableList const *const question_vtables;
+    struct B_AnyRule const *const rule;
+    struct B_RuleVTable const *const rule_vtable;
+
+    struct B_FiberContext *const fiber_context;
+    struct B_Client *const client;
+
+    // ZeroMQ sockets.
+    void *const broker_dealer;
+};
+
+#if 0
+static void *
+b_worker_work_fiber_wrapper(
+    void *);
+#endif
+
+static B_ERRFUNC
+b_worker_work_fiber(
+    struct B_Worker const *);
+
 static struct B_Exception *
 b_worker_build(
-    struct B_FiberContext *,
-    struct B_Client *,
-    struct B_AnyRule const *,
-    struct B_RuleVTable const *,
+    struct B_Worker const *,
     struct B_AnyQuestion const *,
     struct B_QuestionVTable const *);
 
@@ -45,12 +64,7 @@ b_worker_recv_request(
 
 static struct B_Exception *
 b_worker_handle_broker(
-    void *broker_dealer,
-    struct B_FiberContext *,
-    struct B_Client *,
-    struct B_AnyRule const *,
-    struct B_RuleVTable const *,
-    struct B_QuestionVTableList const *);
+    struct B_Worker const *);
 
 static struct B_Exception *
 b_worker_connect(
@@ -73,15 +87,6 @@ b_worker_connect(
         ZMQ_DEALER,
         endpoint_buffer,
         &broker_dealer);
-    if (ex) {
-        return ex;
-    }
-
-    b_protocol_send_worker_command(
-        broker_dealer,
-        B_WORKER_READY,
-        0, // flags
-        &ex);
     if (ex) {
         return ex;
     }
@@ -127,14 +132,57 @@ b_worker_work(
         return ex;
     }
 
+    struct B_Worker worker = {
+        .question_vtables = question_vtables,
+        .rule = rule,
+        .rule_vtable = rule_vtable,
+
+        .fiber_context = fiber_context,
+        .client = client,
+
+        .broker_dealer = broker_dealer,
+    };
+
+    ex = b_worker_work_fiber(&worker);
+    if (ex) {
+        // TODO(strager): Cleanup.
+        return ex;
+    }
+
+    // TODO(strager): Error checking.
+    (void) b_client_deallocate_disconnect(client);
+    (void) zmq_close(broker_dealer);
+    (void) b_fiber_context_deallocate(fiber_context);
+
+    return NULL;
+}
+
+
+static B_ERRFUNC
+b_worker_work_fiber(
+    struct B_Worker const *worker) {
+
+    {
+        struct B_Exception *ex = NULL;
+        b_protocol_send_worker_command(
+            worker->broker_dealer,
+            B_WORKER_READY,
+            0, // flags
+            &ex);
+        if (ex) {
+            // TODO(strager): Cleanup.
+            return ex;
+        }
+    }
+
     zmq_pollitem_t poll_items[] = {
-        { broker_dealer, 0, ZMQ_POLLIN, 0 },
+        { worker->broker_dealer, 0, ZMQ_POLLIN, 0 },
     };
     for (;;) {
         const long timeout_milliseconds = -1;
         bool is_finished;
-        ex = b_fiber_context_poll_zmq(
-            fiber_context,
+        struct B_Exception *ex = b_fiber_context_poll_zmq(
+            worker->fiber_context,
             poll_items,
             sizeof(poll_items) / sizeof(*poll_items),
             timeout_milliseconds,
@@ -155,35 +203,19 @@ b_worker_work(
         }
 
         if (poll_items[0].revents & ZMQ_POLLIN) {
-            ex = b_worker_handle_broker(
-                broker_dealer,
-                fiber_context,
-                client,
-                rule,
-                rule_vtable,
-                question_vtables);
+            ex = b_worker_handle_broker(worker);
             if (ex) {
                 return ex;
             }
         }
     }
 
-    // TODO(strager): Error checking.
-    (void) b_client_deallocate_disconnect(client);
-    (void) zmq_close(broker_dealer);
-    (void) b_fiber_context_deallocate(fiber_context);
-
     return NULL;
 }
 
 static struct B_Exception *
 b_worker_handle_broker(
-    void *broker_dealer,
-    struct B_FiberContext *fiber_context,
-    struct B_Client *client,
-    struct B_AnyRule const *rule,
-    struct B_RuleVTable const *rule_vtable,
-    struct B_QuestionVTableList const *question_vtables) {
+    struct B_Worker const *worker) {
 
     struct B_Exception *ex;
 
@@ -193,9 +225,9 @@ b_worker_handle_broker(
     struct B_AnyQuestion *question;
     struct B_QuestionVTable const *question_vtable;
     ex = b_worker_recv_request(
-        broker_dealer,
+        worker->broker_dealer,
         &request_id,
-        question_vtables,
+        worker->question_vtables,
         &client_identity,
         &question,
         &question_vtable);
@@ -205,10 +237,7 @@ b_worker_handle_broker(
 
     // Do work.
     ex = b_worker_build(
-        fiber_context,
-        client,
-        rule,
-        rule_vtable,
+        worker,
         question,
         question_vtable);
     if (ex) {
@@ -225,7 +254,7 @@ b_worker_handle_broker(
     }
 
     ex = b_worker_send_response(
-        broker_dealer,
+        worker->broker_dealer,
         client_identity,
         &request_id,
         answer,
@@ -351,10 +380,7 @@ b_worker_recv_request(
 
 static struct B_Exception *
 b_worker_build(
-    struct B_FiberContext *fiber_context,
-    struct B_Client *client,
-    struct B_AnyRule const *rule,
-    struct B_RuleVTable const *rule_vtable,
+    struct B_Worker const *worker,
     struct B_AnyQuestion const *question,
     struct B_QuestionVTable const *question_vtable) {
 
@@ -366,12 +392,12 @@ b_worker_build(
     b_question_validate(question);
 
     struct B_BuildContext *build_context
-        = b_build_context_allocate(client);
+        = b_build_context_allocate(worker->client);
 
     struct B_RuleQueryList *rule_query_list
         = b_rule_query_list_allocate();
-    rule_vtable->query(
-        rule,
+    worker->rule_vtable->query(
+        worker->rule,
         question,
         question_vtable,
         build_context,
