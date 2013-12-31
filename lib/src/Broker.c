@@ -379,7 +379,8 @@ b_broker_worker_ready(
     struct B_Identity *identity) {
 
     if (broker->work_queue) {
-        // Work queued; send to worker immediately.
+        B_LOG(B_INFO, "Sending worker queued work.");
+
         struct B_MessageQueue work_item
             = *broker->work_queue;
         free(broker->work_queue);
@@ -398,7 +399,8 @@ b_broker_worker_ready(
 
         return NULL;
     } else {
-        // No work queued; queue the worker.
+        B_LOG(B_INFO, "No work for worker yet; waiting for work.");
+
         B_ALLOCATE(struct B_WorkerQueue, queue_item, {
             .next = broker->ready_workers,
             .worker_identity = identity,

@@ -2,6 +2,7 @@
 #include <B/Internal/Portable.h>
 #include <B/Log.h>
 
+#include <assert.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -46,7 +47,8 @@ b_log_format(
         sizeof(thread_buffer));
     (void) ok;  // Allow truncation.
 
-    pthread_mutex_lock(&log_mutex);
+    rc = pthread_mutex_lock(&log_mutex);
+    assert(rc == 0);
 
     // Print header.
     // TODO(strager): Print log level.
@@ -68,7 +70,8 @@ b_log_format(
         // TODO(strager): Do something!
     }
 
-    pthread_mutex_unlock(&log_mutex);
+    rc = pthread_mutex_unlock(&log_mutex);
+    assert(rc == 0);
 }
 
 void
@@ -84,12 +87,14 @@ void
 b_log_lock(
     void) {
 
-    pthread_mutex_lock(&log_user_mutex);
+    int rc = pthread_mutex_lock(&log_user_mutex);
+    assert(rc == 0);
 }
 
 void
 b_log_unlock(
     void) {
 
-    pthread_mutex_unlock(&log_user_mutex);
+    int rc = pthread_mutex_unlock(&log_user_mutex);
+    assert(rc == 0);
 }
