@@ -349,28 +349,6 @@ b_worker_recv_request(
     return NULL;
 }
 
-struct B_WorkerQueryClosure {
-    B_RuleQueryFunction rule_query_function;
-    struct B_BuildContext *build_context;
-    struct B_AnyQuestion const *question;
-    void *closure;
-};
-
-// TODO(strager): Better function name.
-static void *
-b_worker_query(
-    void *closure_raw) {
-
-    struct B_Exception *ex = NULL;
-    struct B_WorkerQueryClosure *closure = closure_raw;
-    closure->rule_query_function(
-        closure->build_context,
-        closure->question,
-        closure->closure,
-        &ex);
-    return NULL;
-}
-
 static struct B_Exception *
 b_worker_build(
     struct B_FiberContext *fiber_context,
@@ -413,23 +391,11 @@ b_worker_build(
 
         struct B_RuleQuery const *rule_query
             = b_rule_query_list_get(rule_query_list, 0);
-
-        struct B_WorkerQueryClosure closure = {
-            .rule_query_function = rule_query->function,
-            .build_context = build_context,
-            .question = question,
-            .closure = rule_query->closure,
-        };
-        struct B_Exception *fork_ex
-            = b_fiber_context_fork(
-                fiber_context,
-                b_worker_query,
-                &closure,
-                (void **) &ex);
-        B_EXCEPTION_THEN(&fork_ex, {
-            ex = fork_ex;
-            goto done;
-        });
+        rule_query->function(
+            build_context,
+            question,
+            rule_query->closure,
+            &ex);
         B_EXCEPTION_THEN(&ex, {
             goto done;
         });
