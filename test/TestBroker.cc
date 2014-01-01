@@ -10,23 +10,23 @@
 #include <gtest/gtest.h>
 #include <zmq.h>
 
-TEST(TestBroker, WorkBeforeWorker) {
-    B_Exception *ex;
+// TODO(strager): Write a test for work being received after
+// a worker is available.
 
-    static B_UUID const question_uuid
-        = B_UUID("F5114112-F33B-4A48-882C-CB1E5393A471");
-    static uint8_t const question_payload[] = "hello world";
-    static uint8_t const answer_payload[] = "g'day to you";
-
-    void *context_zmq = zmq_ctx_new();
-    ASSERT_NE(nullptr, context_zmq);
+static B_ERRFUNC
+create_broker_thread(
+    void *context_zmq,
+    B_Broker **out_broker) {
 
     B_Broker *broker;
-    B_CHECK_EX(b_broker_allocate_bind(
+    struct B_Exception *ex = b_broker_allocate_bind(
         context_zmq,
         NULL,  // TODO(strager)
         NULL,  // TODO(strager)
-        &broker));
+        &broker);
+    if (ex) {
+        return ex;
+    }
 
     b_create_thread(
         "broker",
@@ -38,6 +38,25 @@ TEST(TestBroker, WorkBeforeWorker) {
             }
         });
 
+    *out_broker = broker;
+    return NULL;
+}
+
+TEST(TestBroker, WorkBeforeWorker) {
+    B_Exception *ex = NULL;
+
+    static B_UUID const question_uuid
+        = B_UUID("F5114112-F33B-4A48-882C-CB1E5393A471");
+    static uint8_t const question_payload[] = "hello world";
+    static uint8_t const answer_payload[] = "g'day to you";
+
+    void *context_zmq = zmq_ctx_new();
+    ASSERT_NE(nullptr, context_zmq);
+    B_ZMQContextScope context_zmq_scope(context_zmq);
+
+    B_Broker *broker;
+    B_CHECK_EX(create_broker_thread(context_zmq, &broker));
+
     // Send client request.
     void *client_broker_dealer;
     B_CHECK_EX(b_protocol_connect_client(
@@ -45,6 +64,8 @@ TEST(TestBroker, WorkBeforeWorker) {
         broker,
         ZMQ_DEALER,
         &client_broker_dealer));
+    B_ZMQSocketScope client_broker_dealer_scope(
+        client_broker_dealer);
 
     B_CHECK_EX(b_protocol_send_identity_delimiter(
         client_broker_dealer,
@@ -75,13 +96,15 @@ TEST(TestBroker, WorkBeforeWorker) {
     B_LOG(B_INFO, "Waiting for worker to pick up request.");
     sleep(1);
 
-    // Receive the request.
+    // Receive client request.
     void *worker_broker_dealer;
     B_CHECK_EX(b_protocol_connect_worker(
         context_zmq,
         broker,
         ZMQ_DEALER,
         &worker_broker_dealer));
+    B_ZMQSocketScope worker_broker_dealer_scope(
+        worker_broker_dealer);
 
     b_protocol_send_worker_command(
         worker_broker_dealer,
@@ -122,7 +145,7 @@ TEST(TestBroker, WorkBeforeWorker) {
         worker_broker_dealer,
         0);  // flags
 
-    // Send response.
+    // Send worker response.
     b_protocol_send_worker_command(
         worker_broker_dealer,
         B_WORKER_DONE_AND_EXIT,
@@ -151,7 +174,157 @@ TEST(TestBroker, WorkBeforeWorker) {
         sizeof(answer_payload),
         0));  // flags
 
-    // Receive response.
+    // Receive worker response.
+    B_CHECK_EX(b_protocol_recv_identity_delimiter(
+        client_broker_dealer,
+        0));  // flags
+
+    B_EXPECT_RECV_REQUEST_ID_EQ(
+        ((B_RequestID) {{0, 1, 2, 3}}),
+        client_broker_dealer);
+
+    B_EXPECT_RECV(
+        answer_payload,
+        sizeof(answer_payload),
+        client_broker_dealer,
+        0);  // flags
+}
+
+TEST(TestBroker, WorkAfterWorker) {
+    B_Exception *ex = NULL;
+
+    static B_UUID const question_uuid
+        = B_UUID("F5114112-F33B-4A48-882C-CB1E5393A471");
+    static uint8_t const question_payload[] = "hello world";
+    static uint8_t const answer_payload[] = "g'day to you";
+
+    void *context_zmq = zmq_ctx_new();
+    ASSERT_NE(nullptr, context_zmq);
+    B_ZMQContextScope context_zmq_scope(context_zmq);
+
+    B_Broker *broker;
+    B_CHECK_EX(create_broker_thread(context_zmq, &broker));
+    sleep(1);
+
+    // Create worker and mark as ready.
+    void *worker_broker_dealer;
+    B_CHECK_EX(b_protocol_connect_worker(
+        context_zmq,
+        broker,
+        ZMQ_DEALER,
+        &worker_broker_dealer));
+    B_ZMQSocketScope worker_broker_dealer_scope(
+        worker_broker_dealer);
+
+    b_protocol_send_worker_command(
+        worker_broker_dealer,
+        B_WORKER_READY,
+        0,  // flags
+        &ex);
+    B_CHECK_EX(ex);
+
+    // FIXME(strager): This method sucks!
+    B_LOG(B_INFO, "Waiting for worker to pick up worker READY.");
+    sleep(1);
+
+    // Send client request.
+    void *client_broker_dealer;
+    B_CHECK_EX(b_protocol_connect_client(
+        context_zmq,
+        broker,
+        ZMQ_DEALER,
+        &client_broker_dealer));
+    B_ZMQSocketScope client_broker_dealer_scope(
+        client_broker_dealer);
+
+    B_CHECK_EX(b_protocol_send_identity_delimiter(
+        client_broker_dealer,
+        ZMQ_SNDMORE));
+
+    {
+        B_RequestID request_id = {{0, 1, 2, 3}};
+        B_CHECK_EX(b_protocol_send_request_id(
+            client_broker_dealer,
+            &request_id,
+            ZMQ_SNDMORE));
+    }
+
+    b_protocol_send_uuid(
+        client_broker_dealer,
+        question_uuid,
+        ZMQ_SNDMORE,
+        &ex);
+    B_CHECK_EX(ex);
+
+    B_CHECK_EX(b_zmq_send(
+        client_broker_dealer,
+        question_payload,
+        sizeof(question_payload),
+        0));  // flags
+
+    // Receive client request.
+    B_CHECK_EX(b_protocol_recv_identity_delimiter(
+        worker_broker_dealer,
+        0));  // flags
+
+    B_Identity *client_identity
+        = b_protocol_recv_identity_envelope(
+            worker_broker_dealer,
+            0,  // flags
+            &ex);
+    B_CHECK_EX(ex);
+
+    B_EXPECT_RECV_REQUEST_ID_EQ(
+        ((B_RequestID) {{0, 1, 2, 3}}),
+        worker_broker_dealer);
+
+    {
+        B_UUID received_uuid = b_protocol_recv_uuid(
+            worker_broker_dealer,
+            0,  // flags
+            &ex);
+        B_CHECK_EX(ex);
+
+        EXPECT_TRUE(
+            b_uuid_equal(question_uuid, received_uuid));
+    }
+
+    B_EXPECT_RECV(
+        question_payload,
+        sizeof(question_payload),
+        worker_broker_dealer,
+        0);  // flags
+
+    // Send worker response.
+    b_protocol_send_worker_command(
+        worker_broker_dealer,
+        B_WORKER_DONE_AND_EXIT,
+        ZMQ_SNDMORE,
+        &ex);
+    B_CHECK_EX(ex);
+
+    b_protocol_send_identity_envelope(
+        worker_broker_dealer,
+        client_identity,
+        ZMQ_SNDMORE,
+        &ex);
+    B_CHECK_EX(ex);
+
+    {
+        B_RequestID request_id = {{0, 1, 2, 3}};
+        B_CHECK_EX(b_protocol_send_request_id(
+            worker_broker_dealer,
+            &request_id,
+            ZMQ_SNDMORE));
+    }
+
+    B_CHECK_EX(b_zmq_send(
+        worker_broker_dealer,
+        answer_payload,
+        sizeof(answer_payload),
+        0));  // flags
+
+    // Receive worker response.
     B_CHECK_EX(b_protocol_recv_identity_delimiter(
         client_broker_dealer,
         0));  // flags

@@ -558,6 +558,8 @@ static struct B_Exception *
 b_broker_handle_client(
     struct B_Broker *broker) {
 
+    B_LOG(B_INFO, "b_broker_handle_worker");
+
     // TODO(strager): Remove duplication with
     // b_broker_worker_abandon.
 
@@ -601,6 +603,8 @@ b_broker_handle_worker(
     struct B_Broker *broker) {
 
     struct B_Exception *ex = NULL;
+
+    B_LOG(B_INFO, "b_broker_handle_worker");
 
     struct B_Identity *worker_identity
         = b_protocol_recv_identity_envelope(

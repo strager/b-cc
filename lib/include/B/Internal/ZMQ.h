@@ -95,4 +95,38 @@ b_zmq_copy(
 }
 #endif
 
+#if defined(__cplusplus)
+struct B_ZMQContextScope {
+    B_ZMQContextScope(
+        void *context_zmq) :
+
+        context_zmq(context_zmq) {
+    }
+
+    ~B_ZMQContextScope() {
+        int rc = zmq_ctx_destroy(this->context_zmq);
+        assert(rc == 0);
+    }
+
+private:
+    void *const context_zmq;
+};
+
+struct B_ZMQSocketScope {
+    B_ZMQSocketScope(
+        void *socket_zmq) :
+
+        socket_zmq(socket_zmq) {
+    }
+
+    ~B_ZMQSocketScope() {
+        int rc = zmq_close(socket_zmq);
+        assert(rc == 0);
+    }
+
+private:
+    void *const socket_zmq;
+};
+#endif
+
 #endif
