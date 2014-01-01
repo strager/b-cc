@@ -42,6 +42,62 @@ b_protocol_worker_endpoint(
     return rc >= 0 && rc == strlen(buffer);
 }
 
+B_ERRFUNC
+b_protocol_connect_client(
+    void *context_zmq,
+    struct B_Broker const *broker,
+    int socket_type,
+    void **out_socket_zmq) {
+
+    char endpoint_buffer[1024];
+    bool ok = b_protocol_client_endpoint(
+        endpoint_buffer,
+        sizeof(endpoint_buffer),
+        broker);
+    assert(ok);
+
+    void *socket;
+    struct B_Exception *ex = b_zmq_socket_connect(
+        context_zmq,
+        socket_type,
+        endpoint_buffer,
+        &socket);
+    if (ex) {
+        return ex;
+    }
+
+    *out_socket_zmq = socket;
+    return NULL;
+}
+
+B_ERRFUNC
+b_protocol_connect_worker(
+    void *context_zmq,
+    struct B_Broker const *broker,
+    int socket_type,
+    void **out_socket_zmq) {
+
+    char endpoint_buffer[1024];
+    bool ok = b_protocol_worker_endpoint(
+        endpoint_buffer,
+        sizeof(endpoint_buffer),
+        broker);
+    assert(ok);
+
+    void *socket;
+    struct B_Exception *ex = b_zmq_socket_connect(
+        context_zmq,
+        socket_type,
+        endpoint_buffer,
+        &socket);
+    if (ex) {
+        return ex;
+    }
+
+    *out_socket_zmq = socket;
+    return NULL;
+}
+
 void
 b_protocol_send_uuid(
     void *socket_zmq,

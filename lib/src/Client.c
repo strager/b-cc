@@ -52,20 +52,11 @@ b_client_allocate_connect(
     struct B_FiberContext *fiber_context,
     struct B_Client **out) {
 
-    struct B_Exception *ex;
-
-    char endpoint_buffer[1024];
-    bool ok = b_protocol_client_endpoint(
-        endpoint_buffer,
-        sizeof(endpoint_buffer),
-        broker);
-    assert(ok);
-
     void *broker_dealer;
-    ex = b_zmq_socket_connect(
+    struct B_Exception *ex = b_protocol_connect_client(
         context_zmq,
+        broker,
         ZMQ_DEALER,
-        endpoint_buffer,
         &broker_dealer);
     if (ex) {
         return ex;

@@ -652,6 +652,25 @@ b_broker_handle_worker(
         return NULL;
     }
 
+    case B_WORKER_DONE_AND_EXIT:
+        B_LOG(B_INFO, "Worker is done and exiting.");
+
+        ex = b_broker_worker_exit(broker, worker_identity);
+        if (ex) {
+            return ex;
+        }
+
+        // Send identity and answer back to client.
+        b_broker_copy_messages(
+            broker->worker_router,
+            broker->client_router,
+            &ex);
+        if (ex) {
+            return ex;
+        }
+
+        return NULL;
+
     case B_WORKER_EXIT:
         B_LOG(B_INFO, "Worker is exiting.");
 

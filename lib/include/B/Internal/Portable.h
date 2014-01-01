@@ -42,4 +42,26 @@ b_current_thread_string(
 }
 #endif
 
+#if defined(__cplusplus)
+#include <functional>
+#include <memory>
+
+template<typename TFunc>
+void
+b_create_thread(
+    char const *thread_name,
+    TFunc const &thread_function) {
+
+    b_create_thread(
+        thread_name,
+        [](void *closure) {
+            auto thread_function_ptr
+                = std::unique_ptr<std::function<void ()>>(
+                    static_cast<std::function<void ()> *>(closure));
+            (*thread_function_ptr)();
+        },
+        new std::function<void ()>(thread_function));
+}
+#endif
+
 #endif

@@ -106,6 +106,7 @@ b_exception_validate(
 #if defined(__cplusplus)
 #include <exception>
 #include <memory>
+#include <ostream>
 #include <stdexcept>
 #include <type_traits>
 
@@ -164,13 +165,53 @@ b_exception_try_cxx(
 #undef B_RESULT_OF_EXCEPTION_FUNC
 
 struct B_ExceptionDeleter {
-    void operator()(B_Exception *ex) const {
+    void
+    operator()(
+        B_Exception *ex) const {
         b_exception_deallocate(ex);
     }
 };
 
 typedef std::unique_ptr<B_Exception, B_ExceptionDeleter>
     B_ExceptionUniquePtr;
+
+struct B_ExceptionMessageDeleter {
+    explicit B_ExceptionMessageDeleter(
+        B_Exception const *ex) :
+        ex(ex) {
+    }
+
+    void
+    operator()(
+        char const *message) const {
+        b_exception_deallocate_message(this->ex, message);
+    }
+
+    B_Exception const *ex;
+};
+
+typedef std::unique_ptr<char const, B_ExceptionMessageDeleter>
+    B_ExceptionMessageUniquePtr;
+
+inline B_ExceptionMessageUniquePtr
+b_exception_allocate_message_unique_ptr(
+    B_Exception const *ex) {
+
+    return B_ExceptionMessageUniquePtr(
+        b_exception_allocate_message(ex),
+        B_ExceptionMessageDeleter(ex));
+}
+
+
+inline std::ostream &
+operator<<(
+    std::ostream &os,
+    B_Exception const *ex) {
+
+    B_ExceptionMessageUniquePtr message
+        = b_exception_allocate_message_unique_ptr(ex);
+    return os << message.get();
+}
 #endif
 
 #endif

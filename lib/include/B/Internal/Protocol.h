@@ -1,6 +1,9 @@
 #ifndef PROTOCOL_H_2DC53D94_DDEB_472B_99F0_6AAD07BC901B
 #define PROTOCOL_H_2DC53D94_DDEB_472B_99F0_6AAD07BC901B
 
+#include <B/Internal/Common.h>
+#include <B/UUID.h>
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -16,13 +19,13 @@ struct B_Broker;
 struct B_Exception;
 struct B_Identity;
 struct B_QuestionVTable;
-struct B_UUID;
 
 enum B_WorkerCommand {
     B_WORKER_READY = 1,
     B_WORKER_DONE_AND_READY = 2,
-    B_WORKER_EXIT = 3,
-    B_WORKER_ABANDON = 4,
+    B_WORKER_DONE_AND_EXIT = 3,
+    B_WORKER_EXIT = 4,
+    B_WORKER_ABANDON = 5,
 };
 
 struct B_RequestID {
@@ -40,6 +43,20 @@ b_protocol_worker_endpoint(
     char *buffer,
     size_t buffer_size,
     struct B_Broker const *broker);
+
+B_ERRFUNC
+b_protocol_connect_client(
+    void *context_zmq,
+    struct B_Broker const *,
+    int socket_type,
+    void **out_socket_zmq);
+
+B_ERRFUNC
+b_protocol_connect_worker(
+    void *context_zmq,
+    struct B_Broker const *,
+    int socket_type,
+    void **out_socket_zmq);
 
 void
 b_protocol_send_uuid(

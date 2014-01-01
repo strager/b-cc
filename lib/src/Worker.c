@@ -83,24 +83,15 @@ b_worker_connect(
     struct B_Broker const *broker,
     void **out_broker_dealer) {
 
-    char endpoint_buffer[1024];
-    bool ok = b_protocol_worker_endpoint(
-        endpoint_buffer,
-        sizeof(endpoint_buffer),
-        broker);
-    assert(ok);
-
-    void *broker_dealer;
-    struct B_Exception *ex = b_zmq_socket_connect(
+    struct B_Exception *ex = b_protocol_connect_worker(
         context_zmq,
+        broker,
         ZMQ_DEALER,
-        endpoint_buffer,
-        &broker_dealer);
+        out_broker_dealer);
     if (ex) {
         return ex;
     }
 
-    *out_broker_dealer = broker_dealer;
     return NULL;
 }
 

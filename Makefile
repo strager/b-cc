@@ -52,7 +52,10 @@ CXX_FLAGS := $(CFLAGS) $(CXXFLAGS) $(WARNING_FLAGS) -g -std=c++11 -stdlib=libc++
 LD_FLAGS := $(CFLAGS) $(LDFLAGS) $(WARNING_FLAGS) -L$(OUT_DIR)/lib $(LIBS) -stdlib=libc++
 
 .PHONY: all
-all: $(LIB) $(EXAMPLE) $(TEST) test
+all: build test
+
+.PHONY: build
+build: $(LIB) $(EXAMPLE) $(TEST)
 
 .PHONY: clean
 clean:

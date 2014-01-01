@@ -42,22 +42,13 @@ b_message_list_allocate_from_socket(
 
     bool more_messages = true;
     while (more_messages) {
-        int rc;
         zmq_msg_t message;
 
-        rc = zmq_msg_init(&message);
-        if (rc == -1) {
-            *ex = b_exception_errno("zmq_msg_init", errno);
-            return NULL;
-        }
-
-        rc = zmq_msg_recv(
+        *ex = b_zmq_msg_init_recv(
             &message,
             socket_zmq,
             flags);
-        if (rc == -1) {
-            *ex = b_exception_errno("zmq_msg_recv", errno);
-            zmq_msg_close(&message);
+        if (*ex) {
             return NULL;
         }
 
@@ -95,10 +86,8 @@ b_message_list_append_message_move(
     struct B_MessageList *new_message_list
         = b_message_list_allocate_n(message_count + 1);
     for (size_t i = 0; i < message_count; ++i) {
-        int rc;
-        rc = zmq_msg_init(&new_message_list->messages[i]);
-        assert(rc == 0);
-        rc = zmq_msg_move(
+        b_zmq_msg_init(&new_message_list->messages[i]);
+        int rc = zmq_msg_move(
             &new_message_list->messages[i],
             &message_list->messages[i]);
         assert(rc == 0);
@@ -106,11 +95,9 @@ b_message_list_append_message_move(
     b_message_list_deallocate(message_list);
 
     // Move message into extra list entry.
-    int rc;
-    rc = zmq_msg_init(
+    b_zmq_msg_init(
         &new_message_list->messages[message_count]);
-    assert(rc == 0);
-    rc = zmq_msg_move(
+    int rc = zmq_msg_move(
         &new_message_list->messages[message_count],
         message);
     assert(rc == 0);

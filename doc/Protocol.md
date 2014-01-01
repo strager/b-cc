@@ -14,8 +14,9 @@ design][Distributed-Design.md].
              specificiation.
 
     Response:
-    Frame 1: Copy of worker request (WORKER_DONE_AND_READY)
-             frame 4.
+    Frame 1: Empty DEALER frame.
+    Frame 2-3: Copy of worker request
+               (WORKER_DONE_AND_READY) frames 4-5.
 
 ### Worker (DEALER) - Broker (ROUTER)
 
@@ -29,20 +30,27 @@ design][Distributed-Design.md].
     Frame 5: Answer data, serialized per question's answer's
              type specification.
 
-    Request (WORKER_EXIT):
+    Request (WORKER_DONE_AND_EXIT):
     Frame 1: Single byte 0x03.
+    Frame 2-5: As WORKER_DONE_AND_READY frames 2-5.
+
+    Request (WORKER_EXIT):
+    Frame 1: Single byte 0x04.
 
     Request (WORKER_ABANDON):
-    Frame 1: Single byte 0x04.
+    Frame 1: Single byte 0x05.
     Frame 2-3: Client identity envelope.
     Frame 4-6: Copy of client request frames 1-3.
 
     Response (WORKER_READY, WORKER_DONE_AND_READY):
-    Frame 1-2: Client identity envelope.
-    Frame 3-5: Copy of client request frames 1-3.
+    Frame 1: Empty DEALER frame.
+    Frame 2-3: Client identity envelope.
+    Frame 4-6: Copy of client request frames 1-3.
 
-    Response (WORKER_EXIT, WORKER_ABANDON):
-    Frame 1: Empty frame.
+    Response (WORKER_DONE_AND_EXIT, WORKER_EXIT,
+              WORKER_ABANDON):
+    Frame 1: Empty DEALER frame.
+    Frame 2: Empty frame.
 
 ### Worker resignation
 

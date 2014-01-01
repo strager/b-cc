@@ -227,25 +227,30 @@ b_zmq_recv(
     size_t *data_size,
     int flags) {
 
-    int rc = zmq_recv(socket_zmq, data, *data_size, flags);
+    size_t buffer_size = *data_size;
+    int rc = zmq_recv(socket_zmq, data, buffer_size, flags);
     if (rc == -1) {
         return b_exception_errno("zmq_recv", errno);
     }
     assert(rc >= 0);
+    size_t received_size = (size_t) rc;
 
     {
         b_log_lock();
         B_LOG(
             B_ZMQ,
-            "b_zmq_recv(%p): Received%s message (%zu bytes):",
+            "b_zmq_recv(%p): Received%s message (%zu/%zu bytes):",
             socket_zmq,
             b_zmq_socket_more(socket_zmq) ? "" : " final",
-            *data_size);
-        b_log_msg_data(data, *data_size);
+            buffer_size,
+            received_size);
+        b_log_msg_data(
+            data,
+            b_min_size(buffer_size, received_size));
         b_log_unlock();
     }
 
-    *data_size = (size_t) rc;
+    *data_size = received_size;
     return NULL;
 }
 
