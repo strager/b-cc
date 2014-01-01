@@ -12,6 +12,69 @@
 
 #include <iostream>
 
+#define B_EXPECT_MEMEQ(expected, expected_size, actual, actual_size) \
+    do { \
+        size_t _bem_expected_size = (expected_size); \
+        size_t _bem_actual_size = (actual_size); \
+        uint8_t const *_bem_expected = (expected); \
+        uint8_t const *_bem_actual = (actual); \
+        EXPECT_EQ(_bem_expected_size, _bem_actual_size); \
+        size_t _bem_min_size = b_min_size( \
+            _bem_expected_size, \
+            _bem_actual_size); \
+        for (size_t _i = 0; _i < _bem_min_size; ++_i) { \
+            EXPECT_EQ(_bem_expected[_i], _bem_actual[_i]) \
+                << "Index: " << _i; \
+            /* Don't spam the user with failures. */ \
+            if (_bem_expected[_i] != _bem_actual[_i]) { \
+                break; \
+            } \
+        } \
+    } while (0)
+
+#define B_EXPECT_RECV(expected, expected_size, socket_zmq, flags) \
+    do { \
+        size_t _ber_expected_size = (expected_size); \
+        uint8_t _ber_recv_buffer[_ber_expected_size]; \
+        size_t _ber_recv_bytes = _ber_expected_size; \
+        B_CHECK_EX(b_zmq_recv( \
+            socket_zmq, \
+            _ber_recv_buffer, \
+            &_ber_recv_bytes, \
+            (flags))); \
+        EXPECT_EQ(_ber_expected_size, _ber_recv_bytes); \
+        B_EXPECT_MEMEQ( \
+            _ber_recv_buffer, \
+            b_min_size( \
+                _ber_recv_bytes, \
+                _ber_expected_size), \
+            (expected), \
+            _ber_expected_size); \
+    } while (0)
+
+#define B_CHECK_EX(ex) \
+    ASSERT_EQ(nullptr, (ex))
+
+#define B_EXPECT_RECV_REQUEST_ID_EQ(expected, socket_zmq) \
+    do { \
+        B_RequestID _received_request_id; \
+        B_CHECK_EX(b_protocol_recv_request_id( \
+            (socket_zmq), \
+            &_received_request_id, \
+            0));  /* flags */ \
+        B_EXPECT_REQUEST_ID_EQ( \
+            expected, \
+            _received_request_id); \
+    } while (0)
+
+#define B_EXPECT_REQUEST_ID_EQ(expected, actual) \
+    do { \
+        EXPECT_EQ((expected).bytes[0], (actual).bytes[0]); \
+        EXPECT_EQ((expected).bytes[1], (actual).bytes[1]); \
+        EXPECT_EQ((expected).bytes[2], (actual).bytes[2]); \
+        EXPECT_EQ((expected).bytes[3], (actual).bytes[3]); \
+    } while (0)
+
 TEST(TestBroker, WorkBeforeWorker)
 {
     B_Exception *ex;
@@ -30,7 +93,7 @@ TEST(TestBroker, WorkBeforeWorker)
         NULL,  // TODO(strager)
         NULL,  // TODO(strager)
         &broker);
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     b_create_thread(
         "broker",
@@ -49,12 +112,12 @@ TEST(TestBroker, WorkBeforeWorker)
         broker,
         ZMQ_DEALER,
         &client_broker_dealer);
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     ex = b_protocol_send_identity_delimiter(
         client_broker_dealer,
         ZMQ_SNDMORE);
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     {
         B_RequestID request_id = {{0, 1, 2, 3}};
@@ -62,7 +125,7 @@ TEST(TestBroker, WorkBeforeWorker)
             client_broker_dealer,
             &request_id,
             ZMQ_SNDMORE);
-        ASSERT_EQ(nullptr, ex);
+        B_CHECK_EX(ex);
     }
 
     b_protocol_send_uuid(
@@ -70,14 +133,14 @@ TEST(TestBroker, WorkBeforeWorker)
         question_uuid,
         ZMQ_SNDMORE,
         &ex);
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     ex = b_zmq_send(
         client_broker_dealer,
         question_payload,
         sizeof(question_payload),
         0);  // flags
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     // FIXME(strager): This method sucks!
     B_LOG(B_INFO, "Waiting for worker to pick up request.");
@@ -90,72 +153,47 @@ TEST(TestBroker, WorkBeforeWorker)
         broker,
         ZMQ_DEALER,
         &worker_broker_dealer);
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     b_protocol_send_worker_command(
         worker_broker_dealer,
         B_WORKER_READY,
         0,  // flags
         &ex);
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     ex = b_protocol_recv_identity_delimiter(
         worker_broker_dealer,
         0);  // flags
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     B_Identity *client_identity
         = b_protocol_recv_identity_envelope(
             worker_broker_dealer,
             0,  // flags
             &ex);
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
-    {
-        B_RequestID received_request_id;
-        ex = b_protocol_recv_request_id(
-            worker_broker_dealer,
-            &received_request_id,
-            0);  // flags
-        ASSERT_EQ(nullptr, ex);
-
-        EXPECT_EQ(0, received_request_id.bytes[0]);
-        EXPECT_EQ(1, received_request_id.bytes[1]);
-        EXPECT_EQ(2, received_request_id.bytes[2]);
-        EXPECT_EQ(3, received_request_id.bytes[3]);
-    }
+    B_EXPECT_RECV_REQUEST_ID_EQ(
+        ((B_RequestID) {{0, 1, 2, 3}}),
+        worker_broker_dealer);
 
     {
         B_UUID received_uuid = b_protocol_recv_uuid(
             worker_broker_dealer,
             0,  // flags
             &ex);
-        ASSERT_EQ(nullptr, ex);
+        B_CHECK_EX(ex);
 
         EXPECT_TRUE(
             b_uuid_equal(question_uuid, received_uuid));
     }
 
-    {
-        uint8_t received_question_payload
-            [sizeof(question_payload) + 1] = {0};
-        size_t received_question_payload_size
-            = sizeof(question_payload);
-        ex = b_zmq_recv(
-            worker_broker_dealer,
-            received_question_payload,
-            &received_question_payload_size,
-            0);  // flags
-        ASSERT_EQ(nullptr, ex);
-
-        EXPECT_EQ(
-            sizeof(question_payload),
-            received_question_payload_size);
-        EXPECT_STREQ(
-            reinterpret_cast<char const *>(question_payload),
-            reinterpret_cast<char const *>(
-                received_question_payload));
-    }
+    B_EXPECT_RECV(
+        question_payload,
+        sizeof(question_payload),
+        worker_broker_dealer,
+        0);  // flags
 
     // Send response.
     b_protocol_send_worker_command(
@@ -163,14 +201,14 @@ TEST(TestBroker, WorkBeforeWorker)
         B_WORKER_DONE_AND_EXIT,
         ZMQ_SNDMORE,
         &ex);
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     b_protocol_send_identity_envelope(
         worker_broker_dealer,
         client_identity,
         ZMQ_SNDMORE,
         &ex);
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     {
         B_RequestID request_id = {{0, 1, 2, 3}};
@@ -178,7 +216,7 @@ TEST(TestBroker, WorkBeforeWorker)
             worker_broker_dealer,
             &request_id,
             ZMQ_SNDMORE);
-        ASSERT_EQ(nullptr, ex);
+        B_CHECK_EX(ex);
     }
 
     ex = b_zmq_send(
@@ -186,46 +224,21 @@ TEST(TestBroker, WorkBeforeWorker)
         answer_payload,
         sizeof(answer_payload),
         0);  // flags
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
     // Receive response.
     ex = b_protocol_recv_identity_delimiter(
         client_broker_dealer,
         0);  // flags
-    ASSERT_EQ(nullptr, ex);
+    B_CHECK_EX(ex);
 
-    {
-        B_RequestID received_request_id;
-        ex = b_protocol_recv_request_id(
-            client_broker_dealer,
-            &received_request_id,
-            0);  // flags
-        ASSERT_EQ(nullptr, ex);
+    B_EXPECT_RECV_REQUEST_ID_EQ(
+        ((B_RequestID) {{0, 1, 2, 3}}),
+        client_broker_dealer);
 
-        EXPECT_EQ(0, received_request_id.bytes[0]);
-        EXPECT_EQ(1, received_request_id.bytes[1]);
-        EXPECT_EQ(2, received_request_id.bytes[2]);
-        EXPECT_EQ(3, received_request_id.bytes[3]);
-    }
-
-    {
-        uint8_t received_answer_payload
-            [sizeof(answer_payload) + 1] = {0};
-        size_t received_answer_payload_size
-            = sizeof(answer_payload);
-        ex = b_zmq_recv(
-            client_broker_dealer,
-            received_answer_payload,
-            &received_answer_payload_size,
-            0);  // flags
-        ASSERT_EQ(nullptr, ex);
-
-        EXPECT_EQ(
-            sizeof(answer_payload),
-            received_answer_payload_size);
-        EXPECT_STREQ(
-            reinterpret_cast<char const *>(answer_payload),
-            reinterpret_cast<char const *>(
-                received_answer_payload));
-    }
+    B_EXPECT_RECV(
+        answer_payload,
+        sizeof(answer_payload),
+        client_broker_dealer,
+        0);  // flags
 }
