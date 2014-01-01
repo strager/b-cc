@@ -16,29 +16,30 @@
 static B_ERRFUNC
 create_broker_thread(
     void *context_zmq,
-    B_Broker **out_broker) {
+    B_BrokerAddress **out_broker_address) {
 
-    B_Broker *broker;
-    struct B_Exception *ex = b_broker_allocate_bind(
-        context_zmq,
-        NULL,  // TODO(strager)
-        NULL,  // TODO(strager)
-        &broker);
+    B_BrokerAddress *broker_address;
+    struct B_Exception *ex = b_broker_address_allocate(
+        &broker_address);
     if (ex) {
         return ex;
     }
 
     b_create_thread(
         "broker",
-        [broker]() {
-            B_Exception *ex = b_broker_run(broker);
+        [context_zmq, broker_address]() {
+            B_Exception *ex = b_broker_run(
+                broker_address,
+                context_zmq,
+                NULL,  // TODO(strager)
+                NULL);  // TODO(strager)
             EXPECT_EQ(nullptr, ex);
             if (ex) {
                 B_LOG_EXCEPTION(ex);
             }
         });
 
-    *out_broker = broker;
+    *out_broker_address = broker_address;
     return NULL;
 }
 
@@ -54,14 +55,16 @@ TEST(TestBroker, WorkBeforeWorker) {
     ASSERT_NE(nullptr, context_zmq);
     B_ZMQContextScope context_zmq_scope(context_zmq);
 
-    B_Broker *broker;
-    B_CHECK_EX(create_broker_thread(context_zmq, &broker));
+    B_BrokerAddress *broker_address;
+    B_CHECK_EX(create_broker_thread(
+        context_zmq,
+        &broker_address));
 
     // Send client request.
     void *client_broker_dealer;
     B_CHECK_EX(b_protocol_connect_client(
         context_zmq,
-        broker,
+        broker_address,
         ZMQ_DEALER,
         &client_broker_dealer));
     B_ZMQSocketScope client_broker_dealer_scope(
@@ -100,7 +103,7 @@ TEST(TestBroker, WorkBeforeWorker) {
     void *worker_broker_dealer;
     B_CHECK_EX(b_protocol_connect_worker(
         context_zmq,
-        broker,
+        broker_address,
         ZMQ_DEALER,
         &worker_broker_dealer));
     B_ZMQSocketScope worker_broker_dealer_scope(
@@ -202,15 +205,17 @@ TEST(TestBroker, WorkAfterWorker) {
     ASSERT_NE(nullptr, context_zmq);
     B_ZMQContextScope context_zmq_scope(context_zmq);
 
-    B_Broker *broker;
-    B_CHECK_EX(create_broker_thread(context_zmq, &broker));
+    B_BrokerAddress *broker_address;
+    B_CHECK_EX(create_broker_thread(
+        context_zmq,
+        &broker_address));
     sleep(1);
 
     // Create worker and mark as ready.
     void *worker_broker_dealer;
     B_CHECK_EX(b_protocol_connect_worker(
         context_zmq,
-        broker,
+        broker_address,
         ZMQ_DEALER,
         &worker_broker_dealer));
     B_ZMQSocketScope worker_broker_dealer_scope(
@@ -231,7 +236,7 @@ TEST(TestBroker, WorkAfterWorker) {
     void *client_broker_dealer;
     B_CHECK_EX(b_protocol_connect_client(
         context_zmq,
-        broker,
+        broker_address,
         ZMQ_DEALER,
         &client_broker_dealer));
     B_ZMQSocketScope client_broker_dealer_scope(

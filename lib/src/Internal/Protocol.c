@@ -18,13 +18,13 @@ bool
 b_protocol_client_endpoint(
     char *buffer,
     size_t buffer_size,
-    struct B_Broker const *broker) {
+    struct B_BrokerAddress const *broker_address) {
 
     int rc = snprintf(
         buffer,
         buffer_size,
         "inproc://b_client_%p",
-        broker);
+        broker_address);
     return rc >= 0 && rc == strlen(buffer);
 }
 
@@ -32,20 +32,20 @@ bool
 b_protocol_worker_endpoint(
     char *buffer,
     size_t buffer_size,
-    struct B_Broker const *broker) {
+    struct B_BrokerAddress const *broker_address) {
 
     int rc = snprintf(
         buffer,
         buffer_size,
         "inproc://b_worker_%p",
-        broker);
+        broker_address);
     return rc >= 0 && rc == strlen(buffer);
 }
 
 B_ERRFUNC
 b_protocol_connect_client(
     void *context_zmq,
-    struct B_Broker const *broker,
+    struct B_BrokerAddress const *broker_address,
     int socket_type,
     void **out_socket_zmq) {
 
@@ -53,7 +53,7 @@ b_protocol_connect_client(
     bool ok = b_protocol_client_endpoint(
         endpoint_buffer,
         sizeof(endpoint_buffer),
-        broker);
+        broker_address);
     assert(ok);
 
     void *socket;
@@ -73,7 +73,7 @@ b_protocol_connect_client(
 B_ERRFUNC
 b_protocol_connect_worker(
     void *context_zmq,
-    struct B_Broker const *broker,
+    struct B_BrokerAddress const *broker_address,
     int socket_type,
     void **out_socket_zmq) {
 
@@ -81,7 +81,7 @@ b_protocol_connect_worker(
     bool ok = b_protocol_worker_endpoint(
         endpoint_buffer,
         sizeof(endpoint_buffer),
-        broker);
+        broker_address);
     assert(ok);
 
     void *socket;

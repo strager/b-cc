@@ -19,7 +19,7 @@
 
 struct B_Worker {
     void *context_zmq;
-    struct B_Broker const *const broker;
+    struct B_BrokerAddress const *const broker_address;
 
     struct B_QuestionVTableList const *const question_vtables;
     struct B_AnyRule const *const rule;
@@ -80,12 +80,12 @@ b_worker_handle_broker(
 static struct B_Exception *
 b_worker_connect(
     void *context_zmq,
-    struct B_Broker const *broker,
+    struct B_BrokerAddress const *broker_address,
     void **out_broker_dealer) {
 
     struct B_Exception *ex = b_protocol_connect_worker(
         context_zmq,
-        broker,
+        broker_address,
         ZMQ_DEALER,
         out_broker_dealer);
     if (ex) {
@@ -95,10 +95,10 @@ b_worker_connect(
     return NULL;
 }
 
-struct B_Exception *
+B_ERRFUNC
 b_worker_work(
     void *context_zmq,
-    struct B_Broker const *broker,
+    struct B_BrokerAddress const *broker_address,
     struct B_QuestionVTableList const *question_vtables,
     struct B_AnyRule const *rule,
     struct B_RuleVTable const *rule_vtable) {
@@ -114,7 +114,7 @@ b_worker_work(
     struct B_Client *client;
     ex = b_client_allocate_connect(
         context_zmq,
-        broker,
+        broker_address,
         fiber_context,
         &client);
     if (ex) {
@@ -124,7 +124,7 @@ b_worker_work(
 
     struct B_Worker worker = {
         .context_zmq = context_zmq,
-        .broker = broker,
+        .broker_address = broker_address,
 
         .question_vtables = question_vtables,
         .rule = rule,
@@ -265,7 +265,7 @@ b_worker_work_fiber(
     void *broker_dealer;
     ex = b_worker_connect(
         worker->context_zmq,
-        worker->broker,
+        worker->broker_address,
         &broker_dealer);
     if (ex) {
         return ex;

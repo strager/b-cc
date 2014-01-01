@@ -48,14 +48,14 @@ deserialize_request_index(
 struct B_Exception *
 b_client_allocate_connect(
     void *context_zmq,
-    struct B_Broker const *broker,
+    struct B_BrokerAddress const *broker_address,
     struct B_FiberContext *fiber_context,
     struct B_Client **out) {
 
     void *broker_dealer;
     struct B_Exception *ex = b_protocol_connect_client(
         context_zmq,
-        broker,
+        broker_address,
         ZMQ_DEALER,
         &broker_dealer);
     if (ex) {

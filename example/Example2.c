@@ -362,22 +362,35 @@ load_database(
     return database;
 }
 
+struct B_BrokerClosure {
+    void *const context_zmq;
+    struct B_BrokerAddress const *const broker_address;
+    struct B_AnyDatabase *const database;
+    struct B_DatabaseVTable const *const database_vtable;
+};
+
 static void
 broker_thread(
-    void *closure) {
+    void *closure_raw) {
 
-    struct B_Broker *broker = closure;
+    struct B_BrokerClosure closure
+        = *(struct B_BrokerClosure *) closure_raw;
+    free(closure_raw);
 
-    struct B_Exception *ex = b_broker_run(broker);
+    struct B_Exception *ex = b_broker_run(
+        closure.broker_address,
+        closure.context_zmq,
+        closure.database,
+        closure.database_vtable);
     if (ex) {
         B_LOG_EXCEPTION(ex);
         abort();
     }
 }
 
-struct B_WorkerData {
-    void *context_zmq;
-    struct B_Broker const *const broker;
+struct B_WorkerClosure {
+    void *const context_zmq;
+    struct B_BrokerAddress const *const broker_address;
     struct B_QuestionVTableList const *const question_vtables;
     struct B_AnyRule const *const rule;
     struct B_RuleVTable const *const rule_vtable;
@@ -385,16 +398,18 @@ struct B_WorkerData {
 
 static void
 worker_thread(
-    void *closure) {
+    void *closure_raw) {
 
-    struct B_WorkerData *data = closure;
+    struct B_WorkerClosure closure
+        = *(struct B_WorkerClosure *) closure_raw;
+    free(closure_raw);
 
     struct B_Exception *ex = b_worker_work(
-        data->context_zmq,
-        data->broker,
-        data->question_vtables,
-        data->rule,
-        data->rule_vtable);
+        closure.context_zmq,
+        closure.broker_address,
+        closure.question_vtables,
+        closure.rule,
+        closure.rule_vtable);
     if (ex) {
         B_LOG_EXCEPTION(ex);
         abort();
@@ -405,19 +420,18 @@ static struct B_Exception *
 create_worker_async(
     size_t worker_index,
     void *context_zmq,
-    struct B_Broker const *broker,
+    struct B_BrokerAddress const *broker_address,
     struct B_QuestionVTableList const *question_vtables,
     struct B_AnyRule const *rule,
     struct B_RuleVTable const *rule_vtable) {
 
-    B_ALLOCATE(struct B_WorkerData, worker_data, {
+    B_ALLOCATE(struct B_WorkerClosure, worker_closure, {
         .context_zmq = context_zmq,
-        .broker = broker,
+        .broker_address = broker_address,
         .question_vtables = question_vtables,
         .rule = rule,
         .rule_vtable = rule_vtable,
     });
-    assert(worker_data);
 
     char thread_name[64];
     int rc = snprintf(
@@ -428,7 +442,12 @@ create_worker_async(
     assert(rc != -1);
     assert(rc == strlen(thread_name));
 
-    b_create_thread(thread_name, worker_thread, worker_data);
+    b_create_thread(
+        thread_name,
+        worker_thread,
+        worker_closure);
+    // worker_closure is now owned by the thread.
+
     return NULL;
 }
 
@@ -487,26 +506,36 @@ main(
 
     void *context_zmq = zmq_ctx_new();
 
-    struct B_Broker *broker;
+    struct B_BrokerAddress *broker_address;
     {
-        struct B_Exception *ex = b_broker_allocate_bind(
-            context_zmq,
-            database,
-            database_vtable,
-            &broker);
+        struct B_Exception *ex
+            = b_broker_address_allocate(&broker_address);
         if (ex) {
             B_LOG_EXCEPTION(ex);
-            abort();  // FIXME(strager)
+            abort();  // TODO(strager): Cleanup.
         }
+    }
 
-        b_create_thread("broker", broker_thread, broker);
+    {
+        B_ALLOCATE(struct B_BrokerClosure, broker_closure, {
+            .context_zmq = context_zmq,
+            .broker_address = broker_address,
+            .database = database,
+            .database_vtable = database_vtable,
+        });
+
+        b_create_thread(
+            "broker",
+            broker_thread,
+            broker_closure);
+        // broker_closure is now owned by the thread.
     }
 
     for (size_t i = 0; i < 1; ++i) {
         struct B_Exception *ex = create_worker_async(
             i,
             context_zmq,
-            broker,
+            broker_address,
             question_vtables,
             rule,
             rule_vtable);
@@ -530,7 +559,7 @@ main(
     {
         struct B_Exception *ex = b_client_allocate_connect(
             context_zmq,
-            broker,
+            broker_address,
             fiber_context,
             &client);
         if (ex) {
@@ -563,7 +592,7 @@ main(
 
     (void) b_client_deallocate_disconnect(client);
     (void) b_fiber_context_deallocate(fiber_context);
-    (void) b_broker_deallocate_unbind(broker);
+    (void) b_broker_address_deallocate(broker_address);
     zmq_ctx_term(context_zmq);
     b_question_vtable_list_deallocate(question_vtables);
     b_file_question_deallocate(question);

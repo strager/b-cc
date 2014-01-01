@@ -83,7 +83,7 @@ $(TEST): $(TEST_O_FILES) $(LIB) $(BUILD_FILES) | $(OUT_DIRS)
 $(OUT_DIR)/$(VENDOR_GTEST)/%.cc.o: $(VENDOR_GTEST)/%.cc $(BUILD_FILES) | $(OUT_DIRS)
 	$(CXX) $(CXX_FLAGS) "-I$(VENDOR_GTEST)/include" "-I$(VENDOR_GTEST)" -c -o $@ $<
 
-$(OUT_DIR)/test/%.cc.o: test/%.cc $(BUILD_FILES) | $(OUT_DIRS)
+$(OUT_DIR)/test/%.cc.o: test/%.cc $(LIB_H_FILES) $(BUILD_FILES) | $(OUT_DIRS)
 	$(CXX) $(CXX_FLAGS) "-I$(VENDOR_GTEST)/include" -Ilib/include -c -o $@ $<
 
 $(OUT_DIR)/%.c.o: %.c $(LIB_H_FILES) $(BUILD_FILES) | $(OUT_DIRS)

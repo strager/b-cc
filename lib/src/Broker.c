@@ -39,8 +39,6 @@ struct B_MessageQueue {
 };
 
 struct B_Broker {
-    void *const context_zmq;
-
     struct B_AnyDatabase const *const database;
     struct B_DatabaseVTable const *const database_vtable;
 
@@ -60,7 +58,7 @@ b_broker_run_loop(
 
 static struct B_Exception *
 b_broker_bind_process(
-    struct B_Broker const *,
+    struct B_BrokerAddress const *,
     void *context_zmq,
     void **out_client_router,
     void **out_worker_router);
@@ -85,21 +83,51 @@ static void
 b_message_queue_deallocate(
     struct B_MessageQueue *);
 
-struct B_Exception *
+B_ERRFUNC
+b_broker_address_allocate(
+    struct B_BrokerAddress **out) {
+
+    struct B_BrokerAddress *broker_address = malloc(0);
+    if (!broker_address) {
+        return b_exception_memory();
+    }
+
+    return NULL;
+}
+
+B_ERRFUNC
+b_broker_address_deallocate(
+    struct B_BrokerAddress *broker_address) {
+
+    free(broker_address);
+    return NULL;
+}
+
+static B_ERRFUNC
 b_broker_allocate_bind(
+    struct B_BrokerAddress const *broker_address,
     void *context_zmq,
     struct B_AnyDatabase *database,
     struct B_DatabaseVTable const *database_vtable,
     struct B_Broker **out) {
 
-    B_ALLOCATE(struct B_Broker, broker, {
-        .context_zmq = context_zmq,
+    void *client_router;
+    void *worker_router;
+    struct B_Exception *ex = b_broker_bind_process(
+        broker_address,
+        context_zmq,
+        &client_router,
+        &worker_router);
+    if (ex) {
+        return ex;
+    }
 
+    B_ALLOCATE(struct B_Broker, broker, {
         .database = database,
         .database_vtable = database_vtable,
 
-        .client_router = NULL,
-        .worker_router = NULL,
+        .client_router = client_router,
+        .worker_router = worker_router,
 
         .ready_workers = NULL,
         .work_queue = NULL,
@@ -109,22 +137,15 @@ b_broker_allocate_bind(
     return NULL;
 }
 
-struct B_Exception *
-b_broker_deallocate_unbind(
+static B_ERRFUNC
+b_broker_unbind_deallocate(
     struct B_Broker *broker) {
 
-    int rc;
-    struct B_Exception *ex = NULL;
+    struct B_Exception *ex;
 
-    rc = zmq_close(broker->client_router);
-    if (rc == -1 && !ex) {
-        ex = b_exception_errno("zmq_close", errno);
-    }
-
-    rc = zmq_close(broker->worker_router);
-    if (rc == -1 && !ex) {
-        ex = b_exception_errno("zmq_close", errno);
-    }
+    // TODO(strager): Aggregate errors.
+    ex = b_zmq_close(broker->client_router);
+    ex = b_zmq_close(broker->worker_router);
 
     b_ready_workers_deallocate(broker->ready_workers);
     b_message_queue_deallocate(broker->work_queue);
@@ -136,7 +157,7 @@ b_broker_deallocate_unbind(
 
 static struct B_Exception *
 b_broker_bind_process(
-    struct B_Broker const *broker,
+    struct B_BrokerAddress const *broker_address,
     void *context_zmq,
     void **out_client_router,
     void **out_worker_router) {
@@ -147,7 +168,7 @@ b_broker_bind_process(
     ok = b_protocol_client_endpoint(
         endpoint_buffer,
         sizeof(endpoint_buffer),
-        broker);
+        broker_address);
     assert(ok);
 
     void *client_router;
@@ -165,7 +186,7 @@ b_broker_bind_process(
     ok = b_protocol_worker_endpoint(
         endpoint_buffer,
         sizeof(endpoint_buffer),
-        broker);
+        broker_address);
     assert(ok);
 
     void *worker_router;
@@ -186,29 +207,29 @@ b_broker_bind_process(
     return NULL;
 }
 
-struct B_Exception *
+B_ERRFUNC
 b_broker_run(
-    struct B_Broker *broker) {
+    struct B_BrokerAddress const *broker_address,
+    void *context_zmq,
+    struct B_AnyDatabase *database,
+    struct B_DatabaseVTable const *database_vtable) {
 
     struct B_Exception *ex;
 
-    // The b_protocol_*_endpoint functions only use the
-    // pointer value of a Broker, so it is safe to give them
-    // an incomplete broker.
-    // TODO(strager): Better design.  =]
-    ex = b_broker_bind_process(
-        broker,
-        broker->context_zmq,
-        &broker->client_router,
-        &broker->worker_router);
+    struct B_Broker *broker;
+    ex = b_broker_allocate_bind(
+        broker_address,
+        context_zmq,
+        database,
+        database_vtable,
+        &broker);
     if (ex) {
         return ex;
     }
 
     ex = b_broker_run_loop(broker);
-    // TODO(strager): Capture close errors.
-    (void) b_zmq_close(broker->client_router);
-    (void) b_zmq_close(broker->worker_router);
+    // TODO(strager): Aggregate errors.
+    (void) b_broker_unbind_deallocate(broker);
     if (ex) {
         return ex;
     }
@@ -224,7 +245,6 @@ b_broker_run_loop(
         { broker->client_router, 0, ZMQ_POLLIN, 0 },
         { broker->worker_router, 0, ZMQ_POLLIN, 0 },
     };
-
     for (;;) {
         const long timeout = -1;
         int rc = zmq_poll(

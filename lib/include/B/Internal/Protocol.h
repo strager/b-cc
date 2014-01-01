@@ -15,7 +15,7 @@ extern "C" {
 struct B_AnswerVTable;
 struct B_AnyAnswer;
 struct B_AnyQuestion;
-struct B_Broker;
+struct B_BrokerAddress;
 struct B_Exception;
 struct B_Identity;
 struct B_QuestionVTable;
@@ -36,25 +36,25 @@ bool
 b_protocol_client_endpoint(
     char *buffer,
     size_t buffer_size,
-    struct B_Broker const *broker);
+    struct B_BrokerAddress const *broker);
 
 bool
 b_protocol_worker_endpoint(
     char *buffer,
     size_t buffer_size,
-    struct B_Broker const *broker);
+    struct B_BrokerAddress const *broker);
 
 B_ERRFUNC
 b_protocol_connect_client(
     void *context_zmq,
-    struct B_Broker const *,
+    struct B_BrokerAddress const *,
     int socket_type,
     void **out_socket_zmq);
 
 B_ERRFUNC
 b_protocol_connect_worker(
     void *context_zmq,
-    struct B_Broker const *,
+    struct B_BrokerAddress const *,
     int socket_type,
     void **out_socket_zmq);
 

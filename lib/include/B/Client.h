@@ -11,7 +11,7 @@ extern "C" {
 
 struct B_AnyAnswer;
 struct B_AnyQuestion;
-struct B_Broker;
+struct B_BrokerAddress;
 struct B_FiberContext;
 struct B_QuestionVTable;
 
@@ -24,7 +24,7 @@ struct B_Client;
 B_ERRFUNC
 b_client_allocate_connect(
     void *context_zmq,
-    struct B_Broker const *,
+    struct B_BrokerAddress const *,
     struct B_FiberContext *,
     struct B_Client **out);
 

@@ -15,7 +15,7 @@ struct B_RuleVTable;
 B_ERRFUNC
 b_worker_work(
     void *context_zmq,
-    struct B_Broker const *,
+    struct B_BrokerAddress const *,
     struct B_QuestionVTableList const *,
     struct B_AnyRule const *,
     struct B_RuleVTable const *);
