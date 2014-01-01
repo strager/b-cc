@@ -96,16 +96,18 @@ b_client_need_answers(
     for (size_t i = 0; i < count; ++i) {
         struct B_Exception *ex;
 
-        char const *question_message
-            = question_vtables[i]->allocate_human_message(
-                questions[i]);
-        B_LOG(
-            B_INFO,
-            "Sending request %zu (for %s) to broker.",
-            i,
-            question_message);
-        question_vtables[i]->deallocate_human_message(
-            question_message);
+        {
+            char const *question_message
+                = question_vtables[i]
+                    ->allocate_human_message(questions[i]);
+            B_LOG(
+                B_INFO,
+                "Sending request %zu (for %s) to broker.",
+                i,
+                question_message);
+            question_vtables[i]->deallocate_human_message(
+                question_message);
+        }
 
         ex = b_client_send_request(
             client->broker_dealer,
@@ -124,7 +126,8 @@ b_client_need_answers(
     zmq_pollitem_t poll_items[] = {
         { client->broker_dealer, 0, ZMQ_POLLIN, 0 },
     };
-    for (size_t i = 0; i < count; ++i) {
+    size_t received_responses = 0;
+    while (received_responses < count) {
         struct B_Exception *ex;
 
         long const timeout_milliseconds = -1;
@@ -160,6 +163,8 @@ b_client_need_answers(
             if (ex) {
                 return ex;
             }
+
+            ++received_responses;
         }
     }
 
