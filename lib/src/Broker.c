@@ -92,6 +92,7 @@ b_broker_address_allocate(
         return b_exception_memory();
     }
 
+    *out = broker_address;
     return NULL;
 }
 
