@@ -88,12 +88,11 @@ TEST(TestBroker, WorkBeforeWorker)
     ASSERT_NE(nullptr, context_zmq);
 
     B_Broker *broker;
-    ex = b_broker_allocate_bind(
+    B_CHECK_EX(b_broker_allocate_bind(
         context_zmq,
         NULL,  // TODO(strager)
         NULL,  // TODO(strager)
-        &broker);
-    B_CHECK_EX(ex);
+        &broker));
 
     b_create_thread(
         "broker",
@@ -107,25 +106,22 @@ TEST(TestBroker, WorkBeforeWorker)
 
     // Send client request.
     void *client_broker_dealer;
-    ex = b_protocol_connect_client(
+    B_CHECK_EX(b_protocol_connect_client(
         context_zmq,
         broker,
         ZMQ_DEALER,
-        &client_broker_dealer);
-    B_CHECK_EX(ex);
+        &client_broker_dealer));
 
-    ex = b_protocol_send_identity_delimiter(
+    B_CHECK_EX(b_protocol_send_identity_delimiter(
         client_broker_dealer,
-        ZMQ_SNDMORE);
-    B_CHECK_EX(ex);
+        ZMQ_SNDMORE));
 
     {
         B_RequestID request_id = {{0, 1, 2, 3}};
-        ex = b_protocol_send_request_id(
+        B_CHECK_EX(b_protocol_send_request_id(
             client_broker_dealer,
             &request_id,
-            ZMQ_SNDMORE);
-        B_CHECK_EX(ex);
+            ZMQ_SNDMORE));
     }
 
     b_protocol_send_uuid(
@@ -135,12 +131,11 @@ TEST(TestBroker, WorkBeforeWorker)
         &ex);
     B_CHECK_EX(ex);
 
-    ex = b_zmq_send(
+    B_CHECK_EX(b_zmq_send(
         client_broker_dealer,
         question_payload,
         sizeof(question_payload),
-        0);  // flags
-    B_CHECK_EX(ex);
+        0));  // flags
 
     // FIXME(strager): This method sucks!
     B_LOG(B_INFO, "Waiting for worker to pick up request.");
@@ -148,12 +143,11 @@ TEST(TestBroker, WorkBeforeWorker)
 
     // Receive the request.
     void *worker_broker_dealer;
-    ex = b_protocol_connect_worker(
+    B_CHECK_EX(b_protocol_connect_worker(
         context_zmq,
         broker,
         ZMQ_DEALER,
-        &worker_broker_dealer);
-    B_CHECK_EX(ex);
+        &worker_broker_dealer));
 
     b_protocol_send_worker_command(
         worker_broker_dealer,
@@ -162,10 +156,9 @@ TEST(TestBroker, WorkBeforeWorker)
         &ex);
     B_CHECK_EX(ex);
 
-    ex = b_protocol_recv_identity_delimiter(
+    B_CHECK_EX(b_protocol_recv_identity_delimiter(
         worker_broker_dealer,
-        0);  // flags
-    B_CHECK_EX(ex);
+        0));  // flags
 
     B_Identity *client_identity
         = b_protocol_recv_identity_envelope(
@@ -212,25 +205,22 @@ TEST(TestBroker, WorkBeforeWorker)
 
     {
         B_RequestID request_id = {{0, 1, 2, 3}};
-        ex = b_protocol_send_request_id(
+        B_CHECK_EX(b_protocol_send_request_id(
             worker_broker_dealer,
             &request_id,
-            ZMQ_SNDMORE);
-        B_CHECK_EX(ex);
+            ZMQ_SNDMORE));
     }
 
-    ex = b_zmq_send(
+    B_CHECK_EX(b_zmq_send(
         worker_broker_dealer,
         answer_payload,
         sizeof(answer_payload),
-        0);  // flags
-    B_CHECK_EX(ex);
+        0));  // flags
 
     // Receive response.
-    ex = b_protocol_recv_identity_delimiter(
+    B_CHECK_EX(b_protocol_recv_identity_delimiter(
         client_broker_dealer,
-        0);  // flags
-    B_CHECK_EX(ex);
+        0));  // flags
 
     B_EXPECT_RECV_REQUEST_ID_EQ(
         ((B_RequestID) {{0, 1, 2, 3}}),
