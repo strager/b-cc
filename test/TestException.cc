@@ -2,8 +2,7 @@
 
 #include <gtest/gtest.h>
 
-TEST(TestException, StringMessageMatchesOriginal)
-{
+TEST(TestException, StringMessageMatchesOriginal) {
     char message[] = "hello world";
     struct B_Exception *ex = b_exception_string(message);
     message[0] = 'x';

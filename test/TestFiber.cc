@@ -2,8 +2,7 @@
 
 #include <gtest/gtest.h>
 
-TEST(TestFiber, ForkNotExecutedImmediately)
-{
+TEST(TestFiber, ForkNotExecutedImmediately) {
     struct B_Exception *ex;
 
     B_FiberContext *fiber_context;
