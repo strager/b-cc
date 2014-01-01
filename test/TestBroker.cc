@@ -10,8 +10,7 @@
 #include <gtest/gtest.h>
 #include <zmq.h>
 
-TEST(TestBroker, WorkBeforeWorker)
-{
+TEST(TestBroker, WorkBeforeWorker) {
     B_Exception *ex;
 
     static B_UUID const question_uuid
