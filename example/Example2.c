@@ -529,6 +529,8 @@ main(
             broker_thread,
             broker_closure);
         // broker_closure is now owned by the thread.
+
+        usleep(100 * 1000);  // HACK(strager)
     }
 
     for (size_t i = 0; i < 1; ++i) {
