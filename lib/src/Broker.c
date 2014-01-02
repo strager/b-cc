@@ -246,11 +246,6 @@ b_broker_run_loop(
             if (errno == EINTR) {
                 continue;
             }
-            if (errno == ENOTSOCK) {
-                // HACK(strager):
-                // b_broker_deallocate_unbind called.
-                break;
-            }
             return b_exception_errno("zmq_poll", errno);
         }
 
