@@ -11,11 +11,38 @@
 static const size_t
 log_bytes_per_line = 16;
 
+static B_ERRFUNC
+b_zmq_connectbind(
+    void *socket_zmq,
+    char const *endpoint,
+    enum B_Connectbind connectbind) {
+
+    switch (connectbind) {
+    case B_CONNECT: {
+        int rc = zmq_connect(socket_zmq, endpoint);
+        if (rc == -1) {
+            return b_exception_errno("zmq_connect", errno);
+        }
+        return NULL;
+    }
+    case B_BIND: {
+        int rc = zmq_bind(socket_zmq, endpoint);
+        if (rc == -1) {
+            return b_exception_errno("zmq_bind", errno);
+        }
+        return NULL;
+    }
+    default:
+        assert(0);  // FIXME(strager)
+    }
+}
+
 B_ERRFUNC
-b_zmq_socket_connect(
+b_zmq_socket_connectbind(
     void *context_zmq,
     int socket_type,
     char const *endpoint,
+    enum B_Connectbind connectbind,
     void **out_socket_zmq) {
 
     void *socket_zmq = zmq_socket(context_zmq, socket_type);
@@ -23,12 +50,20 @@ b_zmq_socket_connect(
         return b_exception_errno("zmq_socket", errno);
     }
 
-    int rc = zmq_connect(socket_zmq, endpoint);
-    if (rc == -1) {
-        return b_exception_errno("zmq_connect", errno);
+    struct B_Exception *ex = b_zmq_connectbind(
+        socket_zmq,
+        endpoint,
+        connectbind);
+    if (ex) {
+        (void) zmq_close(socket_zmq);
+        return ex;
     }
 
-    B_LOG(B_ZMQ, "Socket %p created and connected.", socket_zmq);
+    B_LOG(
+        B_ZMQ,
+        "Socket %p created and %s.",
+        socket_zmq,
+        connectbind == B_CONNECT ? "connected" : "bound");
 
     *out_socket_zmq = socket_zmq;
     return NULL;

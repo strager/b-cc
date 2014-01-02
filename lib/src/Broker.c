@@ -163,39 +163,26 @@ b_broker_bind_process(
     void **out_client_router,
     void **out_worker_router) {
 
-    bool ok;
-    char endpoint_buffer[1024];
-
-    ok = b_protocol_client_endpoint(
-        endpoint_buffer,
-        sizeof(endpoint_buffer),
-        broker_address);
-    assert(ok);
-
     void *client_router;
     {
-        struct B_Exception *ex = b_zmq_socket_bind(
+        struct B_Exception *ex = b_protocol_connectbind_client(
             context_zmq,
+            broker_address,
             ZMQ_ROUTER,
-            endpoint_buffer,
+            B_BIND,
             &client_router);
         if (ex) {
             return ex;
         }
     }
 
-    ok = b_protocol_worker_endpoint(
-        endpoint_buffer,
-        sizeof(endpoint_buffer),
-        broker_address);
-    assert(ok);
-
     void *worker_router;
     {
-        struct B_Exception *ex = b_zmq_socket_bind(
+        struct B_Exception *ex = b_protocol_connectbind_worker(
             context_zmq,
+            broker_address,
             ZMQ_ROUTER,
-            endpoint_buffer,
+            B_BIND,
             &worker_router);
         if (ex) {
             (void) b_zmq_close(client_router);

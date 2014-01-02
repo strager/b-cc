@@ -83,10 +83,11 @@ b_worker_connect(
     struct B_BrokerAddress const *broker_address,
     void **out_broker_dealer) {
 
-    struct B_Exception *ex = b_protocol_connect_worker(
+    struct B_Exception *ex = b_protocol_connectbind_worker(
         context_zmq,
         broker_address,
         ZMQ_DEALER,
+        B_CONNECT,
         out_broker_dealer);
     if (ex) {
         return ex;

@@ -2,6 +2,7 @@
 #define PROTOCOL_H_2DC53D94_DDEB_472B_99F0_6AAD07BC901B
 
 #include <B/Internal/Common.h>
+#include <B/Internal/ZMQ.h>
 #include <B/UUID.h>
 
 #include <stdbool.h>
@@ -45,17 +46,19 @@ b_protocol_worker_endpoint(
     struct B_BrokerAddress const *broker);
 
 B_ERRFUNC
-b_protocol_connect_client(
+b_protocol_connectbind_client(
     void *context_zmq,
     struct B_BrokerAddress const *,
     int socket_type,
+    enum B_Connectbind,
     void **out_socket_zmq);
 
 B_ERRFUNC
-b_protocol_connect_worker(
+b_protocol_connectbind_worker(
     void *context_zmq,
     struct B_BrokerAddress const *,
     int socket_type,
+    enum B_Connectbind,
     void **out_socket_zmq);
 
 void

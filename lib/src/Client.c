@@ -53,10 +53,11 @@ b_client_allocate_connect(
     struct B_Client **out) {
 
     void *broker_dealer;
-    struct B_Exception *ex = b_protocol_connect_client(
+    struct B_Exception *ex = b_protocol_connectbind_client(
         context_zmq,
         broker_address,
         ZMQ_DEALER,
+        B_CONNECT,
         &broker_dealer);
     if (ex) {
         return ex;
