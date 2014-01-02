@@ -227,20 +227,19 @@ private:
     } while (0)
 
 #define B_EXPECT_REQUEST_ID_EQ(expected, actual) \
-    do { \
-        EXPECT_EQ((expected).bytes[0], (actual).bytes[0]); \
-        EXPECT_EQ((expected).bytes[1], (actual).bytes[1]); \
-        EXPECT_EQ((expected).bytes[2], (actual).bytes[2]); \
-        EXPECT_EQ((expected).bytes[3], (actual).bytes[3]); \
-    } while (0)
+    EXPECT_PRED2(b_request_id_equal, expected, actual)
 
-// TODO(strager): Factor duplication.
 #define B_EXPECT_REQUEST_ID_NE(expected, actual) \
     do { \
-        EXPECT_NE((expected).bytes[0], (actual).bytes[0]); \
-        EXPECT_NE((expected).bytes[1], (actual).bytes[1]); \
-        EXPECT_NE((expected).bytes[2], (actual).bytes[2]); \
-        EXPECT_NE((expected).bytes[3], (actual).bytes[3]); \
+        auto const b_request_id_not_equal = []( \
+            B_RequestID x,  \
+            B_RequestID y) -> bool { \
+            return !b_request_id_equal(x, y); \
+        }; \
+        EXPECT_PRED2( \
+            b_request_id_not_equal, \
+            expected, \
+            actual); \
     } while (0)
 
 #endif

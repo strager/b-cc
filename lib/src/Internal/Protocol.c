@@ -427,3 +427,14 @@ b_protocol_recv_request_id(
 
     return NULL;
 }
+
+bool
+b_request_id_equal(
+    struct B_RequestID x,
+    struct B_RequestID y) {
+
+    return memcmp(
+        x.bytes,
+        y.bytes,
+        sizeof(x.bytes)) == 0;
+}

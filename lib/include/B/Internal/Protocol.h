@@ -152,7 +152,28 @@ b_protocol_recv_request_id(
     struct B_RequestID *,
     int flags);
 
+bool
+b_request_id_equal(
+    struct B_RequestID,
+    struct B_RequestID);
+
 #ifdef __cplusplus
+}
+#endif
+
+#if defined(__cplusplus)
+#include <ostream>
+
+inline std::ostream &
+operator<<(
+    std::ostream &os,
+    B_RequestID request_id) {
+
+    return os
+        << static_cast<int>(request_id.bytes[0]) << ":"
+        << static_cast<int>(request_id.bytes[1]) << ":"
+        << static_cast<int>(request_id.bytes[2]) << ":"
+        << static_cast<int>(request_id.bytes[3]);
 }
 #endif
 
