@@ -17,6 +17,8 @@
 struct B_Client {
     struct B_FiberContext *fiber_context;
 
+    uint32_t base_request_index;
+
     // ZeroMQ sockets
     void *const broker_dealer;
 };
@@ -34,6 +36,7 @@ b_client_recv_reply(
     struct B_QuestionVTable const *const *question_vtables,
     struct B_AnyAnswer **answers,
     size_t count,
+    uint32_t base_request_index,
     int flags);
 
 static void
@@ -65,6 +68,9 @@ b_client_allocate_connect(
 
     B_ALLOCATE(struct B_Client, client, {
         .fiber_context = fiber_context,
+
+        .base_request_index = 0,  // Arbitrary.
+
         .broker_dealer = broker_dealer,
     });
     *out = client;
@@ -94,6 +100,12 @@ b_client_need_answers(
     struct B_AnyAnswer **answers,
     size_t count) {
 
+    // Allocate request indices.
+    // Request indices should never be reused per client,
+    // else concurrent requests may step on each other.
+    size_t base_request_index = client->base_request_index;
+    client->base_request_index += count;
+
     for (size_t i = 0; i < count; ++i) {
         struct B_Exception *ex;
 
@@ -112,7 +124,7 @@ b_client_need_answers(
 
         ex = b_client_send_request(
             client->broker_dealer,
-            i,
+            base_request_index + i,
             questions[i],
             question_vtables[i]);
         if (ex) {
@@ -160,6 +172,7 @@ b_client_need_answers(
                 question_vtables,
                 answers,
                 count,
+                base_request_index,
                 ZMQ_DONTWAIT);
             if (ex) {
                 return ex;
@@ -178,6 +191,7 @@ b_client_recv_reply(
     struct B_QuestionVTable const *const *question_vtables,
     struct B_AnyAnswer **answers,
     size_t count,
+    uint32_t base_request_index,
     int flags) {
 
     struct B_Exception *ex;
@@ -199,7 +213,8 @@ b_client_recv_reply(
     }
 
     size_t request_index
-        = deserialize_request_index(&request_id);
+        = deserialize_request_index(&request_id)
+            - base_request_index;
 
     if (request_index >= count) {
         return b_exception_format_string(
