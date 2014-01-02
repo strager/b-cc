@@ -59,10 +59,11 @@ TEST(TestBroker, WorkBeforeWorker) {
 
     // Send client request.
     void *client_broker_dealer;
-    B_CHECK_EX(b_protocol_connect_client(
+    B_CHECK_EX(b_protocol_connectbind_client(
         context_zmq,
         broker_address,
         ZMQ_DEALER,
+        B_CONNECT,
         &client_broker_dealer));
     B_ZMQSocketScope client_broker_dealer_scope(
         client_broker_dealer);
@@ -98,10 +99,11 @@ TEST(TestBroker, WorkBeforeWorker) {
 
     // Receive client request.
     void *worker_broker_dealer;
-    B_CHECK_EX(b_protocol_connect_worker(
+    B_CHECK_EX(b_protocol_connectbind_worker(
         context_zmq,
         broker_address,
         ZMQ_DEALER,
+        B_CONNECT,
         &worker_broker_dealer));
     B_ZMQSocketScope worker_broker_dealer_scope(
         worker_broker_dealer);
@@ -210,10 +212,11 @@ TEST(TestBroker, WorkAfterWorker) {
 
     // Create worker and mark as ready.
     void *worker_broker_dealer;
-    B_CHECK_EX(b_protocol_connect_worker(
+    B_CHECK_EX(b_protocol_connectbind_worker(
         context_zmq,
         broker_address,
         ZMQ_DEALER,
+        B_CONNECT,
         &worker_broker_dealer));
     B_ZMQSocketScope worker_broker_dealer_scope(
         worker_broker_dealer);
@@ -231,10 +234,11 @@ TEST(TestBroker, WorkAfterWorker) {
 
     // Send client request.
     void *client_broker_dealer;
-    B_CHECK_EX(b_protocol_connect_client(
+    B_CHECK_EX(b_protocol_connectbind_client(
         context_zmq,
         broker_address,
         ZMQ_DEALER,
+        B_CONNECT,
         &client_broker_dealer));
     B_ZMQSocketScope client_broker_dealer_scope(
         client_broker_dealer);
