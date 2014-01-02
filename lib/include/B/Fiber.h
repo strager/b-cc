@@ -66,4 +66,57 @@ b_fiber_context_hard_yield(
 }
 #endif
 
+#if defined(__cplusplus)
+#include <type_traits>
+
+template<
+    typename TFunc,
+    typename TFuncResult = typename std::result_of<TFunc()>::type,
+    typename = typename std::enable_if<
+        std::is_pointer<TFuncResult>::value>::type>
+B_ERRFUNC
+b_fiber_context_fork(
+    B_FiberContext *fiber_context,
+    TFunc const &thread_function,
+    TFuncResult *out_callback_result) {
+
+    return b_fiber_context_fork(
+        fiber_context,
+        [](void *user_closure) -> void * {
+            TFunc const &hread_function
+                = *static_cast<TFunc const *>(user_closure);
+            return thread_function();
+        },
+        const_cast<void *>(
+            static_cast<void const *>(&thread_function)),
+        static_cast<void **>(out_callback_result));
+}
+
+template<
+    typename TFunc,
+    typename = typename
+        std::enable_if<
+            std::is_void<
+                typename std::result_of<TFunc()> ::type
+            >::value>
+        ::type>
+B_ERRFUNC
+b_fiber_context_fork(
+    B_FiberContext *fiber_context,
+    TFunc const &thread_function) {
+
+    return b_fiber_context_fork(
+        fiber_context,
+        [](void *user_closure) -> void * {
+            TFunc const &thread_function
+                = *static_cast<TFunc const *>(user_closure);
+            thread_function();
+            return nullptr;
+        },
+        const_cast<void *>(
+            static_cast<void const *>(&thread_function)),
+        nullptr);
+}
+#endif
+
 #endif

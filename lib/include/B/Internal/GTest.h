@@ -49,8 +49,8 @@ public:
         // this->mutex does not need explicit deallocation.
 
         // TODO(strager): Verify that no threads are
-        // capturing, and that 'check_results' has been
-        // called.
+        // capturing.
+        assert(this->results.empty());
     }
 
     // Non-copyable and non-movable, because pthread_mutex_t
@@ -172,8 +172,10 @@ private:
     do { \
         size_t _bem_expected_size = (expected_size); \
         size_t _bem_actual_size = (actual_size); \
-        uint8_t const *_bem_expected = (expected); \
-        uint8_t const *_bem_actual = (actual); \
+        uint8_t const *_bem_expected \
+            = reinterpret_cast<uint8_t const *>((expected)); \
+        uint8_t const *_bem_actual \
+            = reinterpret_cast<uint8_t const *>((actual)); \
         EXPECT_EQ(_bem_expected_size, _bem_actual_size); \
         size_t _bem_min_size = b_min_size( \
             _bem_expected_size, \
@@ -230,6 +232,15 @@ private:
         EXPECT_EQ((expected).bytes[1], (actual).bytes[1]); \
         EXPECT_EQ((expected).bytes[2], (actual).bytes[2]); \
         EXPECT_EQ((expected).bytes[3], (actual).bytes[3]); \
+    } while (0)
+
+// TODO(strager): Factor duplication.
+#define B_EXPECT_REQUEST_ID_NE(expected, actual) \
+    do { \
+        EXPECT_NE((expected).bytes[0], (actual).bytes[0]); \
+        EXPECT_NE((expected).bytes[1], (actual).bytes[1]); \
+        EXPECT_NE((expected).bytes[2], (actual).bytes[2]); \
+        EXPECT_NE((expected).bytes[3], (actual).bytes[3]); \
     } while (0)
 
 #endif
