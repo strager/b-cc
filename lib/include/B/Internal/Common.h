@@ -3,6 +3,8 @@
 
 struct B_Exception;
 
+#define B_DEBUG
+
 #if defined(__GNUC__)
 #define B_MUST_USE_RESULT __attribute__((warn_unused_result))
 #else

@@ -17,10 +17,12 @@
 struct B_Client {
     struct B_FiberContext *fiber_context;
 
-    uint32_t base_request_index;
-
     // ZeroMQ sockets
     void *const broker_dealer;
+
+#if defined(B_DEBUG)
+    bool is_requesting;
+#endif
 };
 
 static struct B_Exception *
@@ -36,7 +38,6 @@ b_client_recv_reply(
     struct B_QuestionVTable const *const *question_vtables,
     struct B_AnyAnswer **answers,
     size_t count,
-    uint32_t base_request_index,
     int flags);
 
 static void
@@ -69,8 +70,6 @@ b_client_allocate_connect(
     B_ALLOCATE(struct B_Client, client, {
         .fiber_context = fiber_context,
 
-        .base_request_index = 0,  // Arbitrary.
-
         .broker_dealer = broker_dealer,
     });
     *out = client;
@@ -92,19 +91,13 @@ b_client_deallocate_disconnect(
     return NULL;
 }
 
-struct B_Exception *
-b_client_need_answers(
+static B_ERRFUNC
+b_client_need_answers_unchecked(
     struct B_Client *client,
     struct B_AnyQuestion const *const *questions,
     struct B_QuestionVTable const *const *question_vtables,
     struct B_AnyAnswer **answers,
     size_t count) {
-
-    // Allocate request indices.
-    // Request indices should never be reused per client,
-    // else concurrent requests may step on each other.
-    size_t base_request_index = client->base_request_index;
-    client->base_request_index += count;
 
     for (size_t i = 0; i < count; ++i) {
         struct B_Exception *ex;
@@ -124,7 +117,7 @@ b_client_need_answers(
 
         ex = b_client_send_request(
             client->broker_dealer,
-            base_request_index + i,
+            i,
             questions[i],
             question_vtables[i]);
         if (ex) {
@@ -172,7 +165,6 @@ b_client_need_answers(
                 question_vtables,
                 answers,
                 count,
-                base_request_index,
                 ZMQ_DONTWAIT);
             if (ex) {
                 return ex;
@@ -185,13 +177,45 @@ b_client_need_answers(
     return NULL;
 }
 
+B_ERRFUNC
+b_client_need_answers(
+    struct B_Client *client,
+    struct B_AnyQuestion const *const *questions,
+    struct B_QuestionVTable const *const *question_vtables,
+    struct B_AnyAnswer **answers,
+    size_t count) {
+
+#if defined(B_DEBUG)
+    if (client->is_requesting) {
+        return b_exception_string("Cannot use client reentrantly.");
+    }
+    client->is_requesting = true;
+#endif
+
+    struct B_Exception *ex
+        = b_client_need_answers_unchecked(
+            client,
+            questions,
+            question_vtables,
+            answers,
+            count);
+#if defined(B_DEBUG)
+    assert(client->is_requesting);
+    client->is_requesting = false;
+#endif
+    if (ex) {
+        return ex;
+    }
+
+    return NULL;
+}
+
 static struct B_Exception *
 b_client_recv_reply(
     struct B_Client *client,
     struct B_QuestionVTable const *const *question_vtables,
     struct B_AnyAnswer **answers,
     size_t count,
-    uint32_t base_request_index,
     int flags) {
 
     struct B_Exception *ex;
@@ -213,8 +237,7 @@ b_client_recv_reply(
     }
 
     size_t request_index
-        = deserialize_request_index(&request_id)
-            - base_request_index;
+        = deserialize_request_index(&request_id);
 
     if (request_index >= count) {
         return b_exception_format_string(
