@@ -10,16 +10,13 @@
 #include <gtest/gtest.h>
 #include <zmq.h>
 
-// TODO(strager): Write a test for work being received after
-// a worker is available.
-
 static B_ERRFUNC
 create_broker_thread(
     void *context_zmq,
     B_BrokerAddress **out_broker_address) {
 
     B_BrokerAddress *broker_address;
-    struct B_Exception *ex = b_broker_address_allocate(
+    B_Exception *ex = b_broker_address_allocate(
         &broker_address);
     if (ex) {
         return ex;

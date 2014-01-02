@@ -11,7 +11,157 @@
 
 #include <gtest/gtest.h>
 
+#include <cassert>
 #include <cstdint>
+#include <pthread.h>
+#include <type_traits>
+#include <vector>
+
+// HACK(strager)!
+namespace testing {
+namespace internal {
+class GTEST_API_ UnitTestImpl {
+public:
+    TestPartResultReporterInterface *
+    GetTestPartResultReporterForCurrentThread(
+        );
+
+    void
+    SetTestPartResultReporterForCurrentThread(
+        TestPartResultReporterInterface *);
+};
+}
+}
+
+// Allows assertions to be passed across tests.  Create in
+// the main thread, then call "capture" in other threads.
+// Call "check_results" periodically in the main thread
+// through the B_MT_ASSERT_CHECK() macro.
+class B_MultithreadAssert {
+public:
+    inline
+    B_MultithreadAssert() :
+        mutex(PTHREAD_MUTEX_INITIALIZER) {
+    }
+
+    inline
+    ~B_MultithreadAssert() {
+        // this->mutex does not need explicit deallocation.
+
+        // TODO(strager): Verify that no threads are
+        // capturing, and that 'check_results' has been
+        // called.
+    }
+
+    // Non-copyable and non-movable, because pthread_mutex_t
+    // is neither.
+    B_MultithreadAssert(B_MultithreadAssert const &) = delete;
+    B_MultithreadAssert(B_MultithreadAssert &&) = delete;
+    B_MultithreadAssert &operator =(B_MultithreadAssert const &) = delete;
+    B_MultithreadAssert &operator =(B_MultithreadAssert &&) = delete;
+
+    template<typename TFunc>
+    typename std::result_of<TFunc()>::type
+    capture(
+        const TFunc &func) {
+
+        CaptureScope capture_scope(*this);
+        return func();
+    }
+
+    // Returns 'true' on fatal error.
+    inline bool
+    check_results() {
+        // TODO(strager): Make exception-safe.
+        int rc;
+
+        rc = pthread_mutex_lock(&this->mutex);
+        assert(rc == 0);
+
+        bool fatal = false;
+        for (auto const &result : this->results) {
+            if (result.passed()) {
+                continue;
+            }
+            ::testing::internal::AssertHelper(
+                result.type(),
+                result.file_name(),
+                result.line_number(),
+                result.message())
+                = ::testing::Message();
+            if (result.fatally_failed()) {
+                fatal = true;
+                break;
+            }
+        }
+
+        this->results.clear();
+
+        rc = pthread_mutex_unlock(&this->mutex);
+        assert(rc == 0);
+
+        return fatal;
+    }
+
+    inline void
+    add_result(::testing::TestPartResult const &result) {
+        // TODO(strager): Make exception-safe.
+        int rc;
+
+        rc = pthread_mutex_lock(&this->mutex);
+        assert(rc == 0);
+
+        this->results.push_back(result);
+
+        rc = pthread_mutex_unlock(&this->mutex);
+        assert(rc == 0);
+    }
+
+private:
+    class CaptureScope :
+        public ::testing::TestPartResultReporterInterface {
+
+    public:
+        inline
+        CaptureScope(B_MultithreadAssert &mt_assert) :
+            mt_assert(mt_assert),
+            old_reporter(testing::internal::GetUnitTestImpl()
+                ->GetTestPartResultReporterForCurrentThread()) {
+
+            testing::internal::GetUnitTestImpl()
+                ->SetTestPartResultReporterForCurrentThread(
+                    this);
+        }
+
+        virtual inline
+        ~CaptureScope() {
+            testing::internal::GetUnitTestImpl()
+                ->SetTestPartResultReporterForCurrentThread(
+                    old_reporter);
+        }
+
+        virtual inline void
+        ReportTestPartResult(
+            ::testing::TestPartResult const &result) {
+
+            this->mt_assert.add_result(result);
+        }
+
+    private:
+        B_MultithreadAssert &mt_assert;
+        testing::TestPartResultReporterInterface *old_reporter;
+    };
+
+    pthread_mutex_t mutex;
+    std::vector<::testing::TestPartResult> results;
+};
+
+#define B_MT_ASSERT_CHECK(mt_assert) \
+    do { \
+        if ((mt_assert).check_results()) { \
+            return; \
+        } \
+    } while (0)
 
 // Checks that an exception did not occur.
 #define B_CHECK_EX(ex) \
