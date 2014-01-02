@@ -130,7 +130,7 @@ B_DEFINE_VTABLE_FUNCTION(B_QuestionVTable, question_vtable, {
 }
 
 static void
-fake_broker_and_worker(
+NeedAnswerOne_fake_broker_and_worker(
     void *context_zmq,
     B_BrokerAddress *broker_address) {
 
@@ -218,7 +218,7 @@ TEST(TestClient, NeedAnswerOne) {
             "fake_broker_and_worker",
             [&]() {
                 mt_assert.capture([&]{
-                    fake_broker_and_worker(
+                    NeedAnswerOne_fake_broker_and_worker(
                         context_zmq,
                         broker_address);
                 });
