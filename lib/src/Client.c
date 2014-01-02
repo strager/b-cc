@@ -258,6 +258,21 @@ b_client_need(
     return NULL;
 }
 
+B_ERRFUNC
+b_client_need_answer_one(
+    struct B_Client *client,
+    struct B_AnyQuestion const *question,
+    struct B_QuestionVTable const *question_vtable,
+    struct B_AnyAnswer **out) {
+
+    return b_client_need_answers(
+        client,
+        &question,
+        &question_vtable,
+        out,
+        1);
+}
+
 struct B_Exception *
 b_client_need_one(
     struct B_Client *client,

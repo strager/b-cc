@@ -576,23 +576,7 @@ b_fiber_context_yield(
             B_FIBER_CONTEXT_POLL_NONBLOCKING);
     }
 
-    // Switch to a woken fiber.
-    {
-        struct B_Fiber *non_polling_fiber
-            = b_fiber_context_get_non_polling_fiber(
-                fiber_context);
-        if (non_polling_fiber) {
-            b_fiber_context_switch(non_polling_fiber, poll);
-            return NULL;
-        } else if (poll) {
-            // The current fiber was woken.
-            return NULL;
-        } else {
-            // FIXME(strager): When does this occur?  When
-            // this is the only fiber?
-            abort();
-        }
-    }
+    // Switch to an awake fiber.
     {
         struct B_Fiber *non_polling_fiber
             = b_fiber_context_get_non_polling_fiber(

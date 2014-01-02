@@ -57,9 +57,19 @@ B_DEFINE_VTABLE_FUNCTION(B_AnswerVTable, answer_vtable, {
     },
 
     .deserialize = [](
-        B_Deserializer,
+        B_Deserializer deserialize,
         void *deserializer_closure) -> void * {
-        assert(0);
+
+        uint8_t buffer[6];
+        size_t read_size = deserialize(
+            reinterpret_cast<char *>(&buffer),
+            sizeof(buffer),
+            deserializer_closure);
+        EXPECT_EQ(5, read_size);
+
+        return new std::vector<uint8_t>(
+            buffer,
+            buffer + read_size);
     },
 });
 
@@ -191,7 +201,7 @@ fake_broker_and_worker(
         0));  // flags
 }
 
-TEST(TestClient, NeedOne) {
+TEST(TestClient, NeedAnswerOne) {
     // Semaphore emulated using cond.  Spawned thread
     // signals the semaphore.  Main thread awaits the
     // signal.
@@ -252,10 +262,25 @@ TEST(TestClient, NeedOne) {
 
         B_AnyQuestion *question
             = reinterpret_cast<B_AnyQuestion *>(123);
-        B_CHECK_EX(b_client_need_one(
+        B_AnyAnswer *answer;
+        B_CHECK_EX(b_client_need_answer_one(
             client,
             question,
-            test_vtables::question_vtable()));
+            test_vtables::question_vtable(),
+            &answer));
+
+        auto answer_bytes
+            = reinterpret_cast<std::vector<uint8_t> *>(
+                answer);
+        uint8_t const expected_answer_data[]
+            = {10, 3, 4, 8, 177};
+        B_EXPECT_MEMEQ(
+            expected_answer_data,
+            sizeof(expected_answer_data),
+            answer_bytes->data(),
+            answer_bytes->size());
+        delete answer_bytes;
+
     }  // Kill ZeroMQ context.
 
     B_LOG(B_INFO, "Waiting for thread to die.");

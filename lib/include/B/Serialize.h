@@ -11,12 +11,15 @@ extern "C" {
 #endif
 
 typedef void (*B_Serializer)(
-    // FIXME(strager): Accept void const *.
+    // TODO(strager): Accept void const *.
+    // TODO(strager): Errors.
     const char *data,
     size_t data_size,
     void *closure);
 
 typedef size_t (*B_Deserializer)(
+    // TODO(strager): Accept void const *.
+    // TODO(strager): Errors.
     char *data,
     size_t data_size,
     void *closure);
