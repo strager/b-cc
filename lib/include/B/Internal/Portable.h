@@ -1,6 +1,8 @@
 #ifndef PORTABLE_H_E5B130AF_4834_4A83_BC1C_B543D7F8D37D
 #define PORTABLE_H_E5B130AF_4834_4A83_BC1C_B543D7F8D37D
 
+#include <B/Internal/Common.h>
+
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -27,7 +29,7 @@ b_min_size(
     size_t,
     size_t);
 
-void
+B_ERRFUNC
 b_create_thread(
     const char *thread_name,
     void (*thread_function)(void *user_closure),
@@ -47,12 +49,12 @@ b_current_thread_string(
 #include <memory>
 
 template<typename TFunc>
-void
+B_ERRFUNC
 b_create_thread(
     char const *thread_name,
     TFunc const &thread_function) {
 
-    b_create_thread(
+    return b_create_thread(
         thread_name,
         [](void *closure) {
             auto thread_function_ptr

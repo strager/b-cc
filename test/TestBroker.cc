@@ -15,14 +15,16 @@ create_broker_thread(
     void *context_zmq,
     B_BrokerAddress **out_broker_address) {
 
+    B_Exception *ex;
+
     B_BrokerAddress *broker_address;
-    B_Exception *ex = b_broker_address_allocate(
+    ex = b_broker_address_allocate(
         &broker_address);
     if (ex) {
         return ex;
     }
 
-    b_create_thread(
+    ex = b_create_thread(
         "broker",
         [context_zmq, broker_address]() {
             B_Exception *ex = b_broker_run(
@@ -35,6 +37,10 @@ create_broker_thread(
                 B_LOG_EXCEPTION(ex);
             }
         });
+    if (ex) {
+        (void) b_broker_address_deallocate(broker_address);
+        return ex;
+    }
 
     *out_broker_address = broker_address;
     return NULL;

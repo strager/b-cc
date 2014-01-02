@@ -530,7 +530,7 @@ b_fibers_poll(
     }
 
     // Make sure we woke at least one fiber.
-    {
+    if (poll_type == B_FIBER_CONTEXT_POLL_BLOCKING) {
         size_t woken_fibers = 0;
         for (size_t i = 0; i < fiber_count; ++i) {
             if (!fibers[i].poll) {

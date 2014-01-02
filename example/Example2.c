@@ -442,10 +442,14 @@ create_worker_async(
     assert(rc != -1);
     assert(rc == strlen(thread_name));
 
-    b_create_thread(
+    struct B_Exception *ex = b_create_thread(
         thread_name,
         worker_thread,
         worker_closure);
+    if (ex) {
+        free(worker_closure);
+        return ex;
+    }
     // worker_closure is now owned by the thread.
 
     return NULL;
@@ -524,10 +528,14 @@ main(
             .database_vtable = database_vtable,
         });
 
-        b_create_thread(
+        struct B_Exception *ex = b_create_thread(
             "broker",
             broker_thread,
             broker_closure);
+        if (ex) {
+            B_LOG_EXCEPTION(ex);
+            abort();  // TODO(strager): Cleanup.
+        }
         // broker_closure is now owned by the thread.
 
         usleep(100 * 1000);  // HACK(strager)

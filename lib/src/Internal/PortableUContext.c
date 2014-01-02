@@ -42,11 +42,6 @@ struct B_UContext {
     uint64_t rdi;  // 64
 };
 
-_Static_assert(
-    sizeof(struct B_UContext)
-    == sizeof(struct B_UContextOpaque),
-    "B_UContextOpaque must match B_UContext");
-
 void
 b_ucontext_makecontext(
     struct B_UContext *context,
@@ -108,3 +103,8 @@ b_ucontext_copy(
 #else
 #error Unsupported architecture
 #endif
+
+_Static_assert(
+    sizeof(struct B_UContext)
+    == sizeof(struct B_UContextOpaque),
+    "B_UContextOpaque must match B_UContext");

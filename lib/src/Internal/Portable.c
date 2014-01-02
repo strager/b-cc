@@ -1,6 +1,6 @@
-#include <B/Internal/PortableUContext.h>
-
 #include <B/Internal/Portable.h>
+#include <B/Internal/PortableSignal.h>
+#include <B/Log.h>
 
 #include <assert.h>
 #include <pthread.h>
@@ -48,13 +48,7 @@ struct B_ThreadClosure {
     void (*thread_function)(void *user_closure);
     void *user_closure;
 
-    // Semaphore emulated using cond.  Spawned thread
-    // signals the semaphore.  Main thread awaits the
-    // signal.  This lets us ensure the thread has spawned
-    // before b_create_thread returns.
-    pthread_cond_t *started_cond;
-    pthread_mutex_t *started_mutex;
-    bool *started;
+    struct B_Signal *started_signal;
 
 #if defined(__APPLE__)
     const char *thread_name;
@@ -65,31 +59,28 @@ static void *
 b_thread_entry(
     void *closure) {
 
-    int rc;
-
     struct B_ThreadClosure thread_closure
         = *(struct B_ThreadClosure *) closure;
 
 #if defined(__APPLE__)
-    rc = pthread_setname_np(thread_closure.thread_name);
+    int rc = pthread_setname_np(thread_closure.thread_name);
     assert(rc == 0);
 #endif
 
     // Tell the main thread we've started.
-    rc = pthread_mutex_lock(thread_closure.started_mutex);
-    assert(rc == 0);
-    *thread_closure.started = true;
-    rc = pthread_mutex_unlock(thread_closure.started_mutex);
-    assert(rc == 0);
-    rc = pthread_cond_signal(thread_closure.started_cond);
-    assert(rc == 0);
+    struct B_Exception *ex
+        = b_signal_raise(thread_closure.started_signal);
+    if (ex) {
+        B_LOG_EXCEPTION(ex);
+        abort();
+    }
 
     thread_closure.thread_function(
         thread_closure.user_closure);
     return NULL;
 }
 
-void
+B_ERRFUNC
 b_create_thread(
     const char *thread_name,
     void (*thread_function)(void *user_closure),
@@ -97,17 +88,18 @@ b_create_thread(
 
     int rc;
 
-    pthread_cond_t started_cond = PTHREAD_COND_INITIALIZER;
-    pthread_mutex_t started_mutex = PTHREAD_MUTEX_INITIALIZER;
-    bool started = false;
+    struct B_Signal started_signal;
+    struct B_Exception *ex
+        = b_signal_init(&started_signal);
+    if (ex) {
+        return ex;
+    }
 
     struct B_ThreadClosure thread_closure = {
         .thread_function = thread_function,
         .user_closure = user_closure,
 
-        .started_cond = &started_cond,
-        .started_mutex = &started_mutex,
-        .started = &started,
+        .started_signal = &started_signal,
 
 #if defined(__APPLE__)
         .thread_name = thread_name,
@@ -123,21 +115,19 @@ b_create_thread(
     assert(rc == 0);
 
     // Wait for the thread to start.
-    rc = pthread_mutex_lock(&started_mutex);
-    assert(rc == 0);
-    while (!started) {
-        rc = pthread_cond_wait(
-            &started_cond,
-            &started_mutex);
-        assert(rc == 0);
+    ex = b_signal_await(&started_signal);
+    if (ex) {
+        (void) b_signal_deinit(&started_signal);
+        return ex;
     }
-    rc = pthread_mutex_unlock(&started_mutex);
-    assert(rc == 0);
 
 #if !defined(__APPLE__)
 #warning Unsupported platform
     (void) thread_name;
 #endif
+
+    (void) b_signal_deinit(&started_signal);
+    return NULL;
 }
 
 bool

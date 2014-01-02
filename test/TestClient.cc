@@ -5,6 +5,7 @@
 #include <B/Fiber.h>
 #include <B/Internal/GTest.h>
 #include <B/Internal/Portable.h>
+#include <B/Internal/PortableSignal.h>
 #include <B/Internal/Protocol.h>
 #include <B/Internal/VTable.h>
 #include <B/Internal/ZMQ.h>
@@ -14,8 +15,6 @@
 
 #include <gtest/gtest.h>
 #include <zmq.h>
-
-#include <pthread.h>
 
 struct B_ClientScope {
     B_ClientScope(
@@ -202,14 +201,8 @@ fake_broker_and_worker(
 }
 
 TEST(TestClient, NeedAnswerOne) {
-    // Semaphore emulated using cond.  Spawned thread
-    // signals the semaphore.  Main thread awaits the
-    // signal.
-    pthread_cond_t thread_finished_cond
-        = PTHREAD_COND_INITIALIZER;
-    pthread_mutex_t thread_finished_mutex
-        = PTHREAD_MUTEX_INITIALIZER;
-    bool thread_finished = false;
+    B_Signal finished_signal;
+    B_CHECK_EX(b_signal_init(&finished_signal));
 
     {
         void *context_zmq = zmq_ctx_new();
@@ -221,7 +214,7 @@ TEST(TestClient, NeedAnswerOne) {
             &broker_address));
 
         B_MultithreadAssert mt_assert;
-        b_create_thread(
+        B_CHECK_EX(b_create_thread(
             "fake_broker_and_worker",
             [&]() {
                 mt_assert.capture([&]{
@@ -231,18 +224,10 @@ TEST(TestClient, NeedAnswerOne) {
                 });
 
                 // Tell the main thread we've finished.
-                int rc;
-                rc = pthread_mutex_lock(
-                    &thread_finished_mutex);
-                assert(rc == 0);
-                thread_finished = true;
-                rc = pthread_mutex_unlock(
-                    &thread_finished_mutex);
-                assert(rc == 0);
-                rc = pthread_cond_signal(
-                    &thread_finished_cond);
-                assert(rc == 0);
-            });
+                B_Exception *ex
+                    = b_signal_raise(&finished_signal);
+                assert(!ex);
+            }));
 
         B_FiberContext *fiber_context;
         B_CHECK_EX(b_fiber_context_allocate(
@@ -284,15 +269,5 @@ TEST(TestClient, NeedAnswerOne) {
     }  // Kill ZeroMQ context.
 
     B_LOG(B_INFO, "Waiting for thread to die.");
-    int rc;
-    rc = pthread_mutex_lock(&thread_finished_mutex);
-    assert(rc == 0);
-    while (!thread_finished) {
-        rc = pthread_cond_wait(
-            &thread_finished_cond,
-            &thread_finished_mutex);
-        assert(rc == 0);
-    }
-    rc = pthread_mutex_unlock(&thread_finished_mutex);
-    assert(rc == 0);
+    B_CHECK_EX(b_signal_await(&finished_signal));
 }
