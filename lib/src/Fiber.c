@@ -132,7 +132,6 @@ b_fiber_context_allocate_recency(
 #if defined(B_DEBUG)
 static B_ERRFUNC
 b_fiber_context_allocate_fiber_id(
-    struct B_FiberContext *,
     uintptr_t *out_fiber_id);
 
 static B_ERRFUNC
@@ -170,6 +169,16 @@ B_ERRFUNC
 b_fiber_context_allocate(
     struct B_FiberContext **out) {
 
+#if defined(B_DEBUG)
+    uintptr_t fiber_id;
+    struct B_Exception *ex
+        = b_fiber_context_allocate_fiber_id(
+            &fiber_id);
+    if (ex) {
+        return ex;
+    }
+#endif
+
     B_ALLOCATE(struct B_FiberContext, fiber_context, {
         .fibers_size = 0,
         .fiber_count = 0,
@@ -180,7 +189,7 @@ b_fiber_context_allocate(
         .max_recency = 0,
 
 #if defined(B_DEBUG)
-        .current_fiber_id = 0,
+        .current_fiber_id = fiber_id,
 #endif
     });
 
@@ -189,7 +198,6 @@ b_fiber_context_allocate(
 #endif
 
     *out = fiber_context;
-
     return NULL;
 }
 
@@ -360,7 +368,6 @@ b_fiber_context_fork(
     }
 #if defined(B_DEBUG)
     ex = b_fiber_context_allocate_fiber_id(
-        fiber_context,
         &fiber->fiber_id);
     if (ex) {
         return ex;
@@ -544,7 +551,6 @@ b_fiber_context_allocate_recency(
 #if defined(B_DEBUG)
 static B_ERRFUNC
 b_fiber_context_allocate_fiber_id(
-    struct B_FiberContext *fiber_context,
     uintptr_t *out_fiber_id) {
 
 #if defined(__APPLE__)
