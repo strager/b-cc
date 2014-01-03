@@ -351,3 +351,57 @@ TEST(TestBroker, WorkAfterWorker) {
         client_broker_dealer,
         0);  // flags
 }
+
+TEST(TestBroker, WorkerExitsWithoutWork) {
+    B_Exception *ex = NULL;
+
+    void *context_zmq = zmq_ctx_new();
+    ASSERT_NE(nullptr, context_zmq);
+    B_ZMQContextScope context_zmq_scope(context_zmq);
+
+    B_BrokerAddress *broker_address;
+    B_CHECK_EX(create_broker_thread(
+        context_zmq,
+        &broker_address));
+    sleep(1);
+
+    // Create worker and mark as ready.
+    void *worker_broker_dealer;
+    B_CHECK_EX(b_protocol_connectbind_worker(
+        context_zmq,
+        broker_address,
+        ZMQ_DEALER,
+        B_CONNECT,
+        &worker_broker_dealer));
+    B_ZMQSocketScope worker_broker_dealer_scope(
+        worker_broker_dealer);
+
+    b_protocol_send_worker_command(
+        worker_broker_dealer,
+        B_WORKER_READY,
+        0,  // flags
+        &ex);
+    B_CHECK_EX(ex);
+
+    // FIXME(strager): This method sucks!
+    B_LOG(B_INFO, "Waiting for worker to pick up worker READY.");
+    sleep(1);
+
+    // Send EXIT request.
+    b_protocol_send_worker_command(
+        worker_broker_dealer,
+        B_WORKER_EXIT,
+        0,  // flags
+        &ex);
+    B_CHECK_EX(ex);
+
+    // Await response.
+    {
+        uint8_t const expected_response[0] = {};
+        B_EXPECT_RECV(
+            expected_response,
+            sizeof(expected_response),
+            worker_broker_dealer,
+            0);  // flags
+    }
+}

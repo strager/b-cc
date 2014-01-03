@@ -434,7 +434,7 @@ b_broker_worker_exit(
                 queue_item->worker_identity);
             free(queue_item);
 
-            return NULL;
+            break;
         }
 
         prev_next = &queue_item->next;
