@@ -674,8 +674,15 @@ b_fibers_poll(
             B_LOG_FIBER(
                 B_FIBER,
                 fiber_context,
-                "fiber[%zu] pollitem[%zu] socket=%p events=%x",
+                "fiber[%zu]"
+#if defined(B_DEBUG)
+                "=%p"
+#endif
+                " pollitem[%zu] socket=%p events=%x",
                 i,
+#if defined(B_DEBUG)
+                (void *) fiber->fiber_id,
+#endif
                 j,
                 fiber->poll->pollitems[j].socket,
                 fiber->poll->pollitems[j].events);
