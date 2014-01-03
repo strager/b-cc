@@ -61,6 +61,11 @@ struct B_Fiber {
     // If NULL, the fiber is not polling or has gotten poll
     // results already.
     struct B_FiberPoll *volatile poll;
+
+    // When picking a non-polling fiber to awaken, we pick
+    // the least recent fiber (i.e. the fiber with the
+    // minimum 'recency').
+    uint32_t recency;
 };
 
 struct B_FiberContext {
@@ -70,6 +75,9 @@ struct B_FiberContext {
     struct B_Fiber *volatile fibers;  // Unboxed vector.
 
     bool volatile is_finishing;
+
+    // Maximum of struct B_Fiber::recency in 'fibers'.
+    uint32_t max_recency;
 };
 
 static struct B_Fiber *
@@ -81,6 +89,11 @@ b_fiber_context_get_free_fiber(
     struct B_FiberContext *,
     struct B_Fiber **out);
 
+static B_ERRFUNC
+b_fiber_context_allocate_recency(
+    struct B_FiberContext *,
+    uint32_t *out_recency);
+
 static void
 b_fibers_poll(
     struct B_Fiber *fibers,
@@ -89,6 +102,7 @@ b_fibers_poll(
 
 static void
 b_fiber_context_switch(
+    struct B_FiberContext *,
     struct B_Fiber *,
     struct B_FiberPoll *);
 
@@ -117,6 +131,8 @@ b_fiber_context_allocate(
         .fibers = NULL,
 
         .is_finishing = false,
+
+        .max_recency = 0,
     });
     *out = fiber_context;
 
@@ -261,11 +277,19 @@ b_fiber_context_fork(
     void *user_closure,
     void **out_callback_result) {
 
+    struct B_Exception *ex;
+
     struct B_Fiber *fiber;
-    struct B_Exception *ex
-        = b_fiber_context_get_free_fiber(
-            fiber_context,
-            &fiber);
+    ex = b_fiber_context_get_free_fiber(
+        fiber_context,
+        &fiber);
+    if (ex) {
+        return ex;
+    }
+
+    ex = b_fiber_context_allocate_recency(
+        fiber_context,
+        &fiber->recency);
     if (ex) {
         return ex;
     }
@@ -375,6 +399,20 @@ b_fiber_context_get_free_fiber(
     *out = &fiber_context
         ->fibers[fiber_context->fiber_count];
     fiber_context->fiber_count += 1;
+    return NULL;
+}
+
+static B_ERRFUNC
+b_fiber_context_allocate_recency(
+    struct B_FiberContext *fiber_context,
+    uint32_t *out_recency) {
+
+    // TODO(strager): Overflow checking.
+
+    uint32_t recency = fiber_context->max_recency;
+    fiber_context->max_recency += 1;
+
+    *out_recency = recency;
     return NULL;
 }
 
@@ -570,17 +608,29 @@ b_fibers_poll(
 // (fiber) in its place.
 static void
 b_fiber_context_switch(
+    struct B_FiberContext *fiber_context,
     struct B_Fiber *fiber,
     struct B_FiberPoll *poll) {
 
     assert(!fiber->poll);
 
+    uint32_t recency;
+    struct B_Exception *ex
+        = b_fiber_context_allocate_recency(
+            fiber_context,
+            &recency);
+    if (ex) {
+        B_LOG_EXCEPTION(ex);
+        abort();
+    }
+
     struct B_UContext other_fiber_context;
     b_ucontext_copy(
         &other_fiber_context,
         &fiber->context);
-
     fiber->poll = poll;
+    fiber->recency = recency;
+
     // NOTE(strager): fiber (the pointer) is invalid after
     // calling swapcontext.
     b_ucontext_swapcontext(
@@ -595,6 +645,11 @@ b_fiber_context_yield(
     enum B_FiberContextYieldType yield_type) {
 
     if (yield_type == B_FIBER_CONTEXT_YIELD_HARD) {
+        if (fiber_context->fiber_count == 0) {
+            // FIXME(strager): Should this be an error?
+            return NULL;
+        }
+
         b_fibers_poll(
             fiber_context->fibers,
             fiber_context->fiber_count,
@@ -607,7 +662,10 @@ b_fiber_context_yield(
             = b_fiber_context_get_non_polling_fiber(
                 fiber_context);
         if (non_polling_fiber) {
-            b_fiber_context_switch(non_polling_fiber, poll);
+            b_fiber_context_switch(
+                fiber_context,
+                non_polling_fiber,
+                poll);
             return NULL;
         }
     }
@@ -626,6 +684,16 @@ b_fiber_context_yield(
                 = b_fiber_context_get_free_fiber(
                     fiber_context,
                     &fiber);
+            if (ex) {
+                return ex;
+            }
+        }
+
+        {
+            struct B_Exception *ex
+                = b_fiber_context_allocate_recency(
+                    fiber_context,
+                    &fiber->recency);
             if (ex) {
                 return ex;
             }
@@ -653,7 +721,10 @@ b_fiber_context_yield(
             = b_fiber_context_get_non_polling_fiber(
                 fiber_context);
         if (non_polling_fiber) {
-            b_fiber_context_switch(non_polling_fiber, poll);
+            b_fiber_context_switch(
+                fiber_context,
+                non_polling_fiber,
+                poll);
             return NULL;
         } else if (poll) {
             // The current fiber was woken.
@@ -669,6 +740,8 @@ b_fiber_context_yield(
 static void B_NO_RETURN
 b_fiber_yield_end(
     struct B_FiberContext *fiber_context) {
+
+    // TODO(strager): Merge with b_fiber_context_yield.
 
     assert(fiber_context->fiber_count > 0);
 
@@ -709,19 +782,28 @@ b_fiber_yield_end(
     b_ucontext_setcontext(&context);
 }
 
+// Find the non-polling fiber with the minimum recency.
+// Returns NULL if all fibers are polling.
 static struct B_Fiber *
 b_fiber_context_get_non_polling_fiber(
     struct B_FiberContext *fiber_context) {
+
+    struct B_Fiber *min_fiber = NULL;
 
     size_t fiber_count = fiber_context->fiber_count;
     struct B_Fiber *fibers = fiber_context->fibers;
     for (size_t i = 0; i < fiber_count; ++i) {
         struct B_Fiber *fiber = &fibers[i];
         if (!fiber->poll) {
-            return fiber;
+            bool is_least_recent
+                = !min_fiber || (min_fiber
+                    && fiber->recency < min_fiber->recency);
+            if (is_least_recent) {
+                min_fiber = fiber;
+            }
         }
     }
-    return NULL;
+    return min_fiber;
 }
 
 static void
