@@ -508,6 +508,10 @@ b_fiber_context_get_free_fiber(
                 &new_fibers[i].context,
                 &old_fibers[i].context);
             new_fibers[i].poll = old_fibers[i].poll;
+            new_fibers[i].recency = old_fibers[i].recency;
+#if defined(B_DEBUG)
+            new_fibers[i].fiber_id = old_fibers[i].fiber_id;
+#endif
         }
         free(old_fibers);
 
