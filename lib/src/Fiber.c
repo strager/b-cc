@@ -20,6 +20,34 @@
 
 #include <stdio.h>
 
+#if defined(B_DEBUG)
+// TODO(strager): Make portable.
+# if defined(__APPLE__)
+
+#  include <libkern/OSAtomic.h>
+#  include <pthread.h>
+#  include <stdbool.h>
+
+// Contains a thread-specific pointer to the
+// last-{switched,allocated} FiberContext, or NULL if no
+// allocation ever occured or if the FiberContext was
+// deallocated.
+static pthread_key_t
+current_fiber_context_key;
+static bool
+current_fiber_context_key_initd = false;
+static OSSpinLock
+current_fiber_context_key_spinlock = OS_SPINLOCK_INIT;
+
+static uintptr_t
+max_fiber_id = ((uintptr_t) NULL) + 1;
+static OSSpinLock
+max_fiber_id_spinlock = OS_SPINLOCK_INIT;
+# else
+#  error Unsupported platform
+# endif
+#endif
+
 enum B_FiberContextYieldType {
     // Polls with timeout=0.  Resumes a fiber (except the
     // current fiber).  (The current fiber must not be
@@ -65,6 +93,10 @@ struct B_Fiber {
     // the least recent fiber (i.e. the fiber with the
     // minimum 'recency').
     uint32_t recency;
+
+#if defined(B_DEBUG)
+    uintptr_t fiber_id;
+#endif
 };
 
 struct B_FiberContext {
@@ -77,6 +109,10 @@ struct B_FiberContext {
 
     // Maximum of struct B_Fiber::recency in 'fibers'.
     uint32_t max_recency;
+
+#if defined(B_DEBUG)
+    uintptr_t current_fiber_id;
+#endif
 };
 
 static struct B_Fiber *
@@ -93,10 +129,20 @@ b_fiber_context_allocate_recency(
     struct B_FiberContext *,
     uint32_t *out_recency);
 
+#if defined(B_DEBUG)
+static B_ERRFUNC
+b_fiber_context_allocate_fiber_id(
+    struct B_FiberContext *,
+    uintptr_t *out_fiber_id);
+
+static B_ERRFUNC
+b_fiber_context_set_current(
+    struct B_FiberContext *);
+#endif
+
 static void
 b_fibers_poll(
-    struct B_Fiber *fibers,
-    size_t fiber_count,
+    struct B_FiberContext *,
     enum B_FiberContextPollType);
 
 static void
@@ -132,7 +178,16 @@ b_fiber_context_allocate(
         .is_finishing = false,
 
         .max_recency = 0,
+
+#if defined(B_DEBUG)
+        .current_fiber_id = 0,
+#endif
     });
+
+#if defined(B_DEBUG)
+    (void) b_fiber_context_set_current(fiber_context);
+#endif
+
     *out = fiber_context;
 
     return NULL;
@@ -141,6 +196,10 @@ b_fiber_context_allocate(
 B_ERRFUNC
 b_fiber_context_deallocate(
     struct B_FiberContext *fiber_context) {
+
+#if defined(B_DEBUG)
+    (void) b_fiber_context_set_current(NULL);
+#endif
 
     // TODO(strager): Ensure no fibers are alive (except the
     // current one, of course).
@@ -261,13 +320,19 @@ b_fiber_trampoline(
     // closure_raw is now invalid.
 
     printf("callback=%p\n", closure.callback);
-    B_LOG(B_FIBER, "Fiber started");
+    B_LOG_FIBER(
+        B_FIBER,
+        closure.fiber_context,
+        "Fiber started");
     void *result = closure.callback(closure.user_closure);
     if (closure.out_callback_result) {
         *closure.out_callback_result = result;
     }
 
-    B_LOG(B_FIBER, "Fiber dying");
+    B_LOG_FIBER(
+        B_FIBER,
+        closure.fiber_context,
+        "Fiber dying");
 
     b_fiber_yield_end(closure.fiber_context);
 }
@@ -295,6 +360,14 @@ b_fiber_context_fork(
     if (ex) {
         return ex;
     }
+#if defined(B_DEBUG)
+    ex = b_fiber_context_allocate_fiber_id(
+        fiber_context,
+        &fiber->fiber_id);
+    if (ex) {
+        return ex;
+    }
+#endif
     fiber->poll = NULL;
 
     struct B_UContext *context = &fiber->context;
@@ -330,6 +403,16 @@ b_fiber_context_fork(
     // Trampoline should call us back ASAP.
     b_ucontext_swapcontext(&self_context, context);
 
+#if defined(B_DEBUG)
+    // NOTE(strager): Because we didn't do a formal fiber
+    // swap, the 'fiber' pointer should still be valid.
+    B_LOG_FIBER(
+        B_INFO,
+        fiber_context,
+        "Forked fiber %p.",
+        (void *) fiber->fiber_id);
+#endif
+
     return NULL;
 }
 
@@ -361,6 +444,44 @@ b_fiber_context_hard_yield(
     }
 
     return NULL;
+}
+
+B_ERRFUNC
+b_fiber_context_current_fiber_id(
+    struct B_FiberContext *fiber_context,
+    void **out_fiber_id) {
+
+#if defined(B_DEBUG)
+    if (!fiber_context) {
+#if defined(__APPLE__)
+        OSSpinLockLock(&current_fiber_context_key_spinlock);
+
+        if (current_fiber_context_key_initd) {
+            fiber_context = pthread_getspecific(
+                current_fiber_context_key);
+        }
+
+        OSSpinLockUnlock(
+            &current_fiber_context_key_spinlock);
+#else
+#error Unsupported platform
+#endif
+    }
+
+    if (!fiber_context) {
+        return b_exception_string(
+            "No fiber context available");
+    }
+
+    *out_fiber_id
+        = (void *) fiber_context->current_fiber_id;
+    return NULL;
+#else
+    (void) fiber_context;
+    (void) out_fiber_id;
+    return b_exception_string(
+        "Only supported in debug builds");
+#endif
 }
 
 static B_ERRFUNC
@@ -418,12 +539,79 @@ b_fiber_context_allocate_recency(
     return NULL;
 }
 
+#if defined(B_DEBUG)
+static B_ERRFUNC
+b_fiber_context_allocate_fiber_id(
+    struct B_FiberContext *fiber_context,
+    uintptr_t *out_fiber_id) {
+
+#if defined(__APPLE__)
+    OSSpinLockLock(&max_fiber_id_spinlock);
+#else
+#error Unsupported platform
+#endif
+
+    max_fiber_id += 1;
+    uintptr_t fiber_id = max_fiber_id;
+
+#if defined(__APPLE__)
+    OSSpinLockUnlock(&max_fiber_id_spinlock);
+#else
+#error Unsupported platform
+#endif
+
+    *out_fiber_id = fiber_id;
+    return NULL;
+}
+
+static B_ERRFUNC
+b_fiber_context_set_current(
+    struct B_FiberContext *fiber_context) {
+
+#if defined(__APPLE__)
+    struct B_Exception *ex = NULL;
+    int rc;
+
+    OSSpinLockLock(&current_fiber_context_key_spinlock);
+
+    rc = pthread_key_create(
+        &current_fiber_context_key, NULL);
+    if (rc != 0) {
+        ex = b_exception_errno("pthread_key_create", rc);
+    }
+
+    if (!ex) {
+        current_fiber_context_key_initd = true;
+    }
+
+    OSSpinLockUnlock(&current_fiber_context_key_spinlock);
+
+    if (ex) {
+        return ex;
+    }
+
+    rc = pthread_setspecific(
+        current_fiber_context_key,
+        fiber_context);
+    if (rc != 0) {
+        return b_exception_errno("pthread_setspecific", rc);
+    }
+
+    return NULL;
+#else
+#error Unsupported platform
+#endif
+}
+#endif
+
 // Poll results (and errors) are stored in the fibers.
 static void
 b_fibers_poll(
-    struct B_Fiber *fibers,
-    size_t fiber_count,
+    struct B_FiberContext *fiber_context,
     enum B_FiberContextPollType poll_type) {
+
+    struct B_Fiber *fibers = fiber_context->fibers;
+    size_t fiber_count = fiber_context->fiber_count;
 
     // Count poll items.
     size_t pollitem_total_count = 0;
@@ -468,8 +656,9 @@ b_fibers_poll(
     }
 
     // Poll!
-    B_LOG(
+    B_LOG_FIBER(
         B_FIBER,
+        fiber_context,
         "Polling %s %zu pollitems across %zu fibers",
         poll_type == B_FIBER_CONTEXT_POLL_BLOCKING
             ? "blocking" : "non-blocking",
@@ -482,8 +671,9 @@ b_fibers_poll(
         }
 
         for (size_t j = 0; j < fiber->poll->pollitem_count; ++j) {
-            B_LOG(
+            B_LOG_FIBER(
                 B_FIBER,
+                fiber_context,
                 "fiber[%zu] pollitem[%zu] socket=%p events=%x",
                 i,
                 j,
@@ -516,8 +706,9 @@ b_fibers_poll(
     }
 
     if (!poll_ex) {
-        B_LOG(
+        B_LOG_FIBER(
             B_FIBER,
+            fiber_context,
             "Polling finished with %d ready pollitems:",
             ready_pollitems);
         zmq_pollitem_t const *cur_pollitem = pollitems;
@@ -528,8 +719,9 @@ b_fibers_poll(
             }
 
             for (size_t j = 0; j < fiber->poll->pollitem_count; ++j) {
-                B_LOG(
+                B_LOG_FIBER(
                     B_FIBER,
+                    fiber_context,
                     "fiber[%zu] pollitem[%zu] socket=%p revents=%x",
                     i,
                     j,
@@ -624,12 +816,22 @@ b_fiber_context_switch(
         abort();
     }
 
+#if defined(B_DEBUG)
+    uintptr_t fiber_id = fiber->fiber_id;
+    fiber->fiber_id = fiber_context->current_fiber_id;
+    fiber_context->current_fiber_id = fiber_id;
+#endif
+
     struct B_UContext other_fiber_context;
     b_ucontext_copy(
         &other_fiber_context,
         &fiber->context);
     fiber->poll = poll;
     fiber->recency = recency;
+
+#if defined(B_DEBUG)
+    (void) b_fiber_context_set_current(fiber_context);
+#endif
 
     // NOTE(strager): fiber (the pointer) is invalid after
     // calling swapcontext.
@@ -653,8 +855,7 @@ b_fiber_context_yield(
         }
 
         b_fibers_poll(
-            fiber_context->fibers,
-            fiber_context->fiber_count,
+            fiber_context,
             B_FIBER_CONTEXT_POLL_NONBLOCKING);
     }
 
@@ -711,8 +912,7 @@ b_fiber_context_yield(
     }
 
     b_fibers_poll(
-        fiber_context->fibers,
-        fiber_context->fiber_count,
+        fiber_context,
         B_FIBER_CONTEXT_POLL_BLOCKING);
 
     // Remove the current fiber.
@@ -757,8 +957,7 @@ b_fiber_yield_end(
             fiber_context);
     if (!non_polling_fiber) {
         b_fibers_poll(
-            fiber_context->fibers,
-            fiber_context->fiber_count,
+            fiber_context,
             B_FIBER_CONTEXT_POLL_BLOCKING);
 
         non_polling_fiber
@@ -785,7 +984,10 @@ b_fiber_yield_end(
 
     fiber_context->fiber_count -= 1;
 
-    B_LOG(B_FIBER, "Fiber dead");
+    B_LOG_FIBER(
+        B_FIBER,
+        fiber_context,
+        "Fiber dead");
     b_ucontext_setcontext(&context);
 }
 

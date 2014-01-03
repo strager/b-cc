@@ -223,7 +223,10 @@ b_worker_work_fiber(
 
     struct B_Exception *ex;
 
-    B_LOG(B_INFO, "Worker fiber started.");
+    B_LOG_FIBER(
+        B_INFO,
+        worker->fiber_context,
+        "Worker fiber started.");
 
     struct B_Client *client;
     ex = b_client_allocate_connect(
@@ -272,7 +275,7 @@ b_worker_exit_abandon(
     void *broker_dealer,
     struct B_FiberContext *fiber_context) {
 
-    B_LOG(B_INFO, "Abandoning work.");
+    B_LOG_FIBER(B_INFO, fiber_context, "Abandoning work.");
 
     {
         struct B_Exception *ex = NULL;
@@ -297,8 +300,9 @@ b_worker_exit_abandon(
         { broker_dealer, 0, ZMQ_POLLIN, 0 },
     };
     for (;;) {
-        // FIXME(strager): We should probably have a reasonable
-        // timeout (1 second?).
+        // FIXME(strager): We should probably have a
+        // reasonable timeout (1 second?).
+        B_LOG_FIBER(B_INFO, fiber_context, "hello");
         const long timeout_milliseconds = -1;
         bool is_finished;
         struct B_Exception *ex = b_fiber_context_poll_zmq(
@@ -341,11 +345,17 @@ b_worker_exit_abandon(
                 b_zmq_msg_close(&first_message);
 
                 if (expecting_exit_response) {
-                    B_LOG(B_INFO, "WORKER_EXIT response received.");
+                    B_LOG_FIBER(
+                        B_INFO,
+                        fiber_context,
+                        "WORKER_EXIT response received.");
                     expecting_exit_response = false;
                 }
                 if (expecting_abandon_response) {
-                    B_LOG(B_INFO, "WORKER_ABANDON response received.");
+                    B_LOG_FIBER(
+                        B_INFO,
+                        fiber_context,
+                        "WORKER_ABANDON response received.");
                     expecting_abandon_response = false;
                 }
 
@@ -363,7 +373,10 @@ b_worker_exit_abandon(
                 }
                 expecting_ready_response = false;
 
-                B_LOG(B_INFO, "Received work load; sending back as abandoned.");
+                B_LOG_FIBER(
+                    B_INFO,
+                    fiber_context,
+                    "Received work load; sending back as abandoned.");
                 b_protocol_send_worker_command(
                     broker_dealer,
                     B_WORKER_ABANDON,
@@ -400,6 +413,10 @@ b_worker_work_fiber_wrapper(
         closure->worker,
         &closure->should_die);
     closure->did_die = true;
+    B_LOG_FIBER(
+        B_INFO,
+        closure->worker->fiber_context,
+        "Worker fiber did die.");
     if (ex) {
         return ex;
     }
@@ -415,6 +432,10 @@ b_worker_handle_broker(
 
     // Fork off a fiber which will do work while a Client
     // waits for a response from other workers.
+    B_LOG_FIBER(
+        B_INFO,
+        worker->fiber_context,
+        "Forking temporary worker fiber.");
     struct B_WorkerFiberClosure fiber_closure = {
         .worker = worker,
         .should_die = false,
@@ -437,7 +458,10 @@ b_worker_handle_broker(
             worker);
 
     // Kill fiber and wait for it to die.
-    B_LOG(B_INFO, "Killing forked worker.");
+    B_LOG_FIBER(
+        B_INFO,
+        worker->fiber_context,
+        "Killing forked worker.");
     fiber_closure.should_die = true;
     while (!fiber_closure.did_die) {
         struct B_Exception *yield_ex
@@ -668,7 +692,10 @@ b_worker_build(
         goto done;
 
     case 1: {
-        B_LOG(B_INFO, "Executing rule.");
+        B_LOG_FIBER(
+            B_INFO,
+            worker->fiber_context,
+            "Executing rule.");
 
         struct B_RuleQuery const *rule_query
             = b_rule_query_list_get(rule_query_list, 0);
@@ -681,7 +708,10 @@ b_worker_build(
             goto done;
         });
 
-        B_LOG(B_INFO, "Done executing rule.");
+        B_LOG_FIBER(
+            B_INFO,
+            worker->fiber_context,
+            "Done executing rule.");
         break;
     }
 

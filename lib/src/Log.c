@@ -1,4 +1,5 @@
 #include <B/Exception.h>
+#include <B/Fiber.h>
 #include <B/Internal/Portable.h>
 #include <B/Log.h>
 
@@ -21,7 +22,7 @@ b_log_is_level_enabled(
     enum B_LogLevel log_level) {
 
     switch (log_level) {
-    case B_ZMQ:       return true;
+    case B_ZMQ:       return false;
     case B_FIBER:     return true;
     case B_INFO:      return true;
     case B_EXCEPTION: return true;
@@ -32,6 +33,7 @@ b_log_is_level_enabled(
 void
 b_log_format(
     enum B_LogLevel log_level,
+    struct B_FiberContext *fiber_context,
     const char *format,
     ...) {
 
@@ -52,23 +54,36 @@ b_log_format(
 
     // Print header.
     // TODO(strager): Print log level.
-    rc = fprintf(B_LOG_FILE, "[%s]: ", thread_buffer);
-    if (rc < 0) {
-        // TODO(strager): Do something!
+    rc = fprintf(B_LOG_FILE, "[%s", thread_buffer);
+    assert(rc >= 0);
+
+    {
+        // Print fiber ID, if available.
+        void *fiber_id;
+        struct B_Exception *ex
+            = b_fiber_context_current_fiber_id(
+                fiber_context,
+                &fiber_id);
+        if (!ex && fiber_id) {
+            rc = fprintf(B_LOG_FILE, ".%p", fiber_id);
+            assert(rc >= 0);
+        }
+        if (ex) {
+            b_exception_deallocate(ex);
+        }
     }
+
+    rc = fprintf(B_LOG_FILE, "]: ");
+    assert(rc >= 0);
 
     va_list args;
     va_start(args, format);
     rc = vfprintf(B_LOG_FILE, format, args);
     va_end(args);
-    if (rc < 0) {
-        // TODO(strager): Do something!
-    }
+    assert(rc >= 0);
 
     rc = fputc('\n', B_LOG_FILE);
-    if (rc < 0) {
-        // TODO(strager): Do something!
-    }
+    assert(rc >= 0);
 
     rc = pthread_mutex_unlock(&log_mutex);
     assert(rc == 0);
@@ -79,7 +94,7 @@ b_log_exception(
     struct B_Exception const *ex) {
 
     char const *message = b_exception_allocate_message(ex);
-    b_log_format(B_EXCEPTION, "%s", message);
+    b_log_format(B_EXCEPTION, NULL, "%s", message);
     b_exception_deallocate_message(ex, message);
 }
 

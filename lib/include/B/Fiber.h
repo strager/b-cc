@@ -62,6 +62,12 @@ B_ERRFUNC
 b_fiber_context_hard_yield(
     struct B_FiberContext *);
 
+// Debug-only.
+B_ERRFUNC
+b_fiber_context_current_fiber_id(
+    struct B_FiberContext *,
+    void **out_fiber_id);
+
 #ifdef __cplusplus
 }
 #endif
