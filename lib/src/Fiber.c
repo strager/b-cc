@@ -430,7 +430,9 @@ b_fibers_poll(
     // Poll!
     B_LOG(
         B_FIBER,
-        "Polling %zu pollitems across %zu fibers",
+        "Polling %s %zu pollitems across %zu fibers",
+        poll_type == B_FIBER_CONTEXT_POLL_BLOCKING
+            ? "blocking" : "non-blocking",
         pollitem_total_count,
         fiber_count);
     for (size_t i = 0; i < fiber_count; ++i) {
@@ -471,6 +473,29 @@ b_fibers_poll(
         poll_ex = b_exception_errno("zmq_poll", errno);
     } else {
         ready_pollitems = rc;
+    }
+
+    if (!poll_ex) {
+        B_LOG(
+            B_FIBER,
+            "Polling finished with %d ready pollitems:",
+            ready_pollitems);
+        for (size_t i = 0; i < fiber_count; ++i) {
+            struct B_Fiber const *fiber = &fibers[i];
+            if (!fiber->poll) {
+                continue;
+            }
+
+            for (size_t j = 0; j < fiber->poll->pollitem_count; ++j) {
+                B_LOG(
+                    B_FIBER,
+                    "fiber[%zu] pollitem[%zu] socket=%p revents=%x",
+                    i,
+                    j,
+                    fiber->poll->pollitems[j].socket,
+                    fiber->poll->pollitems[j].revents);
+            }
+        }
     }
 
     bool const waken_all_fibers
