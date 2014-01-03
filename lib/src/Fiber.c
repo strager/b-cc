@@ -23,7 +23,6 @@
 enum B_FiberContextYieldType {
     // 1. Polls with timeout=0, ignoring non-polling fibers.
     // 2. Inspects non-polling fibers (except self).
-    // 3. Polls with timeout=N, ignoring non-polling fibers.
     B_FIBER_CONTEXT_YIELD_HARD,
 
     // 1. Inspects non-polling fibers (including self).
@@ -229,7 +228,10 @@ b_fiber_context_poll_zmq(
         *ready_pollitems = fiber_poll.ready_pollitems;
     }
 
-    *is_finished = false;
+    if (is_finished) {
+        *is_finished = false;
+    }
+
     return fiber_poll.ex;
 }
 
@@ -537,9 +539,7 @@ b_fibers_poll(
     }
 
     bool const waken_all_fibers
-        = poll_ex || (
-            ready_pollitems == 0
-            && poll_type == B_FIBER_CONTEXT_POLL_BLOCKING);
+        = poll_ex || ready_pollitems == 0;
 
     // Copy results of polling to fibers.
     {
@@ -593,15 +593,13 @@ b_fibers_poll(
     }
 
     // Make sure we woke at least one fiber.
-    if (poll_type == B_FIBER_CONTEXT_POLL_BLOCKING) {
-        size_t woken_fibers = 0;
-        for (size_t i = 0; i < fiber_count; ++i) {
-            if (!fibers[i].poll) {
-                woken_fibers += 1;
-            }
+    size_t woken_fibers = 0;
+    for (size_t i = 0; i < fiber_count; ++i) {
+        if (!fibers[i].poll) {
+            woken_fibers += 1;
         }
-        assert(woken_fibers > 0);
     }
+    assert(woken_fibers > 0);
 }
 
 // Switch to another fiber, putting the current context
@@ -667,6 +665,11 @@ b_fiber_context_yield(
                 non_polling_fiber,
                 poll);
             return NULL;
+        }
+
+        // FIXME(strager): Refactor hard yielding.
+        if (yield_type == B_FIBER_CONTEXT_YIELD_HARD) {
+            abort();  // FIXME(strager)
         }
     }
 

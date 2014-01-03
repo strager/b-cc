@@ -2,6 +2,9 @@
 #include <B/Internal/GTest.h>
 
 #include <gtest/gtest.h>
+#include <zmq.h>
+
+#include <poll.h>
 
 TEST(TestFiber, ForkNotExecutedImmediately) {
     B_FiberContext *fiber_context;
@@ -19,6 +22,54 @@ TEST(TestFiber, ForkNotExecutedImmediately) {
     B_CHECK_EX(b_fiber_context_finish(fiber_context));
 
     EXPECT_TRUE(fork_executed);
+
+    B_CHECK_EX(b_fiber_context_deallocate(fiber_context));
+}
+
+TEST(TestFiber, YieldAwakensPoll) {
+    B_FiberContext *fiber_context;
+    B_CHECK_EX(b_fiber_context_allocate(&fiber_context));
+
+    int fds[2];
+    ASSERT_EQ(0, pipe(fds))
+        << "Errno: " << errno;
+
+    size_t volatile poll_calls = 0;
+    bool volatile should_stop = false;
+    bool volatile fork_finished = false;
+    B_CHECK_EX(b_fiber_context_fork(
+        fiber_context,
+        [&]() {
+            zmq_pollitem_t pollitems[] = {
+                { nullptr, fds[0], POLLIN, 0 },
+            };
+            while (!should_stop) {
+                long const timeout_milliseconds = -1;
+
+                int ready_pollitems;
+                poll_calls += 1;
+                B_CHECK_EX(b_fiber_context_poll_zmq(
+                    fiber_context,
+                    pollitems,
+                    sizeof(pollitems) / sizeof(*pollitems),
+                    timeout_milliseconds,
+                    &ready_pollitems,
+                    nullptr));
+                EXPECT_EQ(0, ready_pollitems);
+            }
+
+            fork_finished = true;
+        }));
+
+    EXPECT_EQ(0, poll_calls);
+
+    B_CHECK_EX(b_fiber_context_hard_yield(fiber_context));
+    EXPECT_EQ(1, poll_calls);
+
+    should_stop = true;
+    B_CHECK_EX(b_fiber_context_hard_yield(fiber_context));
+    EXPECT_EQ(1, poll_calls);
+    EXPECT_TRUE(fork_finished);
 
     B_CHECK_EX(b_fiber_context_deallocate(fiber_context));
 }
