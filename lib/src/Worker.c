@@ -20,13 +20,12 @@
 struct B_Worker {
     void *context_zmq;
     struct B_BrokerAddress const *const broker_address;
+    struct B_FiberContext *const fiber_context;
 
     struct B_QuestionVTableList const *const question_vtables;
     struct B_AnyRule const *const rule;
     struct B_RuleVTable const *const rule_vtable;
 
-    struct B_FiberContext *const fiber_context;
-    struct B_Client *const client;
 };
 
 struct B_WorkerFiberClosure {
@@ -52,6 +51,7 @@ b_worker_work_fiber_wrapper(
 static struct B_Exception *
 b_worker_build(
     struct B_Worker const *,
+    struct B_Client *,
     struct B_AnyQuestion const *,
     struct B_QuestionVTable const *);
 
@@ -75,6 +75,13 @@ b_worker_recv_request(
 static struct B_Exception *
 b_worker_handle_broker(
     void *broker_dealer,
+    struct B_Client *,
+    struct B_Worker const *);
+
+static struct B_Exception *
+b_worker_handle_broker_request_response(
+    void *broker_dealer,
+    struct B_Client *,
     struct B_Worker const *);
 
 static struct B_Exception *
@@ -112,27 +119,14 @@ b_worker_work(
         return ex;
     }
 
-    struct B_Client *client;
-    ex = b_client_allocate_connect(
-        context_zmq,
-        broker_address,
-        fiber_context,
-        &client);
-    if (ex) {
-        // TODO(strager): Cleanup.
-        return ex;
-    }
-
     struct B_Worker worker = {
         .context_zmq = context_zmq,
         .broker_address = broker_address,
+        .fiber_context = fiber_context,
 
         .question_vtables = question_vtables,
         .rule = rule,
         .rule_vtable = rule_vtable,
-
-        .fiber_context = fiber_context,
-        .client = client,
     };
 
     bool volatile const should_die = false;
@@ -143,7 +137,6 @@ b_worker_work(
     }
 
     // TODO(strager): Error checking.
-    (void) b_client_deallocate_disconnect(client);
     (void) b_fiber_context_deallocate(fiber_context);
 
     return NULL;
@@ -153,6 +146,7 @@ b_worker_work(
 static B_ERRFUNC
 b_worker_work_fiber_with_socket(
     void *broker_dealer,
+    struct B_Client *client,
     struct B_Worker const *worker,
     bool const volatile *should_die) {
 
@@ -197,46 +191,14 @@ b_worker_work_fiber_with_socket(
         }
 
         if (poll_items[0].revents & ZMQ_POLLIN) {
-            // Fork off a fiber which will do work while a
-            // Client waits for a response from other
-            // workers.
-            struct B_WorkerFiberClosure fiber_closure = {
-                .worker = worker,
-                .should_die = false,
-            };
-            struct B_Exception *fiber_ex;
-            ex = b_fiber_context_fork(
-                worker->fiber_context,
-                b_worker_work_fiber_wrapper,
-                &fiber_closure,
-                (void *) &fiber_ex);
-            if (ex) {
-                return ex;
-            }
-
-            B_LOG(B_INFO, "BEGIN handle request.");
             ex = b_worker_handle_broker(
                 broker_dealer,
+                client,
                 worker);
             if (ex) {
+                // FIXME(strager): Should we tell the broker
+                // we are done?
                 return ex;
-            }
-            B_LOG(B_INFO, "END handle request.");
-
-            // Kill fiber and wait for it to die.
-            fiber_closure.should_die = true;
-            while (!fiber_closure.did_die) {
-                ex = b_fiber_context_hard_yield(
-                    worker->fiber_context);
-                if (ex) {
-                    return ex;
-                }
-            }
-
-            if (fiber_ex) {
-                // FIXME(strager): This shouldn't terminate
-                // this fiber.
-                return fiber_ex;
             }
         }
     }
@@ -263,17 +225,29 @@ b_worker_work_fiber(
 
     B_LOG(B_INFO, "Worker fiber started.");
 
+    struct B_Client *client;
+    ex = b_client_allocate_connect(
+        worker->context_zmq,
+        worker->broker_address,
+        worker->fiber_context,
+        &client);
+    if (ex) {
+        return ex;
+    }
+
     void *broker_dealer;
     ex = b_worker_connect(
         worker->context_zmq,
         worker->broker_address,
         &broker_dealer);
     if (ex) {
+        // TODO(strager): Cleanup.
         return ex;
     }
 
     ex = b_worker_work_fiber_with_socket(
         broker_dealer,
+        client,
         worker,
         should_die);
     if (ex) {
@@ -283,8 +257,12 @@ b_worker_work_fiber(
 
     ex = b_zmq_close(broker_dealer);
     if (ex) {
+        // TODO(strager): Cleanup.
         return ex;
     }
+
+    // TODO(strager): Error handling.
+    (void) b_client_deallocate_disconnect(client);
 
     return NULL;
 }
@@ -432,6 +410,63 @@ b_worker_work_fiber_wrapper(
 static struct B_Exception *
 b_worker_handle_broker(
     void *broker_dealer,
+    struct B_Client *client,
+    struct B_Worker const *worker) {
+
+    // Fork off a fiber which will do work while a Client
+    // waits for a response from other workers.
+    struct B_WorkerFiberClosure fiber_closure = {
+        .worker = worker,
+        .should_die = false,
+        .did_die = false,
+    };
+    struct B_Exception *fiber_ex;
+    struct B_Exception *ex = b_fiber_context_fork(
+        worker->fiber_context,
+        b_worker_work_fiber_wrapper,
+        &fiber_closure,
+        (void *) &fiber_ex);
+    if (ex) {
+        return ex;
+    }
+
+    struct B_Exception *handle_ex
+        = b_worker_handle_broker_request_response(
+            broker_dealer,
+            client,
+            worker);
+
+    // Kill fiber and wait for it to die.
+    fiber_closure.should_die = true;
+    while (!fiber_closure.did_die) {
+        struct B_Exception *yield_ex
+            = b_fiber_context_hard_yield(
+                worker->fiber_context);
+        if (yield_ex) {
+            if (handle_ex) {
+                return handle_ex;
+            }
+            return yield_ex;
+        }
+    }
+
+    if (handle_ex) {
+        return handle_ex;
+    }
+
+    if (fiber_ex) {
+        // FIXME(strager): This shouldn't terminate this
+        // fiber.
+        return fiber_ex;
+    }
+
+    return NULL;
+}
+
+static struct B_Exception *
+b_worker_handle_broker_request_response(
+    void *broker_dealer,
+    struct B_Client *client,
     struct B_Worker const *worker) {
 
     struct B_Exception *ex;
@@ -455,6 +490,7 @@ b_worker_handle_broker(
     // Do work.
     ex = b_worker_build(
         worker,
+        client,
         question,
         question_vtable);
     if (ex) {
@@ -598,6 +634,7 @@ b_worker_recv_request(
 static struct B_Exception *
 b_worker_build(
     struct B_Worker const *worker,
+    struct B_Client *client,
     struct B_AnyQuestion const *question,
     struct B_QuestionVTable const *question_vtable) {
 
@@ -609,7 +646,7 @@ b_worker_build(
     b_question_validate(question);
 
     struct B_BuildContext *build_context
-        = b_build_context_allocate(worker->client);
+        = b_build_context_allocate(client);
 
     struct B_RuleQueryList *rule_query_list
         = b_rule_query_list_allocate();
