@@ -308,7 +308,6 @@ static void B_NO_RETURN
 b_fiber_trampoline(
     void *closure_raw) {
 
-    printf("closure_raw=%p\n", closure_raw);
     struct B_FiberTrampolineClosure closure
         = *(struct B_FiberTrampolineClosure *) closure_raw;
 
@@ -319,7 +318,6 @@ b_fiber_trampoline(
         closure.parent_context);
     // closure_raw is now invalid.
 
-    printf("callback=%p\n", closure.callback);
     B_LOG_FIBER(
         B_FIBER,
         closure.fiber_context,

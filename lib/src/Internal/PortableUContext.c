@@ -63,13 +63,6 @@ b_ucontext_makecontext(
     sp -= sizeof(uint64_t);
     *(void (**)(void)) sp = abort;
 
-    printf(
-        "makecontext stack=%p sp=%p callback=%p user_closure=%p\n",
-        stack,
-        (void *) sp,
-        callback,
-        user_closure);
-
     // Arguments.
     context->rdi = (uint64_t) (uintptr_t) user_closure;
 
