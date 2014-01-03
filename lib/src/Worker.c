@@ -437,6 +437,7 @@ b_worker_handle_broker(
             worker);
 
     // Kill fiber and wait for it to die.
+    B_LOG(B_INFO, "Killing forked worker.");
     fiber_closure.should_die = true;
     while (!fiber_closure.did_die) {
         struct B_Exception *yield_ex

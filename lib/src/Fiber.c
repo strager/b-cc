@@ -21,13 +21,13 @@
 #include <stdio.h>
 
 enum B_FiberContextYieldType {
-    // 1. Polls with timeout=0, ignoring non-polling fibers.
-    // 2. Inspects non-polling fibers (except self).
+    // Polls with timeout=0.  Resumes a fiber (except the
+    // current fiber).  (The current fiber must not be
+    // polling.)
     B_FIBER_CONTEXT_YIELD_HARD,
 
-    // 1. Inspects non-polling fibers (including self).
-    // 2. Polls with timeout=N.  (There should be no
-    //    non-polling fibers.)
+    // Resumes a non-polling fiber (including the current
+    // fiber).  Polls with timeout=N otherwise.
     B_FIBER_CONTEXT_YIELD_SOFT,
 };
 
@@ -520,6 +520,7 @@ b_fibers_poll(
             B_FIBER,
             "Polling finished with %d ready pollitems:",
             ready_pollitems);
+        zmq_pollitem_t const *cur_pollitem = pollitems;
         for (size_t i = 0; i < fiber_count; ++i) {
             struct B_Fiber const *fiber = &fibers[i];
             if (!fiber->poll) {
@@ -532,8 +533,9 @@ b_fibers_poll(
                     "fiber[%zu] pollitem[%zu] socket=%p revents=%x",
                     i,
                     j,
-                    fiber->poll->pollitems[j].socket,
-                    fiber->poll->pollitems[j].revents);
+                    cur_pollitem->socket,
+                    cur_pollitem->revents);
+                ++cur_pollitem;
             }
         }
     }
@@ -643,6 +645,8 @@ b_fiber_context_yield(
     enum B_FiberContextYieldType yield_type) {
 
     if (yield_type == B_FIBER_CONTEXT_YIELD_HARD) {
+        assert(!poll);
+
         if (fiber_context->fiber_count == 0) {
             // FIXME(strager): Should this be an error?
             return NULL;
