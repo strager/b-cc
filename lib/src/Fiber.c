@@ -988,6 +988,10 @@ b_fiber_yield_end(
         &context,
         &non_polling_fiber->context);
 
+#if defined(B_DEBUG)
+    uintptr_t fiber_id = non_polling_fiber->fiber_id;
+#endif
+
     struct B_Fiber *last_fiber = &fiber_context
         ->fibers[fiber_context->fiber_count - 1];
     if (non_polling_fiber != last_fiber) {
@@ -1003,6 +1007,12 @@ b_fiber_yield_end(
         B_FIBER,
         fiber_context,
         "Fiber dead");
+
+#if defined(B_DEBUG)
+    fiber_context->current_fiber_id = fiber_id;
+    (void) b_fiber_context_set_current(fiber_context);
+#endif
+
     b_ucontext_setcontext(&context);
 }
 
