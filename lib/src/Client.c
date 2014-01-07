@@ -180,6 +180,36 @@ b_client_need_answers_unchecked(
             }
 
             ++received_responses;
+
+            {
+                b_log_lock();
+                B_LOG_FIBER(
+                    B_INFO,
+                    client->fiber_context,
+                    "Still awaiting %zu responses:",
+                    count - received_responses);
+                size_t counting_i = 1;
+                for (size_t i = 0; i < count; ++i) {
+                    if (!answers[i]) {
+                        char const *question_message
+                            = question_vtables[i]
+                                ->allocate_human_message(
+                                    questions[i]);
+                        B_LOG_FIBER(
+                            B_INFO,
+                            client->fiber_context,
+                            " %zu. Request %zu (for %s).",
+                            counting_i,
+                            i,
+                            question_message);
+                        question_vtables[i]
+                            ->deallocate_human_message(
+                                question_message);
+                        ++counting_i;
+                    }
+                }
+                b_log_unlock();
+            }
         }
     }
 

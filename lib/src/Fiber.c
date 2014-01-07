@@ -664,6 +664,7 @@ b_fibers_poll(
     }
 
     // Poll!
+    b_log_lock();
     B_LOG_FIBER(
         B_FIBER,
         fiber_context,
@@ -689,13 +690,14 @@ b_fibers_poll(
                 " pollitem[%zu] socket=%p events=%x",
                 i,
 #if defined(B_DEBUG)
-                (void *) fiber->fiber_id,
+                (void *) fiber->fiber_id,  // FIXME(strager): VALGRIND!
 #endif
                 j,
                 fiber->poll->pollitems[j].socket,
                 fiber->poll->pollitems[j].events);
         }
     }
+    b_log_unlock();
 
     long timeout_milliseconds;
     switch (poll_type) {
@@ -721,6 +723,7 @@ b_fibers_poll(
     }
 
     if (!poll_ex) {
+        b_log_lock();
         B_LOG_FIBER(
             B_FIBER,
             fiber_context,
@@ -745,6 +748,7 @@ b_fibers_poll(
                 ++cur_pollitem;
             }
         }
+        b_log_unlock();
     }
 
     bool const waken_all_fibers
