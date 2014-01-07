@@ -12,6 +12,10 @@
 #include <B/RuleQueryList.h>
 #include <B/Worker.h>
 
+#if defined(B_DEBUG)
+#include <B/Internal/Identity.h>
+#endif
+
 #include <zmq.h>
 
 #include <assert.h>
@@ -87,6 +91,7 @@ b_worker_handle_broker_request_response(
 static struct B_Exception *
 b_worker_connect(
     void *context_zmq,
+    struct B_FiberContext *fiber_context,
     struct B_BrokerAddress const *broker_address,
     void **out_broker_dealer) {
 
@@ -101,6 +106,35 @@ b_worker_connect(
         return ex;
     }
 
+#if defined(B_DEBUG)
+    {
+        void *fiber_id;
+        ex = b_fiber_context_current_fiber_id(
+            fiber_context,
+            &fiber_id);
+        if (ex) {
+            goto failed_to_get_id;
+        }
+
+        B_LOG(B_INFO, "fiber_id=%p", fiber_id);
+        struct B_Identity *identity
+            = b_identity_allocate_fiber_id(
+                context_zmq,
+                NULL,
+                fiber_id);
+        assert(identity);
+
+        ex = b_identity_set_for_socket(
+            broker_dealer,
+            identity);
+        b_identity_deallocate(identity);
+        if (ex) {
+            return ex;
+        }
+failed_to_get_id: (void) 0;
+    }
+#endif
+
     ex = b_protocol_connectbind_worker(
         broker_dealer,
         broker_address,
@@ -110,6 +144,7 @@ b_worker_connect(
         return ex;
     }
 
+    *out_broker_dealer = broker_dealer;
     return NULL;
 }
 
@@ -263,6 +298,7 @@ b_worker_work_fiber(
     void *broker_dealer;
     ex = b_worker_connect(
         worker->context_zmq,
+        worker->fiber_context,
         worker->broker_address,
         &broker_dealer);
     if (ex) {
@@ -352,6 +388,13 @@ b_worker_exit_abandon(
         // TODO(strager): Factor into some function
         // goodness.
         if (poll_items[0].revents & ZMQ_POLLIN) {
+            ex = b_protocol_recv_identity_delimiter(
+                broker_dealer,
+                0);  // flags
+            if (ex) {
+                return ex;
+            }
+
             zmq_msg_t first_message;
             ex = b_zmq_msg_init_recv(
                 &first_message,
@@ -362,6 +405,11 @@ b_worker_exit_abandon(
             }
 
             if (zmq_msg_size(&first_message) == 0) {
+                if (zmq_msg_more(&first_message)) {
+                    return b_exception_string(
+                        "Expected non-empty message or final empty message");
+                }
+
                 // Broker has confirmed our WORKER_EXIT or
                 // WORKER_ABANDON request.
                 b_zmq_msg_close(&first_message);
