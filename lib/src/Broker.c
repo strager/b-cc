@@ -165,27 +165,44 @@ b_broker_bind_process(
 
     void *client_router;
     {
-        struct B_Exception *ex = b_protocol_connectbind_client(
+        struct B_Exception *ex = b_zmq_socket(
             context_zmq,
-            broker_address,
             ZMQ_ROUTER,
-            B_BIND,
             &client_router);
         if (ex) {
             return ex;
         }
     }
 
-    void *worker_router;
     {
-        struct B_Exception *ex = b_protocol_connectbind_worker(
-            context_zmq,
+        struct B_Exception *ex = b_protocol_connectbind_client(
+            client_router,
             broker_address,
-            ZMQ_ROUTER,
-            B_BIND,
-            &worker_router);
+            B_BIND);
         if (ex) {
             (void) b_zmq_close(client_router);
+            return ex;
+        }
+    }
+
+    void *worker_router;
+    {
+        struct B_Exception *ex = b_zmq_socket(
+            context_zmq,
+            ZMQ_ROUTER,
+            &worker_router);
+        if (ex) {
+            return ex;
+        }
+    }
+
+    {
+        struct B_Exception *ex = b_protocol_connectbind_worker(
+            worker_router,
+            broker_address,
+            B_BIND);
+        if (ex) {
+            (void) b_zmq_close(worker_router);
             return ex;
         }
     }

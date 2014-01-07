@@ -141,14 +141,16 @@ NeedAnswerOne_fake_broker_and_worker(
     struct B_Exception *ex = NULL;
 
     void *broker_client_router;
-    B_CHECK_EX(b_protocol_connectbind_client(
+    B_CHECK_EX(b_zmq_socket(
         context_zmq,
-        broker_address,
         ZMQ_ROUTER,
-        B_BIND,
         &broker_client_router));
     B_ZMQSocketScope broker_client_router_scope(
         broker_client_router);
+    B_CHECK_EX(b_protocol_connectbind_client(
+        broker_client_router,
+        broker_address,
+        B_BIND));
 
     // Receive request.
     B_Identity *client_identity

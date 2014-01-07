@@ -56,14 +56,23 @@ b_client_allocate_connect(
     struct B_FiberContext *fiber_context,
     struct B_Client **out) {
 
+    struct B_Exception *ex;
+
     void *broker_dealer;
-    struct B_Exception *ex = b_protocol_connectbind_client(
+    ex = b_zmq_socket(
         context_zmq,
-        broker_address,
         ZMQ_DEALER,
-        B_CONNECT,
         &broker_dealer);
     if (ex) {
+        return ex;
+    }
+
+    ex = b_protocol_connectbind_client(
+        broker_dealer,
+        broker_address,
+        B_CONNECT);
+    if (ex) {
+        (void) b_zmq_close(broker_dealer);
         return ex;
     }
 

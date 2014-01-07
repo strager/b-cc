@@ -44,11 +44,9 @@ b_protocol_worker_endpoint(
 
 B_ERRFUNC
 b_protocol_connectbind_client(
-    void *context_zmq,
+    void *socket_zmq,
     struct B_BrokerAddress const *broker_address,
-    int socket_type,
-    enum B_Connectbind connectbind,
-    void **out_socket_zmq) {
+    enum B_Connectbind connectbind) {
 
     char endpoint_buffer[1024];
     bool ok = b_protocol_client_endpoint(
@@ -57,28 +55,22 @@ b_protocol_connectbind_client(
         broker_address);
     assert(ok);
 
-    void *socket;
-    struct B_Exception *ex = b_zmq_socket_connectbind(
-        context_zmq,
-        socket_type,
+    struct B_Exception *ex = b_zmq_connectbind(
+        socket_zmq,
         endpoint_buffer,
-        connectbind,
-        &socket);
+        connectbind);
     if (ex) {
         return ex;
     }
 
-    *out_socket_zmq = socket;
     return NULL;
 }
 
 B_ERRFUNC
 b_protocol_connectbind_worker(
-    void *context_zmq,
+    void *socket_zmq,
     struct B_BrokerAddress const *broker_address,
-    int socket_type,
-    enum B_Connectbind connectbind,
-    void **out_socket_zmq) {
+    enum B_Connectbind connectbind) {
 
     char endpoint_buffer[1024];
     bool ok = b_protocol_worker_endpoint(
@@ -87,18 +79,14 @@ b_protocol_connectbind_worker(
         broker_address);
     assert(ok);
 
-    void *socket;
-    struct B_Exception *ex = b_zmq_socket_connectbind(
-        context_zmq,
-        socket_type,
+    struct B_Exception *ex = b_zmq_connectbind(
+        socket_zmq,
         endpoint_buffer,
-        connectbind,
-        &socket);
+        connectbind);
     if (ex) {
         return ex;
     }
 
-    *out_socket_zmq = socket;
     return NULL;
 }
 

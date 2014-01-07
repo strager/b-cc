@@ -47,19 +47,18 @@ b_protocol_worker_endpoint(
 
 B_ERRFUNC
 b_protocol_connectbind_client(
-    void *context_zmq,
+    // NOTETOSELF(strager): This should take a socket, not
+    // create one.  This will let us configure the socket's
+    // identity before connecting/binding.
+    void *socket_zmq,
     struct B_BrokerAddress const *,
-    int socket_type,
-    enum B_Connectbind,
-    void **out_socket_zmq);
+    enum B_Connectbind);
 
 B_ERRFUNC
 b_protocol_connectbind_worker(
-    void *context_zmq,
+    void *socket_zmq,
     struct B_BrokerAddress const *,
-    int socket_type,
-    enum B_Connectbind,
-    void **out_socket_zmq);
+    enum B_Connectbind);
 
 void
 b_protocol_send_uuid(

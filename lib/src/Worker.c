@@ -90,13 +90,23 @@ b_worker_connect(
     struct B_BrokerAddress const *broker_address,
     void **out_broker_dealer) {
 
-    struct B_Exception *ex = b_protocol_connectbind_worker(
+    struct B_Exception *ex;
+
+    void *broker_dealer;
+    ex = b_zmq_socket(
         context_zmq,
-        broker_address,
         ZMQ_DEALER,
-        B_CONNECT,
-        out_broker_dealer);
+        &broker_dealer);
     if (ex) {
+        return ex;
+    }
+
+    ex = b_protocol_connectbind_worker(
+        broker_dealer,
+        broker_address,
+        B_CONNECT);
+    if (ex) {
+        (void) b_zmq_close(broker_dealer);
         return ex;
     }
 

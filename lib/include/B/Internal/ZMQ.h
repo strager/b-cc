@@ -21,12 +21,16 @@ enum B_Connectbind {
 };
 
 B_ERRFUNC
-b_zmq_socket_connectbind(
+b_zmq_socket(
     void *context_zmq,
     int socket_type,  // ZMQ_REQ, ZMQ_SUB, etc.
-    char const *endpoint,
-    enum B_Connectbind,
     void **out_socket_zmq);
+
+B_ERRFUNC
+b_zmq_connectbind(
+    void *socket_zmq,
+    char const *endpoint,
+    enum B_Connectbind);
 
 B_ERRFUNC
 b_zmq_close(
