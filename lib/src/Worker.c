@@ -160,6 +160,12 @@ b_worker_work_fiber_with_socket(
     struct B_Worker const *worker,
     bool const volatile *should_die) {
 
+#if 0
+    if (*should_die) {
+        return NULL;
+    }
+#endif
+
     {
         struct B_Exception *ex = NULL;
         b_protocol_send_worker_command(
@@ -232,6 +238,12 @@ b_worker_work_fiber(
     bool const volatile *should_die) {
 
     struct B_Exception *ex;
+
+#if 0
+    if (*should_die) {
+        return NULL;
+    }
+#endif
 
     B_LOG_FIBER(
         B_INFO,
