@@ -77,6 +77,10 @@ TEST(TestBroker, WorkBeforeWorker) {
         broker_address,
         B_CONNECT));
 
+    // FIXME(strager): This method sucks!
+    B_LOG(B_INFO, "Waiting for client to connect.");
+    sleep(1);
+
     B_CHECK_EX(b_protocol_send_identity_delimiter(
         client_broker_dealer,
         ZMQ_SNDMORE));
@@ -102,10 +106,6 @@ TEST(TestBroker, WorkBeforeWorker) {
         sizeof(question_payload),
         0));  // flags
 
-    // FIXME(strager): This method sucks!
-    B_LOG(B_INFO, "Waiting for worker to pick up request.");
-    sleep(1);
-
     // Receive client request.
     void *worker_broker_dealer;
     B_CHECK_EX(b_zmq_socket(
@@ -118,6 +118,10 @@ TEST(TestBroker, WorkBeforeWorker) {
         worker_broker_dealer,
         broker_address,
         B_CONNECT));
+
+    // FIXME(strager): This method sucks!
+    B_LOG(B_INFO, "Waiting for worker to pick up request.");
+    sleep(1);
 
     b_protocol_send_worker_command(
         worker_broker_dealer,
