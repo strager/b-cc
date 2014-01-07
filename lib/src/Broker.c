@@ -432,7 +432,7 @@ b_broker_worker_ready(
 }
 
 static B_ERRFUNC
-b_broker_worker_exit(
+b_broker_worker_remove(
     struct B_Broker *broker,
     struct B_Identity *worker_identity) {
 
@@ -451,14 +451,30 @@ b_broker_worker_exit(
                 queue_item->worker_identity);
             free(queue_item);
 
-            break;
+            return NULL;
         }
 
         prev_next = &queue_item->next;
         queue_item = queue_item->next;
     }
 
-    B_LOG(B_INFO, "Worker which requested exit wasn't found.");
+    return NULL;
+}
+
+static B_ERRFUNC
+b_broker_worker_exit(
+    struct B_Broker *broker,
+    struct B_Identity *worker_identity) {
+
+    // Remove worker so we don't send work to it.
+    {
+        struct B_Exception *ex = b_broker_worker_remove(
+            broker,
+            worker_identity);
+        if (ex) {
+            return ex;
+        }
+    }
 
     // Reply.
     {
