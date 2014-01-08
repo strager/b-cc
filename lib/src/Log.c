@@ -48,6 +48,18 @@ b_log_is_level_enabled(
     }
 }
 
+static char const *b_log_level_string(
+    enum B_LogLevel log_level) {
+
+    switch (log_level) {
+    case B_ZMQ:       return "zmq";
+    case B_FIBER:     return "fiber";
+    case B_INFO:      return "info";
+    case B_EXCEPTION: return "exception";
+    default:          return "unknown";
+    }
+}
+
 static void
 b_log_ansi_start_level(
     enum B_LogLevel log_level) {
@@ -168,7 +180,6 @@ b_log_format(
     }
 
     // Print header.
-    // TODO(strager): Print log level.
     rc = fprintf(B_LOG_FILE, "[%s", thread_buffer);
     assert(rc >= 0);
 
@@ -177,7 +188,10 @@ b_log_format(
         assert(rc >= 0);
     }
 
-    rc = fprintf(B_LOG_FILE, "]: ");
+    rc = fprintf(
+        B_LOG_FILE,
+        "][%s]: ",
+        b_log_level_string(log_level));
     assert(rc >= 0);
 
     // Print message.
