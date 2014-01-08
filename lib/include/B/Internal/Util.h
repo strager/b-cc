@@ -41,6 +41,26 @@ size_t
 b_hexdump_line_length(
     size_t bytes_per_line);
 
+uint32_t
+b_hash_add_8(
+    uint32_t hash,
+    uint8_t value);
+
+uint32_t
+b_hash_add_32(
+    uint32_t hash,
+    uint32_t value);
+
+uint32_t
+b_hash_add_64(
+    uint32_t hash,
+    uint64_t value);
+
+uint32_t
+b_hash_add_pointer(
+    uint32_t hash,
+    void const *value);
+
 #ifdef __cplusplus
 }
 #endif

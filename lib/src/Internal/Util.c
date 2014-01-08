@@ -131,3 +131,55 @@ b_hexdump_line_length(
     // (1 space).
     return 12 + (bytes_per_line * 4) + (bytes_per_line / 8);
 }
+
+uint32_t
+b_hash_add_8(
+    uint32_t hash,
+    uint8_t value) {
+
+    // sdbm; public domain.
+    // http://www.cse.yorku.ca/~oz/hash.html#sdbm
+    return
+        value
+        + (hash << 6)
+        + (hash << 16)
+        - hash;
+}
+
+uint32_t
+b_hash_add_32(
+    uint32_t hash,
+    uint32_t value) {
+
+    hash = b_hash_add_8(hash, value >> 0);
+    hash = b_hash_add_8(hash, value >> 8);
+    hash = b_hash_add_8(hash, value >> 16);
+    hash = b_hash_add_8(hash, value >> 24);
+    return hash;
+}
+
+uint32_t
+b_hash_add_64(
+    uint32_t hash,
+    uint64_t value) {
+
+    hash = b_hash_add_32(hash, value >> 0);
+    hash = b_hash_add_32(hash, value >> 32);
+    return hash;
+}
+
+uint32_t
+b_hash_add_pointer(
+    uint32_t hash,
+    void const *value) {
+
+    if (sizeof(value) == 4) {
+        return b_hash_add_32(hash, (uintptr_t) value);
+    } else if (sizeof(value) == 8) {
+        return b_hash_add_64(hash, (uintptr_t) value);
+    } else {
+        _Static_assert(
+            sizeof(value) == 4 || sizeof(value) == 8,
+            "Non-{4,8}-byte pointers not supported.");
+    }
+}
