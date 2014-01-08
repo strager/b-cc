@@ -18,7 +18,8 @@ b_worker_work(
     struct B_BrokerAddress const *,
     struct B_QuestionVTableList const *,
     struct B_AnyRule const *,
-    struct B_RuleVTable const *);
+    struct B_RuleVTable const *,
+    bool const volatile *should_die);
 
 #ifdef __cplusplus
 }

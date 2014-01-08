@@ -409,7 +409,8 @@ worker_thread(
         closure.broker_address,
         closure.question_vtables,
         closure.rule,
-        closure.rule_vtable);
+        closure.rule_vtable,
+        NULL);  // should_die
     if (ex) {
         B_LOG_EXCEPTION(ex);
         abort();

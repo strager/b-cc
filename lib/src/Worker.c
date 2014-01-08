@@ -154,7 +154,8 @@ b_worker_work(
     struct B_BrokerAddress const *broker_address,
     struct B_QuestionVTableList const *question_vtables,
     struct B_AnyRule const *rule,
-    struct B_RuleVTable const *rule_vtable) {
+    struct B_RuleVTable const *rule_vtable,
+    bool const volatile *should_die) {
 
     struct B_Exception *ex;
 
@@ -174,8 +175,13 @@ b_worker_work(
         .rule_vtable = rule_vtable,
     };
 
-    bool volatile const should_die = false;
-    ex = b_worker_work_fiber(&worker, &should_die);
+    bool const should_not_die = false;
+    if (!should_die) {
+        // NULL should_die means the caller never wants to
+        // request the worker die.
+        should_die = &should_not_die;
+    }
+    ex = b_worker_work_fiber(&worker, should_die);
     if (ex) {
         // TODO(strager): Cleanup.
         return ex;
