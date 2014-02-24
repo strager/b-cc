@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<title>Build Systems and B</title>
+<style>
+body {
+    font-family: sans-serif;
+    line-height: 124%;
+}
+td, th {
+    padding: 0.25em 0.5em;
+}
+td > ul {
+    padding-left: 0;
+}
+td > ul > li {
+    list-style-type: none;
+    margin-bottom: 0.35em;
+    padding-left: 1em;
+    text-indent: -1em;
+}
+</style>
+
+<article role="article">
+
+<header>
+<h1>Build Systems and B</h1>
+<p>
+    Written by Matt "strager" Glazar on
+    <time itemprop="dateCreated" datetime="2014-02-18">18 February 2014</time>.
+</header>
+
+<p>
+    Below is a summary of various features of in-production
+    build systems I am familiar with.  In addition, I have
+    included what I plan for B to be like.
+
+<table>
+<thead>
+<tr>
+    <th>Product
+    <th>Language
+    <th>Supports Configuration
+    <th>Supports Correct Building
+    <th>Scaling Strategies
+    <th>Other Notes
+</thead>
+<tbody>
+
+<tr>
+    <th><a href="https://www.gnu.org/software/autoconf/">autoconf</a>
+    <td><ul>
+        <li>Macro-based
+        <li>Makefile generator
+        <li>No dependencies
+        <li>Stringly typed
+        <li>Turing complete
+    <td>Part of a staged build pipeline
+    <td><ul>
+        <li>No correctness measures
+        <li>Not used for building (Makefile generator)
+    <td><ul>
+        <li>Configure script is not run often
+        <li>Macro output is often cached (`./configure`)
+    <td>
+        Often used in combination with GNU Make (which
+        performs building).
+
+<tr>
+    <th><a href="http://www.cmake.org/">CMake</a>
+    <td><ul>
+        <li>Macro-based
+        <li>Makefile generator
+        <li>No dependencies
+        <li>Stringly typed
+        <li>Turing complete
+    <td>Part of a staged build pipeline
+    <td><ul>
+        <li>Not used for building (Makefile generator)
+        <li>Re-runs if `CMakeLists.txt` files change
+    <td><ul>
+        <li>Some variables may be cached explicitly,
+            compromising correctness but improving performance
+    <td>
+        Contains enough semantic information to generate
+        project and build files of various types (Visual
+        Studio, Xcode, GNU Make, Ninja, etc.).  Very C/C++
+        centric; very little support for Java, Objective-C,
+        C#, Haskell, etc.
+
+<tr>
+    <th><a href="https://www.gnu.org/software/make/">GNU Make</a>
+    <td><ul>
+        <li>Turing complete
+        <li>Stringly typed
+        <li>Make-style destination-sources-commands rules
+        <li>Static rule set
+    <td>Custom staged builds
+    <td><ul>
+        <li>Manually-specified dependencies
+        <li>
+            Post-command dependencies tracked via included
+            files
+        <li>Tracks files
+    <td><ul>
+        <li>Local parallelism (job servers)
+        <li>Timestamp-based file invalidation
+    <td>
+        Large projects using Make often devolve into
+        spaghetti.  Often paired with a configuration tool
+        such as autoconf.
+
+<tr>
+    <th><a href="http://martine.github.io/ninja/">Ninja</a>
+    <td><ul>
+        <li>Minimal/machine-generated
+        <li>Make-style destination-sources-commands rules
+        <li>Static rule set
+    <td>Custom staged builds
+    <td><ul>
+        <li>Manually-specified dependencies
+        <li>
+            Post-command dependencies tracked via built-in
+            syntax for C/C++ headers
+        <li>Tracks files and commands for rules
+    <td><ul>
+        <li>Build database
+        <li>Local parallelism
+        <li>Timestamp-based file invalidation
+    <td>
+        Focus on geing a target (not source) language
+        allows for "pluggable" front-ends.  Designed for
+        low overhead.
+
+<tr>
+    <th><a href="https://github.com/ndmitchell/shake">Shake</a>
+    <td><ul>
+        <li>Destination-commands rules
+        <li>Haskell (turing complete)
+        <li>Monadic (dynamic rule set)
+    <td>Yes
+    <td><ul>
+        <li>Manually-specified dependencies
+        <li>Tracks anything
+    <td><ul>
+        <li>
+            Any type of invalidation allowed (timestamp,
+            contents, etc.)
+        <li>Build database
+        <li>Local parallelism
+    <td>
+        Exposes a Haskell API (DSL-like).  Focus on
+        flexibility (e.g. monadic rules allow defining
+        dependencies late).
+
+<tr>
+    <th><a href="http://gittup.org/tup/">Tup</a>
+    <td><ul>
+        <li>Not turing complete
+        <li>Reverse Make-style
+        <li>Source-commands-destination rules
+    <td>Custom staged builds
+    <td><ul>
+        <li>Cleans dead files
+        <li>
+            Manually-specified pre-command dependencies;
+            automatic post-command dependencies
+        <li>Tracks files
+    <td><ul>
+        <li>Build database
+        <li>Filesystem watching
+        <li>Local parallelism
+        <li>Timestamp-based file invalidation
+        <li>Verification of specified dependencies
+    <td>
+        Focus on algorithmic performance ("beta" build
+        system).  Supports some "extra" correctness features
+        like `tup refactor`.
+
+<tr>
+    <th>B (planned)
+    <td><ul>
+        <li>API (Python, Haskell, C++, XML, Ninja, ...)
+        <li>Monadic (dynamic rule set)
+        <li>Turing complete
+    <td>Yes
+    <td><ul>
+        <li>Cleans dead files
+        <li>Manually-specified dependencies
+        <li>Tracks files
+    <td><ul>
+        <li>Build database
+        <li>
+            Any type of invalidation allowed (timestamp,
+            contents, etc.)
+        <li>Cross-machine task distribution (like distcc)
+        <li>Filesystem watching
+        <li>Local parallelism
+        <li>Optional verification of specified dependencies
+    <td>
+        Heavily influenced by Tup (correctness, speed) and
+        Shake (API).
+
+</tbody>
+</table>
+
+</article>
