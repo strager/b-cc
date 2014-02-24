@@ -266,6 +266,7 @@ b_worker_work_fiber_with_socket(
             broker_dealer,
             worker->fiber_context);
         if (ex) {
+            B_LOG_EXCEPTION(ex);
             return ex;
         }
     }
@@ -360,13 +361,13 @@ b_worker_exit_abandon(
     bool expecting_exit_response = true;
     bool expecting_abandon_response = false;
 
+    B_LOG_FIBER(B_INFO, fiber_context, "hello");
     zmq_pollitem_t poll_items[] = {
         { broker_dealer, 0, ZMQ_POLLIN, 0 },
     };
     for (;;) {
         // FIXME(strager): We should probably have a
         // reasonable timeout (1 second?).
-        B_LOG_FIBER(B_INFO, fiber_context, "hello");
         const long timeout_milliseconds = -1;
         bool is_finished;
         struct B_Exception *ex = b_fiber_context_poll_zmq(
@@ -444,8 +445,12 @@ b_worker_exit_abandon(
 
                 if (!expecting_ready_response) {
                     b_zmq_msg_close(&first_message);
+                    B_LOG_FIBER(
+                        B_INFO,
+                        fiber_context,
+                        "got another response wat");
                     return b_exception_string(
-                        "Received multiple work responses");
+                        "Received multiple work responses.");
                 }
                 expecting_ready_response = false;
 
@@ -517,12 +522,12 @@ b_worker_handle_broker(
         .should_die = false,
         .did_die = false,
     };
-    struct B_Exception *fiber_ex;
+    struct B_Exception *fiber_ex = NULL;
     struct B_Exception *ex = b_fiber_context_fork(
         worker->fiber_context,
         b_worker_work_fiber_wrapper,
         &fiber_closure,
-        (void *) &fiber_ex);
+        (void **) &fiber_ex);
     if (ex) {
         return ex;
     }
@@ -539,7 +544,7 @@ b_worker_handle_broker(
         worker->fiber_context,
         "Killing forked worker.");
     fiber_closure.should_die = true;
-    while (!fiber_closure.did_die) {
+    while (!fiber_closure.did_die && !fiber_ex) {
         struct B_Exception *yield_ex
             = b_fiber_context_hard_yield(
                 worker->fiber_context);
@@ -552,12 +557,14 @@ b_worker_handle_broker(
     }
 
     if (handle_ex) {
+        B_LOG_EXCEPTION(handle_ex);
         return handle_ex;
     }
 
     if (fiber_ex) {
         // FIXME(strager): This shouldn't terminate this
         // fiber.
+        //B_LOG_EXCEPTION(fiber_ex);
         return fiber_ex;
     }
 

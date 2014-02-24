@@ -331,6 +331,9 @@ b_broker_send_request_to_worker(
     struct B_MessageList *message_list) {
 
     struct B_Exception *ex = NULL;
+
+    B_LOG(B_INFO, "-worker");
+
     b_protocol_send_identity_envelope(
         broker->worker_router,
         worker_identity,
@@ -398,6 +401,8 @@ b_broker_worker_ready(
     struct B_Broker *broker,
     struct B_Identity *identity) {
 
+    B_LOG(B_INFO, "+worker");
+
     if (broker->work_queue) {
         B_LOG(B_INFO, "Sending worker queued work.");
 
@@ -450,6 +455,8 @@ b_broker_worker_remove(
             b_identity_deallocate(
                 queue_item->worker_identity);
             free(queue_item);
+
+            B_LOG(B_INFO, "-worker");
 
             return NULL;
         }
@@ -587,6 +594,9 @@ b_broker_take_ready_worker(
     free(queue_item_ptr);
 
     broker->ready_workers = queue_item.next;
+
+    B_LOG(B_INFO, "-worker");
+
     return queue_item.worker_identity;
 }
 
