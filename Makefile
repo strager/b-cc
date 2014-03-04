@@ -50,6 +50,9 @@ endif
 .PHONY: all
 all: b examples
 
+.PHONY: test
+test: test-ex1
+
 .PHONY: b
 b: $(b_lib_shared_file)
 
@@ -58,6 +61,10 @@ examples: ex1
 
 .PHONY: ex1
 ex1: $(out_dir)/ex1
+
+.PHONY: test-ex1
+test-ex1: ex1
+	$(out_dir)/ex1
 
 .PHONY: clean
 clean: | $(out_dir)
