@@ -6,6 +6,7 @@
 #define B_ASSERT(_cond) assert(_cond)
 
 #define B_BUG() assert(0 && "Bug!")
+#define B_NYI() assert(0 && "Not yet implemented!")
 
 #if defined(__cplusplus)
 # define B_STATIC_ASSERT(_cond, _message) \

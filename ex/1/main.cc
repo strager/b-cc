@@ -2,6 +2,7 @@
 #include <B/Assert.h>
 #include <B/DependencyDelegate.h>
 #include <B/Error.h>
+#include <B/Process.h>
 #include <B/QuestionAnswer.h>
 #include <B/QuestionDispatch.h>
 #include <B/QuestionQueue.h>
@@ -15,9 +16,9 @@
 #include <sys/stat.h>
 #include <vector>
 
-// Separate thread polling run_command, calling
-// b_build_context_end(ctx) when the command finishes (or
-// times out?).
+// Initialized in main.
+std::unique_ptr<B_ProcessLoop, B_ProcessLoopDeleter>
+g_process_loop_;
 
 struct FileQuestion :
         public B_Question {
@@ -263,6 +264,8 @@ run_link(
         "src/AnswerContext.c.o",
         "src/Error.c.o",
         "src/Error_cxx.cc.o",
+        "src/Log.c.o",
+        "src/Process-kqueue.c.o",
         "src/QuestionDispatch.c.o",
         "src/QuestionQueue.cc.o",
         "src/RefCount.c.o",
@@ -320,6 +323,7 @@ run_link(
             args.push_back(nullptr);
             return b_answer_context_exec(
                 answer_context,
+                g_process_loop_.get(),
                 args.data(),
                 eh);
         },
@@ -364,6 +368,7 @@ run_c_compile(
             };
             return b_answer_context_exec(
                 answer_context,
+                g_process_loop_.get(),
                 command,
                 eh);
         },
@@ -409,6 +414,7 @@ run_cc_compile(
             };
             return b_answer_context_exec(
                 answer_context,
+                g_process_loop_.get(),
                 command,
                 eh);
         },
@@ -497,6 +503,22 @@ main(
         char **) {
     B_ErrorHandler const *eh = nullptr;
 
+    B_ProcessLoop *process_loop_raw;
+    if (!b_process_loop_allocate(
+            1,
+            &process_loop_raw,
+            eh)) {
+        return 1;
+    }
+    g_process_loop_.reset(process_loop_raw);
+    process_loop_raw = nullptr;
+
+    if (!b_process_loop_run_async_unsafe(
+            g_process_loop_.get(),
+            eh)) {
+        return 1;
+    }
+
     B_QuestionQueue *question_queue_raw;
     if (!b_question_queue_allocate(
             &question_queue_raw,
@@ -505,6 +527,7 @@ main(
     }
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
         question_queue(question_queue_raw, eh);
+    question_queue_raw = nullptr;
 
     int exit_code;
     bool exit_code_set = false;

@@ -3,6 +3,8 @@
 
 #include <B/Base.h>
 
+#include <errno.h>
+
 // FIXME(strager)
 #define B_ERROR_ALREADY_CANCELLED EPERM
 #define B_ERROR_ALREADY_COMPLETED EPERM

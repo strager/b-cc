@@ -40,4 +40,8 @@
 # define B_CONFIG_VFORK
 #endif
 
+#if defined(__APPLE__) || defined(__FreeBSD__)
+# define B_CONFIG_KQUEUE
+#endif
+
 #endif

@@ -85,47 +85,18 @@ B_ABSTRACT struct B_QuestionQueueItemObject {
 #endif
 
 #if defined(__cplusplus)
-# include <B/Error.h>
+# include <B/CXX.h>
 
-struct B_QuestionQueueDeleter {
-    B_ErrorHandler const *error_handler;
-
-    B_QuestionQueueDeleter(
-            B_QuestionQueueDeleter const &) = delete;
-    B_QuestionQueueDeleter &
-    operator=(
-            B_QuestionQueueDeleter const &) = delete;
-
-    B_QuestionQueueDeleter() :
-            error_handler(b_error_handler_cxx_throw()) {
-    }
-
-    B_QuestionQueueDeleter(
-            B_ErrorHandler const *error_handler) :
-            error_handler(error_handler) {
-    }
-
-    B_QuestionQueueDeleter(
-            B_QuestionQueueDeleter &&other) :
-            error_handler(other.error_handler) {
-    }
-
-    B_QuestionQueueDeleter &
-    operator=(
-            B_QuestionQueueDeleter &&other) {
-        if (this == &other) {
-            return *this;
-        }
-        this->error_handler = other.error_handler;
-        return *this;
-    }
+struct B_QuestionQueueDeleter :
+        public B_Deleter {
+    using B_Deleter::B_Deleter;
 
     void
     operator()(
             B_QuestionQueue *queue) {
         (void) b_question_queue_deallocate(
-                queue,
-                this->error_handler);
+            queue,
+            this->error_handler);
     }
 };
 #endif

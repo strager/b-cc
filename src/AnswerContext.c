@@ -4,18 +4,12 @@
 #include <B/DependencyDelegate.h>
 #include <B/Errno.h>
 #include <B/Error.h>
+#include <B/Process.h>
 #include <B/QuestionQueue.h>
 #include <B/RefCount.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
-
-#if defined(B_CONFIG_POSIX_SPAWN)
-# include <errno.h>
-# include <spawn.h>
-# include <stdio.h>
-# include <sys/wait.h>
-#endif
 
 #define B_CHECK_PRECONDITION_ANSWER_CONTEXT(_eh, _answer_context) \
     do { \
@@ -128,13 +122,17 @@ need_answer_callback_(
         void *opaque,
         struct B_ErrorHandler const *);
 
-#if defined(B_CONFIG_POSIX_SPAWN)
 static B_FUNC
-wait_for_pid_(
-        pid_t,
-        bool *succeeded,
+exec_exit_callback_(
+        int exit_code,
+        void *opaque,
         struct B_ErrorHandler const *);
-#endif
+
+static B_FUNC
+exec_error_callback_(
+        struct B_Error,
+        void *opaque,
+        struct B_ErrorHandler const *);
 
 B_EXPORT_FUNC
 b_answer_context_need(
@@ -351,58 +349,20 @@ b_answer_context_error(
 B_EXPORT_FUNC
 b_answer_context_exec(
         struct B_AnswerContext const *answer_context,
-        char const *const *argv,
+        struct B_ProcessLoop *process_loop,
+        char const *const *args,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION_ANSWER_CONTEXT(eh, answer_context);
-    B_CHECK_PRECONDITION(eh, argv);
+    B_CHECK_PRECONDITION(eh, process_loop);
+    B_CHECK_PRECONDITION(eh, args);
 
-#if defined(B_CONFIG_POSIX_SPAWN)
-    {
-        // Log the command being run.
-        (void) fprintf(stderr, "$");
-        for (char const *const *arg = argv; *arg; ++arg) {
-            (void) fprintf(stderr, " %s", *arg);
-        }
-        (void) fprintf(stderr, "\n");
-    }
-
-    pid_t pid;
-    posix_spawn_file_actions_t const *file_actions = NULL;
-    posix_spawnattr_t const *attributes = NULL;
-    char *const *envp = NULL;
-    int rc = posix_spawnp(
-        &pid,
-        argv[0],
-        file_actions,
-        attributes,
-        // FIXME(strager): Cast looks like a bug!
-        (char *const *) argv,
-        envp);
-    if (rc != 0) {
-        enum B_ErrorHandlerResult result
-                = B_RAISE_ERRNO_ERROR(
-                    eh,
-                    errno,
-                    "posix_spawnp");
-        (void) result;  // TODO(strager)
-        return false;
-    }
-
-    // TODO(strager): This should be done in a background
-    // thread.
-    bool success;
-    if (!wait_for_pid_(pid, &success, eh)) {
-        return false;
-    }
-
-    if (success) {
-        return b_answer_context_success(answer_context, eh);
-    } else {
-        return b_answer_context_error(answer_context, eh);
-    }
-#else
-# error "Unknown exec implementation"
-#endif
+    return b_process_loop_exec(
+        process_loop,
+        args,
+        exec_exit_callback_,
+        exec_error_callback_,
+        (void *) answer_context,
+        eh);
 }
 
 static B_FUNC
@@ -652,49 +612,31 @@ need_answer_callback_(
     }
 }
 
-#if defined(B_CONFIG_POSIX_SPAWN)
 static B_FUNC
-wait_for_pid_(
-        pid_t pid,
-        bool *succeeded,
+exec_exit_callback_(
+        int exit_code,
+        void *opaque,
         struct B_ErrorHandler const *eh) {
-retry: (void) 0;
-    int status;
-    pid_t pidrc = waitpid(pid, &status, 0);
-    if (pidrc != pid) {
-        // Error occured.
+    struct B_AnswerContext const *answer_context
+        = (const void *) opaque;
+    B_CHECK_PRECONDITION(eh, answer_context);
 
-        if (errno == ECHILD) {
-            // Child likely died before we could call
-            // waitpid.  What should we assume here?
-            *succeeded = false;
-            return true;
-        }
-
-        enum B_ErrorHandlerResult result
-            = B_RAISE_ERRNO_ERROR(eh, errno, "waitpid");
-        switch (result) {
-        case B_ERROR_ABORT:
-            return false;
-        case B_ERROR_IGNORE:
-            *succeeded = true;
-            return true;
-        case B_ERROR_RETRY:
-            goto retry;
-        }
-    }
-
-    if (WIFSTOPPED(status)) {
-        goto retry;
-    }
-
-    if (WIFEXITED(status)) {
-        *succeeded = WEXITSTATUS(status) == 0;
-    } else if (WIFSIGNALED(status)) {
-        *succeeded = false;
+    if (exit_code == 0) {
+        return b_answer_context_success(answer_context, eh);
     } else {
-        B_BUG();
+        return b_answer_context_error(answer_context, eh);
     }
-    return true;
 }
-#endif
+
+static B_FUNC
+exec_error_callback_(
+        struct B_Error error,
+        void *opaque,
+        struct B_ErrorHandler const *eh) {
+    struct B_AnswerContext const *answer_context
+        = (const void *) opaque;
+    B_CHECK_PRECONDITION(eh, answer_context);
+
+    (void) error;  // TODO(strager)
+    return b_answer_context_error(answer_context, eh);
+}
