@@ -26,7 +26,7 @@
 
 // FIXME(strager): Reporting errors while holding a lock is
 // a bad idea!
-#define B_ERROR_WHILE_LOCKED() B_BUG();
+#define B_ERROR_WHILE_LOCKED() B_BUG()
 
 enum {
     // The EVFILT_USER kevent ident for the kevent which is
@@ -67,6 +67,9 @@ struct B_ProcessLoop {
     size_t concurrent_process_limit;
 
     enum LoopState_ loop_state;
+    // Signaled when loop_state changes.
+    pthread_cond_t loop_state_cond;
+
     enum LoopRequest_ loop_request;
 
     // FIXME(strager)
@@ -119,6 +122,17 @@ process_loop_interrupt_locked_(
         struct B_ErrorHandler const *);
 
 static B_FUNC
+process_loop_stop_locked_(
+        struct B_ProcessLoop *,
+        struct B_ErrorHandler const *);
+
+static B_FUNC
+set_process_loop_state_locked_(
+        struct B_ProcessLoop *,
+        enum LoopState_ loop_state,
+        struct B_ErrorHandler const *);
+
+static B_FUNC
 handle_event_locked_(
         struct B_ProcessLoop *,
         struct kevent const *,
@@ -163,6 +177,7 @@ retry_kqueue:;
         .concurrent_process_limit
             = concurrent_process_limit,
         .loop_state = B_PROCESS_LOOP_NOT_RUNNING,
+        .loop_state_cond = PTHREAD_COND_INITIALIZER,
         .loop_request = B_PROCESS_LOOP_CONTINUE,
         .processes
             = LIST_HEAD_INITIALIZER(&loop->processes),
@@ -200,14 +215,37 @@ b_process_loop_deallocate(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, loop);
 
+    // TODO(strager): Error reporting.
+    int rc;
+
     bool ok = true;
 
-    // TODO(strager): Kill processes and stop loop.
-    (void) process_force_kill_timeout_picoseconds;
+    rc = pthread_mutex_lock(&loop->lock);
+    if (rc != 0) {
+        (void) B_RAISE_ERRNO_ERROR(
+            eh,
+            rc,
+            "pthread_mutex_lock");
+        return false;
+    }
+    {
+        // TODO(strager): Kill processes.
+        (void) process_force_kill_timeout_picoseconds;
 
-    // TODO(strager): Error reporting.
-    (void) close(loop->queue);
-    int rc = pthread_mutex_destroy(&loop->lock);
+        // Stop the loop.
+        ok = process_loop_stop_locked_(loop, eh) && ok;
+        if (!ok) B_ERROR_WHILE_LOCKED();
+
+        (void) close(loop->queue);
+        loop->queue = -1;
+
+        B_ASSERT(loop->loop_state
+            == B_PROCESS_LOOP_NOT_RUNNING);
+    }
+    rc = pthread_mutex_unlock(&loop->lock);
+    B_ASSERT(rc == 0);
+
+    rc = pthread_mutex_destroy(&loop->lock);
     if (rc != 0) {
         (void) B_RAISE_ERRNO_ERROR(
             eh,
@@ -331,9 +369,20 @@ B_EXPORT_FUNC
 b_process_loop_stop(
         struct B_ProcessLoop *loop,
         struct B_ErrorHandler const *eh) {
-    (void) loop;
-    (void) eh;
-    B_NYI();
+    B_CHECK_PRECONDITION(eh, loop);
+
+    int rc;
+
+    bool ok;
+    rc = pthread_mutex_lock(&loop->lock);
+    B_ASSERT(rc == 0);  // FIXME(strager)
+    {
+        ok = process_loop_stop_locked_(loop, eh);
+    }
+    rc = pthread_mutex_unlock(&loop->lock);
+    B_ASSERT(rc == 0);
+
+    return ok;
 }
 
 B_EXPORT_FUNC
@@ -382,14 +431,6 @@ b_process_loop_exec(
 
     rc = pthread_mutex_lock(&loop->lock);
     B_ASSERT(rc == 0);  // FIXME(strager)
-
-    if (!process_loop_interrupt_locked_(loop, eh)) {
-        B_ERROR_WHILE_LOCKED();
-        rc = pthread_mutex_unlock(&loop->lock);
-        B_ASSERT(rc == 0);
-        (void) b_deallocate(proc, eh);
-        return false;
-    }
 
     // NOTE[late spawn]: Spawn as late as possible, so we
     // don't need to kill the process when unwinding due to
@@ -525,7 +566,14 @@ run_sync_locked_(
     B_ASSERT(loop->loop_state
         == B_PROCESS_LOOP_NOT_RUNNING);
     while (loop->loop_request != B_PROCESS_LOOP_STOP) {
-        loop->loop_state = B_PROCESS_LOOP_POLLING;
+        if (!set_process_loop_state_locked_(
+                loop,
+                B_PROCESS_LOOP_POLLING,
+                eh)) {
+            B_ERROR_WHILE_LOCKED();
+            goto fail_locked;
+        }
+
         int queue = loop->queue;
 
         size_t events_received;
@@ -588,7 +636,14 @@ run_sync_locked_(
         }
 
         // Handle events.
-        loop->loop_state = B_PROCESS_LOOP_BUSY;
+        if (!set_process_loop_state_locked_(
+                loop,
+                B_PROCESS_LOOP_BUSY,
+                eh)) {
+            B_ERROR_WHILE_LOCKED();
+            goto fail_locked;
+        }
+
         for (size_t i = 0; i < events_received; ++i) {
             ok = handle_event_locked_(loop, &events[i], eh)
                 && ok;
@@ -598,14 +653,25 @@ run_sync_locked_(
         }
     }
     B_ASSERT(loop->loop_request == B_PROCESS_LOOP_STOP);
-    loop->loop_state = B_PROCESS_LOOP_NOT_RUNNING;
+    if (!set_process_loop_state_locked_(
+            loop,
+            B_PROCESS_LOOP_NOT_RUNNING,
+            eh)) {
+        B_ERROR_WHILE_LOCKED();
+        // Fall through.
+    }
     loop->loop_request = B_PROCESS_LOOP_CONTINUE;
     B_LOG(B_DEBUG, "Stopped loop %p", loop);
     return true;
 
 fail_locked:
     B_LOG(B_DEBUG, "Stopped loop %p due to failure", loop);
-    loop->loop_state = B_PROCESS_LOOP_NOT_RUNNING;
+    if (!set_process_loop_state_locked_(
+            loop,
+            B_PROCESS_LOOP_NOT_RUNNING,
+            eh)) {
+        B_ERROR_WHILE_LOCKED();
+    }
     // Leave loop->loop_request untouched.
     return false;
 }
@@ -654,35 +720,112 @@ process_loop_interrupt_locked_(
         struct B_ErrorHandler const *eh) {
     B_ASSERT(loop);
 
+    int rc;
+
     // No need to interrupt if the process isn't running or
     // should be stopped anyway.
-    if (loop->loop_state == B_PROCESS_LOOP_NOT_RUNNING
-            || loop->loop_request == B_PROCESS_LOOP_STOP) {
+    if (loop->loop_state == B_PROCESS_LOOP_NOT_RUNNING) {
         return true;
     }
 
     // Signal the running process loop with an EVFILT_USER.
-retry:;
-    int rc = kevent(loop->queue, &(struct kevent) {
+    // NOTE(strager): Combining the two kevent calls does
+    // not work; we must add the event *then* trigger it in
+    // separate calls.
+retry:
+    B_LOG(B_DEBUG, "Interrupting loop %p", loop);
+    rc = kevent(loop->queue, &(struct kevent) {
         .ident = B_PROCESS_LOOP_KQUEUE_USER_IDENT,
         .filter = EVFILT_USER,
-        .flags = EV_ADD | EV_ONESHOT,
-        .fflags = NOTE_FFCOPY | NOTE_TRIGGER,
+        .flags = EV_ADD | EV_CLEAR | EV_ONESHOT,
+        .fflags = 0,
         .data = (intptr_t) NULL,
         .udata = NULL,
     }, 1, NULL, 0, NULL);
-    if (rc == -1) {
-        // FIXME(strager): Reporting errors while holding a
-        // lock is a bad idea!
-        B_BUG();
-        switch (B_RAISE_ERRNO_ERROR(eh, errno, "kevent")) {
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
+    if (rc == -1) goto kevent_failed;
+    rc = kevent(loop->queue, &(struct kevent) {
+        .ident = B_PROCESS_LOOP_KQUEUE_USER_IDENT,
+        .filter = EVFILT_USER,
+        .flags = 0,
+        .fflags = NOTE_TRIGGER,
+        .data = (intptr_t) NULL,
+        .udata = NULL,
+    }, 1, NULL, 0, NULL);
+    if (rc == -1) goto kevent_failed;
+    return true;
+
+kevent_failed:;
+    B_ASSERT(rc == -1);
+    B_ERROR_WHILE_LOCKED();
+    switch (B_RAISE_ERRNO_ERROR(eh, errno, "kevent")) {
+    case B_ERROR_ABORT:
+    case B_ERROR_IGNORE:
+        return false;
+    case B_ERROR_RETRY:
+        goto retry;
+    }
+}
+
+static B_FUNC
+process_loop_stop_locked_(
+        struct B_ProcessLoop *loop,
+        struct B_ErrorHandler const *eh) {
+    B_ASSERT(loop);
+
+    if (loop->loop_state == B_PROCESS_LOOP_NOT_RUNNING) {
+        return true;
+    }
+
+    // Tell the running loop to stop.
+    loop->loop_request = B_PROCESS_LOOP_STOP;
+    if (!process_loop_interrupt_locked_(loop, eh)) {
+        B_ERROR_WHILE_LOCKED();
+        return false;
+    }
+
+    // Wait until the running loop has stopped.
+    while (loop->loop_state != B_PROCESS_LOOP_NOT_RUNNING) {
+        int rc = pthread_cond_wait(
+            &loop->loop_state_cond,
+            &loop->lock);
+        if (rc != 0) {
+            B_ERROR_WHILE_LOCKED();
+            // TODO(strager): Support retry.
+            (void) B_RAISE_ERRNO_ERROR(
+                eh,
+                errno,
+                "pthread_cond_wait");
             return false;
+        }
+    }
+    return true;
+}
+
+static B_FUNC
+set_process_loop_state_locked_(
+        struct B_ProcessLoop *loop,
+        enum LoopState_ loop_state,
+        struct B_ErrorHandler const *eh) {
+    B_ASSERT(loop);
+
+    loop->loop_state = loop_state;
+retry:;
+    int rc = pthread_cond_signal(&loop->loop_state_cond);
+    if (rc != 0) {
+        B_ERROR_WHILE_LOCKED();
+        switch (B_RAISE_ERRNO_ERROR(
+                eh,
+                rc,
+                "pthread_cond_signal")) {
+        case B_ERROR_ABORT:
+            return false;
+        case B_ERROR_IGNORE:
+            break;
         case B_ERROR_RETRY:
             goto retry;
         }
     }
+
     return true;
 }
 
