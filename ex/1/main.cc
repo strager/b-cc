@@ -16,6 +16,24 @@
 #include <sys/stat.h>
 #include <vector>
 
+// HACK(strager)
+#if defined(__APPLE__)
+# define EXTRA_CXXFLAGS "-stdlib=libc++",
+# define EXTRA_LDFLAGS "-stdlib=libc++",
+#elif defined(__linux__)
+# define EXTRA_LDFLAGS "-lpthread",
+#endif
+
+#if !defined(EXTRA_CFLAGS)
+# define EXTRA_CFLAGS
+#endif
+#if !defined(EXTRA_CXXFLAGS)
+# define EXTRA_CXXFLAGS
+#endif
+#if !defined(EXTRA_LDFLAGS)
+# define EXTRA_LDFLAGS
+#endif
+
 // Initialized in main.
 std::unique_ptr<B_ProcessLoop, B_ProcessLoopDeleter>
 g_process_loop_;
@@ -265,7 +283,7 @@ run_link(
         "src/Error.c.o",
         "src/Error_cxx.cc.o",
         "src/Log.c.o",
-        "src/Process-kqueue.c.o",
+        "src/Process.c.o",
         "src/QuestionDispatch.c.o",
         "src/QuestionQueue.cc.o",
         "src/RefCount.c.o",
@@ -309,7 +327,7 @@ run_link(
 
             std::vector<char const *> args = {
                 "clang++",
-                "-stdlib=libc++",
+                EXTRA_LDFLAGS
                 "-Iinclude",
                 "-o", exe_path.c_str(),
             };
@@ -361,6 +379,7 @@ run_c_compile(
             char const *command[] = {
                 "clang",
                 "-std=c99",
+                EXTRA_CFLAGS
                 "-Iinclude",
                 "-o", o_path.c_str(),
                 "-c",
@@ -406,7 +425,7 @@ run_cc_compile(
             char const *command[] = {
                 "clang++",
                 "-std=c++11",
-                "-stdlib=libc++",
+                EXTRA_CXXFLAGS
                 "-Iinclude",
                 "-o", o_path.c_str(),
                 "-c",

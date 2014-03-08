@@ -72,4 +72,13 @@
 # define B_CONFIG_KQUEUE
 #endif
 
+#if defined(__linux__) || defined(__android__)
+# define B_CONFIG_EPOLL
+#endif
+
+#if defined(__APPLE__) || defined(__FreeBSD__) || \
+    defined(__linux__) || defined(__android__)
+# define B_CONFIG_SYSQUEUE
+#endif
+
 #endif

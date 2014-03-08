@@ -30,10 +30,10 @@ endif
 # On Darwin, libc++ is best.  On Linux, libc++ is uncommon,
 # so assume libstdc++.
 ifeq ($(cc_is_clang),1)
-	ifeq ($(strip $(uname)),Darwin)
+	ifeq ($(uname),Darwin)
 		CXXFLAGS += -stdlib=libc++
 	endif
-	ifeq ($(strip $(uname)),Linux)
+	ifeq ($(uname),Linux)
 		CXXFLAGS += -stdlib=libstdc++
 	endif
 endif
@@ -41,6 +41,10 @@ endif
 ifeq ($(target_elf),1)
 	CFLAGS += -fPIC
 	CXXFLAGS += -fPIC
+endif
+
+ifeq ($(uname),Linux)
+	LDFLAGS += -lpthread
 endif
 
 .PHONY: all
@@ -54,6 +58,10 @@ examples: ex1
 
 .PHONY: ex1
 ex1: $(out_dir)/ex1
+
+.PHONY: clean
+clean: | $(out_dir)
+	@rm -r $(out_dir)
 
 $(out_dir):
 	@mkdir -p $(out_dir)/src/

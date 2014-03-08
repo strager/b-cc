@@ -1,3 +1,7 @@
+#if defined(__linux__)
+# define _GNU_SOURCE
+#endif
+
 #include <B/Assert.h>
 #include <B/Config.h>
 #include <B/Log.h>
@@ -18,6 +22,22 @@
 #if defined(B_CONFIG_PTHREAD)
 static pthread_mutex_t
 s_log_lock_ = PTHREAD_MUTEX_INITIALIZER;
+#endif
+
+#if defined(__linux__)
+# include <unistd.h>
+# include <sys/syscall.h>
+# if !defined(gettid)
+#  if defined(__NR_gettid)
+#   define gettid() syscall(__NR_gettid)
+#  endif
+#  if defined(__BIONIC__) && !defined(gettid)
+#   define gettid() gettid()
+#  endif
+#  if !defined(gettid)
+#   error "Could not find gettid()"
+#  endif
+# endif
 #endif
 
 static char const *
@@ -47,11 +67,9 @@ b_log_format_impl(
     // Thread ID.
     // TODO(strager): Print thread name as well.
 #if defined(__MACH__)
-    // TODO(strager): Use a direct Mach API.
-    (void) fprintf(
-        B_LOG_FILE,
-        "(%u) ",
-        mach_thread_self());
+    (void) fprintf(B_LOG_FILE, "(%u) ", mach_thread_self());
+#elif defined(__linux__)
+    (void) fprintf(B_LOG_FILE, "(%ld) ", gettid());
 #elif defined(B_CONFIG_PTHREAD)
     // FIXME(strager): Not portable (e.g. fails on
     // pthread-win32).

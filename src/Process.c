@@ -3,27 +3,63 @@
 
 #include <B/Config.h>
 
+// FIXME(strager): Must be included before other files for
+// some reason.  Otherwise, sigemptyset is not defined.
+#if defined(B_CONFIG_EPOLL)
+# define _POSIX_SOURCE
+# include <signal.h>
+#endif
+
+#if !defined(B_CONFIG_POSIX_SPAWN)
+# error "posix_spawn support is assumed for this B_ProcessLoop implementation"
+#endif
+#if !defined(B_CONFIG_PTHREAD)
+# error "pthread support is assumed for this B_ProcessLoop implementation"
+#endif
+#if !defined(B_CONFIG_SYSQUEUE)
+# error "sys/queue.h support is assumed for this B_ProcessLoop implementation"
+#endif
+
+#if !defined(B_CONFIG_KQUEUE) && !defined(B_CONFIG_EPOLL)
+# error "Only kqueue and epoll are implemented for B_ProcessLoop"
+#endif
+
+#include <B/Alloc.h>
+#include <B/Assert.h>
+#include <B/Error.h>
+#include <B/Log.h>
+#include <B/Macro.h>
+#include <B/Process.h>
+#include <B/Thread.h>
+
+#include <errno.h>
+#include <pthread.h>
+#include <spawn.h>
+#include <sys/queue.h>
+#include <unistd.h>
+
 #if defined(B_CONFIG_KQUEUE)
-
-# if !defined(B_CONFIG_POSIX_SPAWN)
-#  error "posix_spawn support is assumed for the kqueue B_ProcessLoop implementation"
-# endif
-# if !defined(B_CONFIG_PTHREAD)
-#  error "pthread support is assumed for the kqueue B_ProcessLoop implementation"
-# endif
-
-# include <B/Alloc.h>
-# include <B/Assert.h>
-# include <B/Error.h>
-# include <B/Log.h>
-# include <B/Process.h>
-# include <B/Thread.h>
-
-# include <errno.h>
-# include <pthread.h>
-# include <spawn.h>
 # include <sys/event.h>
-# include <unistd.h>
+#elif defined(B_CONFIG_EPOLL)
+# include <sys/epoll.h>
+# include <sys/eventfd.h>
+# include <sys/signalfd.h>
+# include <sys/wait.h>
+#endif
+
+// FIXME(strager): We should use FreeBSD's excellent
+// <sys/queue.h> implementation.  Linux does not have
+// LIST_FOREACH or LIST_FOREACH_SAFE, for example.
+#if !defined(LIST_FOREACH_SAFE)
+# if !defined(__GLIBC__)
+#  error "Missing LIST_FOREACH_SAFE"
+# endif
+# define LIST_FOREACH_SAFE(_var, _head, _name, _tmp_var) \
+    for ( \
+            (_var) = (_head)->lh_first; \
+            (_var) && (((_tmp_var) = (_var)->_name.le_next), true); \
+            (_var) = (_tmp_var))
+#endif
 
 // FIXME(strager): Reporting errors while holding a lock is
 // a bad idea!
@@ -64,7 +100,14 @@ struct B_ProcessLoop {
 
     // All following fields are locked by lock.
 
-    int queue;
+#if defined(B_CONFIG_KQUEUE)
+    int queue;  // kqueue()
+#elif defined(B_CONFIG_EPOLL)
+    int epoll;  // epoll_create()
+    int epoll_interrupt;  // eventfd()
+    int epoll_sigchld;  // signalfd(SIGCHLD)
+#endif
+
     size_t concurrent_process_limit;
 
     enum LoopState_ loop_state;
@@ -78,10 +121,10 @@ struct B_ProcessLoop {
 };
 
 struct ProcessInfo_ {
-    B_ProcessExitCallback *const exit_callback;
-    B_ProcessErrorCallback *const error_callback;
-    void *const callback_opaque;
-    pid_t const pid;
+    B_ProcessExitCallback *B_CONST_STRUCT_MEMBER exit_callback;
+    B_ProcessErrorCallback *B_CONST_STRUCT_MEMBER error_callback;
+    void *B_CONST_STRUCT_MEMBER callback_opaque;
+    pid_t B_CONST_STRUCT_MEMBER pid;
 
     // Locked by owning ProcessLoop::lock.
     LIST_ENTRY(ProcessInfo_) link;
@@ -133,11 +176,26 @@ set_process_loop_state_locked_(
         enum LoopState_ loop_state,
         struct B_ErrorHandler const *);
 
+#if defined(B_CONFIG_KQUEUE)
 static B_FUNC
 handle_event_locked_(
         struct B_ProcessLoop *,
         struct kevent const *,
         struct B_ErrorHandler const *);
+#endif
+
+#if defined(B_CONFIG_EPOLL)
+static B_FUNC
+handle_event_locked_(
+        struct B_ProcessLoop *,
+        struct epoll_event const *,
+        struct B_ErrorHandler const *);
+
+static B_FUNC
+check_processes_locked_(
+        struct B_ProcessLoop *,
+        struct B_ErrorHandler const *);
+#endif
 
 static B_FUNC
 process_exited_locked_(
@@ -153,28 +211,135 @@ b_process_loop_allocate(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, out);
 
-    struct B_ProcessLoop *loop;
+    int rc;
+    struct B_ProcessLoop *loop = NULL;
+#if defined(B_CONFIG_KQUEUE)
+    int queue = -1;
+#elif defined(B_CONFIG_EPOLL)
+    int epoll = -1;
+    int epoll_interrupt = -1;
+    int epoll_sigchld = -1;
+#endif
+
     if (!b_allocate(sizeof(*loop), (void **) &loop, eh)) {
-        return false;
+        goto fail;
     }
 
-retry_kqueue:;
-    int queue = kqueue();
+#if defined(B_CONFIG_KQUEUE)
+retry_kqueue:
+    queue = kqueue();
     if (queue == -1) {
         switch (B_RAISE_ERRNO_ERROR(eh, errno, "kqueue")) {
         case B_ERROR_ABORT:
         case B_ERROR_IGNORE:
-            (void) b_deallocate(loop, eh);
-            return false;
-
+            goto fail;
         case B_ERROR_RETRY:
             goto retry_kqueue;
         }
     }
+#elif defined(B_CONFIG_EPOLL)
+retry_epoll_create:
+    epoll = epoll_create1(0);
+    if (epoll == -1) {
+        switch (B_RAISE_ERRNO_ERROR(
+                eh,
+                errno,
+                "epoll_create")) {
+        case B_ERROR_ABORT:
+        case B_ERROR_IGNORE:
+            goto fail;
+        case B_ERROR_RETRY:
+            goto retry_epoll_create;
+        }
+    }
+
+retry_eventfd:
+    epoll_interrupt = eventfd(0, 0);
+    if (epoll_interrupt == -1) {
+        switch (B_RAISE_ERRNO_ERROR(eh, errno, "eventfd")) {
+        case B_ERROR_ABORT:
+        case B_ERROR_IGNORE:
+            goto fail;
+        case B_ERROR_RETRY:
+            goto retry_eventfd;
+        }
+    }
+retry_add_eventfd:
+    rc = epoll_ctl(
+        epoll,
+        EPOLL_CTL_ADD,
+        epoll_interrupt,
+        &(struct epoll_event) {
+            .events = EPOLLIN,
+            .data = { .fd = epoll_interrupt },
+        });
+    if (rc == -1) {
+        switch (B_RAISE_ERRNO_ERROR(
+                eh,
+                errno,
+                "epoll_ctl")) {
+        case B_ERROR_ABORT:
+        case B_ERROR_IGNORE:
+            goto fail;
+        case B_ERROR_RETRY:
+            goto retry_add_eventfd;
+        }
+    }
+
+retry_signalfd:
+    {
+        sigset_t sigmask;
+        sigemptyset(&sigmask);
+        sigaddset(&sigmask, SIGCHLD);
+        epoll_sigchld = signalfd(
+            -1,
+            &sigmask,
+            SFD_NONBLOCK);
+        if (epoll_interrupt == -1) {
+            switch (B_RAISE_ERRNO_ERROR(
+                    eh,
+                    errno,
+                    "signalfd")) {
+            case B_ERROR_ABORT:
+            case B_ERROR_IGNORE:
+                goto fail;
+            case B_ERROR_RETRY:
+                goto retry_signalfd;
+            }
+        }
+    }
+retry_add_signalfd:
+    rc = epoll_ctl(
+        epoll,
+        EPOLL_CTL_ADD,
+        epoll_sigchld,
+        &(struct epoll_event) {
+            .events = EPOLLIN,
+            .data = { .fd = epoll_sigchld },
+        });
+    if (rc == -1) {
+        switch (B_RAISE_ERRNO_ERROR(
+                eh,
+                errno,
+                "epoll_ctl")) {
+        case B_ERROR_ABORT:
+        case B_ERROR_IGNORE:
+            goto fail;
+        case B_ERROR_RETRY:
+            goto retry_add_signalfd;
+        }
+    }
+#endif
 
     *loop = (struct B_ProcessLoop) {
         .lock = PTHREAD_MUTEX_INITIALIZER,
+#if defined(B_CONFIG_KQUEUE)
         .queue = queue,
+#elif defined(B_CONFIG_EPOLL)
+        .epoll = epoll,
+        .epoll_interrupt = epoll_interrupt,
+        .epoll_sigchld = epoll_sigchld,
+#endif
         .concurrent_process_limit
             = concurrent_process_limit,
         .loop_state = B_PROCESS_LOOP_NOT_RUNNING,
@@ -184,8 +349,8 @@ retry_kqueue:;
             = LIST_HEAD_INITIALIZER(&loop->processes),
     };
 
-retry_mutex_init:;
-    int rc = pthread_mutex_init(&loop->lock, NULL);
+retry_mutex_init:
+    rc = pthread_mutex_init(&loop->lock, NULL);
     if (rc != 0) {
         switch (B_RAISE_ERRNO_ERROR(
                 eh,
@@ -193,11 +358,7 @@ retry_mutex_init:;
                 "pthread_mutex_init")) {
         case B_ERROR_ABORT:
         case B_ERROR_IGNORE:
-            (void) b_deallocate(loop, eh);
-            // TODO(strager): Error reporting.
-            (void) close(queue);
-            return false;
-
+            goto fail;
         case B_ERROR_RETRY:
             goto retry_mutex_init;
         }
@@ -207,6 +368,31 @@ retry_mutex_init:;
 
     *out = loop;
     return true;
+
+fail:
+#if defined(B_CONFIG_KQUEUE)
+    if (queue != -1) {
+        // TODO(strager): Error reporting.
+        (void) close(queue);
+    }
+#elif defined(B_CONFIG_EPOLL)
+    if (epoll != -1) {
+        // TODO(strager): Error reporting.
+        (void) close(epoll);
+    }
+    if (epoll_interrupt != -1) {
+        // TODO(strager): Error reporting.
+        (void) close(epoll_interrupt);
+    }
+    if (epoll_sigchld != -1) {
+        // TODO(strager): Error reporting.
+        (void) close(epoll_sigchld);
+    }
+#endif
+    if (loop) {
+        (void) b_deallocate(loop, eh);
+    }
+    return false;
 }
 
 B_EXPORT_FUNC
@@ -215,6 +401,8 @@ b_process_loop_deallocate(
         uint64_t process_force_kill_timeout_picoseconds,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, loop);
+
+    B_LOG(B_DEBUG, "Loop %p deallocating", loop);
 
     // TODO(strager): Error reporting.
     int rc;
@@ -230,8 +418,17 @@ b_process_loop_deallocate(
         ok = process_loop_stop_locked_(loop, eh) && ok;
         if (!ok) B_ERROR_WHILE_LOCKED();
 
-        (void) close(loop->queue);
+#if defined(B_CONFIG_KQUEUE)
+        close(loop->queue);
         loop->queue = -1;
+#elif defined(B_CONFIG_EPOLL)
+        close(loop->epoll);
+        loop->epoll = -1;
+        close(loop->epoll_interrupt);
+        loop->epoll_interrupt = -1;
+        close(loop->epoll_sigchld);
+        loop->epoll_sigchld = -1;
+#endif
 
         B_ASSERT(loop->loop_state
             == B_PROCESS_LOOP_NOT_RUNNING);
@@ -430,6 +627,7 @@ b_process_loop_exec(
 
     LIST_INSERT_HEAD(&loop->processes, proc, link);
 
+#if defined(B_CONFIG_KQUEUE)
     rc = kevent(loop->queue, &(struct kevent) {
         .ident = pid,
         .filter = EVFILT_PROC,
@@ -439,6 +637,12 @@ b_process_loop_exec(
         .udata = proc,
     }, 1, NULL, 0, NULL);
     B_ASSERT(rc == 0);  // FIXME(strager)
+#elif defined(B_CONFIG_EPOLL)
+    // epoll does not support waiting for child processes
+    // like kqueue does.  Instead, we wait for SIGCHLD using
+    // the epoll_sigchld descriptor.
+    (void) rc;
+#endif
 
     B_MUTEX_MUST_UNLOCK(loop->lock, eh);
 
@@ -554,7 +758,11 @@ run_sync_locked_(
             goto fail_locked;
         }
 
+#if defined(B_CONFIG_KQUEUE)
         int queue = loop->queue;
+#elif defined(B_CONFIG_EPOLL)
+        int epoll = loop->epoll;
+#endif
 
         size_t events_received;
 
@@ -565,24 +773,29 @@ run_sync_locked_(
         // closed because loop->loop_state ==
         // B_PROCESS_LOOP_POLLING.
         size_t const events_count = 5;
+#if defined(B_CONFIG_KQUEUE)
         struct kevent events[events_count];
+#elif defined(B_CONFIG_EPOLL)
+        struct epoll_event events[events_count];
+#endif
         rc = pthread_mutex_unlock(&loop->lock);
         B_ASSERT(rc == 0);
         {  // Unlocked block.
+#if defined(B_CONFIG_KQUEUE)
             rc = kevent(
-                    queue,
-                    NULL,
-                    0,
-                    events,
-                    events_count,
-                    NULL);
+                queue,
+                NULL,
+                0,
+                events,
+                events_count,
+                NULL);
             if (rc == -1) {
                 // NOTE(strager): We don't want to report an
                 // error while holding the lock.
                 error_result = B_RAISE_ERRNO_ERROR(
-                        eh,
-                        errno,
-                        "kevent");
+                    eh,
+                    errno,
+                    "kevent");
                 ok = false;
             } else {
                 ok = true;
@@ -590,6 +803,27 @@ run_sync_locked_(
                 events_received = rc;
                 B_ASSERT(events_received <= events_count);
             }
+#elif defined(B_CONFIG_EPOLL)
+            rc = epoll_wait(
+                epoll,
+                events,
+                events_count,
+                -1);
+            if (rc == -1) {
+                // NOTE(strager): We don't want to report an
+                // error while holding the lock.
+                error_result = B_RAISE_ERRNO_ERROR(
+                    eh,
+                    errno,
+                    "epoll_pwait");
+                ok = false;
+            } else {
+                ok = true;
+                B_ASSERT(rc >= 0);
+                events_received = rc;
+                B_ASSERT(events_received <= events_count);
+            }
+#endif
         }
         if (!B_MUTEX_LOCK(loop->lock, eh)) {
             B_BUG();  // FIXME(strager)
@@ -709,12 +943,13 @@ process_loop_interrupt_locked_(
         return true;
     }
 
+retry:
+    B_LOG(B_DEBUG, "Interrupting loop %p", loop);
+#if defined(B_CONFIG_KQUEUE)
     // Signal the running process loop with an EVFILT_USER.
     // NOTE(strager): Combining the two kevent calls does
     // not work; we must add the event *then* trigger it in
     // separate calls.
-retry:
-    B_LOG(B_DEBUG, "Interrupting loop %p", loop);
     rc = kevent(loop->queue, &(struct kevent) {
         .ident = B_PROCESS_LOOP_KQUEUE_USER_IDENT,
         .filter = EVFILT_USER,
@@ -733,9 +968,26 @@ retry:
         .udata = NULL,
     }, 1, NULL, 0, NULL);
     if (rc == -1) goto kevent_failed;
+#else
+    rc = eventfd_write(loop->epoll_interrupt, 1);
+    if (rc == -1) {
+        B_ERROR_WHILE_LOCKED();
+        switch (B_RAISE_ERRNO_ERROR(
+                eh,
+                errno,
+                "eventfd_write")) {
+        case B_ERROR_ABORT:
+        case B_ERROR_IGNORE:
+            return false;
+        case B_ERROR_RETRY:
+            goto retry;
+        }
+    }
+#endif
     return true;
 
-kevent_failed:;
+#if defined(B_CONFIG_KQUEUE)
+kevent_failed:
     B_ASSERT(rc == -1);
     B_ERROR_WHILE_LOCKED();
     switch (B_RAISE_ERRNO_ERROR(eh, errno, "kevent")) {
@@ -745,6 +997,7 @@ kevent_failed:;
     case B_ERROR_RETRY:
         goto retry;
     }
+#endif
 }
 
 static B_FUNC
@@ -810,6 +1063,7 @@ retry:;
     return true;
 }
 
+#if defined(B_CONFIG_KQUEUE)
 static B_FUNC
 handle_event_locked_(
         struct B_ProcessLoop *loop,
@@ -851,6 +1105,140 @@ handle_event_locked_(
         B_BUG();
     }
 }
+#endif
+
+#if defined(B_CONFIG_EPOLL)
+static B_FUNC
+handle_event_locked_(
+        struct B_ProcessLoop *loop,
+        struct epoll_event const *event,
+        struct B_ErrorHandler const *eh) {
+    B_ASSERT(loop);
+    B_ASSERT(event);
+
+    if (event->data.fd == loop->epoll_interrupt) {
+        // Interrupt event.
+        B_LOG(B_DEBUG, "Loop %p interrupted", loop);
+        return true;
+    } else if (event->data.fd == loop->epoll_sigchld) {
+        // SIGCHLD.
+        bool ok = true;
+
+        // Slurp the signal data.
+retry_read:;
+        struct signalfd_siginfo siginfo;
+        ssize_t rc = read(
+            loop->epoll_sigchld,
+            &siginfo,
+            sizeof(siginfo));
+        if (rc == -1) {
+            if (errno == EAGAIN) {
+                // FIXME(strager): Why do we often get
+                // EAGAIN here?
+                goto ignore_read;
+            }
+            switch (B_RAISE_ERRNO_ERROR(eh, errno, eh)) {
+            case B_ERROR_ABORT:
+                ok = false;
+                goto ignore_read;
+            case B_ERROR_IGNORE:
+                goto ignore_read;
+            case B_ERROR_RETRY:
+                goto retry_read;
+            }
+        }
+        B_ASSERT(rc == sizeof(siginfo));
+        B_ASSERT(siginfo.ssi_signo == SIGCHLD);
+
+ignore_read:
+        B_LOG(B_DEBUG, "Loop %p received SIGCHLD", loop);
+        ok = check_processes_locked_(loop, eh) && ok;
+
+        return ok;
+    } else {
+        B_BUG();
+    }
+}
+
+static B_FUNC
+check_processes_locked_(
+        struct B_ProcessLoop *loop,
+        struct B_ErrorHandler const *eh) {
+    bool ok = true;
+    struct ProcessInfo_ *proc;
+    struct ProcessInfo_ *proc_tmp;
+    LIST_FOREACH_SAFE(
+            proc,
+            &loop->processes,
+            link,
+            proc_tmp) {
+retry:;
+        int status;
+        pid_t rc = waitpid(proc->pid, &status, WNOHANG);
+        if (rc == -1) {
+            switch (B_RAISE_ERRNO_ERROR(
+                    eh,
+                    errno,
+                    "waitpid")) {
+            case B_ERROR_ABORT:
+                // Skip this pid.
+                ok = false;
+                continue;
+            case B_ERROR_IGNORE:
+                // Skip this pid.
+                continue;
+            case B_ERROR_RETRY:
+                goto retry;
+            }
+        }
+        if (rc == 0) {
+            // No status.
+            continue;
+        }
+
+        B_ASSERT(rc == proc->pid);
+        if (WIFEXITED(status)) {
+            // NOTE[exit during iteration]: FIXME(strager):
+            // What if this causes the next proc to be
+            // removed or deallocated?
+            B_LOG(
+                B_DEBUG,
+                "Loop %p proc %p pid=%d terminated with status %d",
+                loop,
+                proc,
+                proc->pid,
+                WEXITSTATUS(status));
+            ok = process_exited_locked_(
+                loop,
+                proc,
+                WEXITSTATUS(status),
+                eh) && ok;
+        } else if (WIFSIGNALED(status)) {
+            B_ASSERT(WTERMSIG(status) != 0);
+            // See NOTE[exit during iteration].
+            // FIXME(strager): We need another channel in
+            // which to report structured error codes.
+            B_LOG(
+                B_DEBUG,
+                "Loop %p proc %p pid=%d terminated with signal %d",
+                loop,
+                proc,
+                proc->pid,
+                WTERMSIG(status));
+            ok = process_exited_locked_(
+                loop,
+                proc,
+                WTERMSIG(status),
+                eh) && ok;
+        } else {
+            B_ASSERT(WIFSTOPPED(status)
+                || WIFCONTINUED(status));
+            continue;
+        }
+    }
+    return ok;
+}
+#endif
 
 static B_FUNC
 process_exited_locked_(
@@ -886,5 +1274,3 @@ process_exited_locked_(
 
     return ok;
 }
-
-#endif
