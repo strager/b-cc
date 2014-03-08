@@ -38,10 +38,10 @@ b_log_format_raw_locked(
     B_PRINTF_GNU_ATTRIBUTE(printf, 1, 2);
 
 B_EXPORT bool
-b_log_lock();
+b_log_lock(void);
 
 B_EXPORT void
-b_log_unlock();
+b_log_unlock(void);
 
 #if defined(__cplusplus)
 }

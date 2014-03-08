@@ -93,7 +93,7 @@ b_log_format_raw_locked(
 }
 
 B_EXPORT bool
-b_log_lock() {
+b_log_lock(void) {
 #if defined(B_CONFIG_PTHREAD)
     int rc = pthread_mutex_lock(&s_log_lock_);
     return rc == 0;
@@ -103,7 +103,7 @@ b_log_lock() {
 }
 
 B_EXPORT void
-b_log_unlock() {
+b_log_unlock(void) {
 #if defined(B_CONFIG_PTHREAD)
     int rc = pthread_mutex_unlock(&s_log_lock_);
     B_ASSERT(rc == 0);
