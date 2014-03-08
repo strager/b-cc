@@ -269,6 +269,7 @@ run_link(
         "src/QuestionDispatch.c.o",
         "src/QuestionQueue.cc.o",
         "src/RefCount.c.o",
+        "src/Thread.c.o",
         "src/UUID.c.o",
     };
     std::vector<std::unique_ptr<FileQuestion>> questions;

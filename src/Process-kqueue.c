@@ -17,6 +17,7 @@
 # include <B/Error.h>
 # include <B/Log.h>
 # include <B/Process.h>
+# include <B/Thread.h>
 
 # include <errno.h>
 # include <pthread.h>
@@ -220,14 +221,7 @@ b_process_loop_deallocate(
 
     bool ok = true;
 
-    rc = pthread_mutex_lock(&loop->lock);
-    if (rc != 0) {
-        (void) B_RAISE_ERRNO_ERROR(
-            eh,
-            rc,
-            "pthread_mutex_lock");
-        return false;
-    }
+    if (!B_MUTEX_LOCK(loop->lock, eh)) return false;
     {
         // TODO(strager): Kill processes.
         (void) process_force_kill_timeout_picoseconds;
@@ -244,6 +238,7 @@ b_process_loop_deallocate(
     }
     rc = pthread_mutex_unlock(&loop->lock);
     B_ASSERT(rc == 0);
+    B_MUTEX_MUST_UNLOCK(loop->lock, eh);
 
     rc = pthread_mutex_destroy(&loop->lock);
     if (rc != 0) {
@@ -287,8 +282,7 @@ b_process_loop_run_async_unsafe(
 
     bool ok;
 
-    rc = pthread_mutex_lock(&closure.lock);
-    B_ASSERT(rc == 0);
+    if (!B_MUTEX_LOCK(closure.lock, eh)) return false;
     {
         while (!closure.running && !closure.errored) {
             rc = pthread_cond_wait(
@@ -320,8 +314,7 @@ b_process_loop_run_async_unsafe(
             ok = true;
         }
     }
-    rc = pthread_mutex_unlock(&closure.lock);
-    B_ASSERT(rc == 0);
+    B_MUTEX_MUST_UNLOCK(closure.lock, eh);
 
     return ok;
 }
@@ -332,24 +325,14 @@ b_process_loop_run_sync(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, loop);
 
-    // TODO(strager): Proper error handling.
-    int rc;
-
-    rc = pthread_mutex_lock(&loop->lock);
-    if (rc != 0) {
-        (void) B_RAISE_ERRNO_ERROR(
-            eh,
-            rc,
-            "pthread_mutex_lock");
+    if (!B_MUTEX_LOCK(loop->lock, eh)) {
         return false;
     }
-    B_ASSERT(rc == 0);
 
     bool ok = run_sync_locked_(loop, eh);
     if (!ok) B_ERROR_WHILE_LOCKED();
 
-    rc = pthread_mutex_unlock(&loop->lock);
-    B_ASSERT(rc == 0);
+    B_MUTEX_MUST_UNLOCK(loop->lock, eh);
 
     return ok;
 }
@@ -371,16 +354,12 @@ b_process_loop_stop(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, loop);
 
-    int rc;
+    if (!B_MUTEX_LOCK(loop->lock, eh)) return false;
 
-    bool ok;
-    rc = pthread_mutex_lock(&loop->lock);
-    B_ASSERT(rc == 0);  // FIXME(strager)
-    {
-        ok = process_loop_stop_locked_(loop, eh);
-    }
-    rc = pthread_mutex_unlock(&loop->lock);
-    B_ASSERT(rc == 0);
+    bool ok = process_loop_stop_locked_(loop, eh);
+    if (!ok) B_ERROR_WHILE_LOCKED();
+
+    B_MUTEX_MUST_UNLOCK(loop->lock, eh);
 
     return ok;
 }
@@ -429,8 +408,10 @@ b_process_loop_exec(
         return false;
     }
 
-    rc = pthread_mutex_lock(&loop->lock);
-    B_ASSERT(rc == 0);  // FIXME(strager)
+    if (!B_MUTEX_LOCK(loop->lock, eh)) {
+        (void) b_deallocate(proc, eh);
+        return false;
+    }
 
     // NOTE[late spawn]: Spawn as late as possible, so we
     // don't need to kill the process when unwinding due to
@@ -461,8 +442,7 @@ b_process_loop_exec(
     }, 1, NULL, 0, NULL);
     B_ASSERT(rc == 0);  // FIXME(strager)
 
-    rc = pthread_mutex_unlock(&loop->lock);
-    B_ASSERT(rc == 0);
+    B_MUTEX_MUST_UNLOCK(loop->lock, eh);
 
     return true;
 }
@@ -521,12 +501,17 @@ run_async_thread_(
     // TODO(strager): Proper error handling.
     int rc;
 
+    // NOTE(strager): We do not have an error handler here,
+    // so we should try our best to report errors to the
+    // spawning thread via closure->error.
+
     // See NOTE[loop_run_async synchronization].
     struct ProcessLoopRunAsyncClosure_ *closure = opaque;
     B_ASSERT(closure);
 
-    rc = pthread_mutex_lock(&closure->lock);
-    B_ASSERT(rc == 0);
+    if (!B_MUTEX_LOCK(closure->lock, NULL)) {
+        B_BUG();
+    }
 
     struct B_ProcessLoop *loop = closure->loop;
     B_ASSERT(loop);
@@ -536,21 +521,18 @@ run_async_thread_(
         closure->error.errno_value = rc;
         rc = pthread_cond_signal(&closure->cond);
         B_ASSERT(rc == 0);
-        rc = pthread_mutex_unlock(&closure->lock);
-        B_ASSERT(rc == 0);
+        B_MUTEX_MUST_UNLOCK(closure->lock, NULL);
         return NULL;
     }
 
     closure->running = true;
     rc = pthread_cond_signal(&closure->cond);
     B_ASSERT(rc == 0);
-    rc = pthread_mutex_unlock(&closure->lock);
-    B_ASSERT(rc == 0);
+    B_MUTEX_MUST_UNLOCK(closure->lock, NULL);
 
     (void) run_sync_locked_(loop, NULL);
 
-    rc = pthread_mutex_unlock(&loop->lock);
-    B_ASSERT(rc == 0);
+    B_MUTEX_MUST_UNLOCK(loop->lock, NULL);
 
     return NULL;
 }
@@ -611,8 +593,9 @@ run_sync_locked_(
                 B_ASSERT(events_received <= events_count);
             }
         }
-        rc = pthread_mutex_lock(&loop->lock);
-        B_ASSERT(rc == 0);  // FIXME(strager)
+        if (!B_MUTEX_LOCK(loop->lock, eh)) {
+            B_BUG();  // FIXME(strager)
+        }
 
         if (!ok) {
             switch (error_result) {
@@ -880,8 +863,6 @@ process_exited_locked_(
     B_ASSERT(loop);
     B_ASSERT(proc);
 
-    int rc;
-
     // 1. Remove the process from the loop.  (The kernel
     //    already removed the process from the kqueue.)
     // 2. Call the process' callbacks.
@@ -896,16 +877,14 @@ process_exited_locked_(
 
     bool ok;
 
-    rc = pthread_mutex_unlock(&loop->lock);
-    B_ASSERT(rc == 0);
+    B_MUTEX_MUST_UNLOCK(loop->lock, eh);
     {
         ok = exit_callback(
             exit_status,
             callback_opaque,
             eh);
     }
-    rc = pthread_mutex_lock(&loop->lock);
-    B_ASSERT(rc == 0);
+    ok = B_MUTEX_LOCK(loop->lock, eh) && ok;
 
     return ok;
 }
