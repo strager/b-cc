@@ -69,6 +69,7 @@ b_default_error_handler(void);
 #endif
 
 #if defined(__cplusplus)
+# include <string.h>
 // Throws an ErrorException if an error occurs.  Pretty
 // unsafe.
 B_ErrorHandler const *

@@ -161,9 +161,9 @@ b_answer_context_need(
         // upon question_queue calling
         // need_answer_callback_ which will call the
         // callback.
-        struct B_Answer *questions_answers[0];
+        struct B_Answer *dummy_question_answer;
         return completed_callback(
-                questions_answers,
+                &dummy_question_answer,
                 callback_opaque,
                 eh);
     }

@@ -28,11 +28,11 @@
 # endif
 #endif
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__gnu_linux__)
 # define B_CONFIG_PTHREAD
 #endif
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__gnu_linux__)
 # define B_CONFIG_POSIX_SPAWN
 #endif
 
