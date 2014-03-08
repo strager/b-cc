@@ -2,6 +2,7 @@
 #include <B/Config.h>
 #include <B/Log.h>
 
+#include <stdarg.h>
 #include <stdio.h>
 
 #if defined(B_CONFIG_PTHREAD)

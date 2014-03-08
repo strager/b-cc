@@ -27,4 +27,10 @@
 # define B_PRINTF_GNU_ATTRIBUTE(_type, _format, _params)
 #endif
 
+#if defined(B_CONFIG_NO_CONST_STRUCT_MEMBERS)
+# define B_CONST_STRUCT_MEMBER
+#else
+# define B_CONST_STRUCT_MEMBER const
+#endif
+
 #endif

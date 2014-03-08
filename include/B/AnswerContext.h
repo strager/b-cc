@@ -137,6 +137,7 @@ b_answer_context_exec(
 
 #if defined(__cplusplus)
 # include <B/Alloc.h>
+# include <B/Config.h>
 
 # include <functional>
 
@@ -158,12 +159,16 @@ struct B_NeedCallbacks {
             TCompletedCallback const &completed_callback,
             TCancelledCallback const &cancelled_callback) :
             completed_callback(
+# if !defined(B_CONFIG_NO_FUNCTION_ALLOCATOR)
                     std::allocator_arg,
                     B_Allocator<std::function<Completed>>(),
+# endif
                     completed_callback),
             cancelled_callback(
+# if !defined(B_CONFIG_NO_FUNCTION_ALLOCATOR)
                     std::allocator_arg,
                     B_Allocator<std::function<Cancelled>>(),
+# endif
                     cancelled_callback) {
     }
 

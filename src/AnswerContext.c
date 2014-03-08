@@ -35,13 +35,13 @@
 struct NeedClosure_ {
     B_REF_COUNTED_OBJECT;
 
-    B_BORROWED struct B_AnswerContext const *const answer_context;
+    B_BORROWED struct B_AnswerContext const *B_CONST_STRUCT_MEMBER answer_context;
 
-    size_t const questions_count;
+    size_t B_CONST_STRUCT_MEMBER questions_count;
 
-    B_NeedCompletedCallback *const completed_callback;
-    B_NeedCancelledCallback *const cancelled_callback;
-    B_BORROWED void *const callback_opaque;
+    B_NeedCompletedCallback *B_CONST_STRUCT_MEMBER completed_callback;
+    B_NeedCancelledCallback *B_CONST_STRUCT_MEMBER cancelled_callback;
+    B_BORROWED void *B_CONST_STRUCT_MEMBER callback_opaque;
 
     // If answered_questions_count == questions_count,
     // completed_callback was called.  Else,
@@ -60,7 +60,7 @@ struct NeedClosure_ {
 
 struct NeedQueueItem_ {
     struct B_QuestionQueueItemObject super;
-    B_BORROWED struct NeedClosure_ *const closure;
+    B_BORROWED struct NeedClosure_ *B_CONST_STRUCT_MEMBER closure;
     size_t question_index;
 };
 

@@ -127,6 +127,23 @@ struct B_Allocator {
         }
     }
 
+# if defined(B_CONFIG_ALLOCATOR_CONSTRUCT_REQUIRED)
+    template<class TOther, class ...TArgs>
+    void
+    construct(
+            TOther *p,
+            TArgs &&...args) {
+        ::new((void *) p) TOther(std::forward<TArgs>(args)...);
+    }
+
+    template<class TOther>
+    void
+    destroy(
+            TOther *p) {
+        p->~TOther();
+    }
+# endif
+
     bool
     operator==(
             B_Allocator const &) {
@@ -153,11 +170,10 @@ b_new(
     typename Traits::pointer p
             = Traits::allocate(allocator, 1);
 
-    ::new (static_cast<void *>(p)) T(std::forward<TArgs>(args)...);
-    //Traits::construct(
-    //        allocator,
-    //        p,
-    //        std::forward<TArgs>(args)...);
+    Traits::construct(
+            allocator,
+            p,
+            std::forward<TArgs>(args)...);
 
     *out = p;
     return true;  // TODO(strager)
