@@ -66,7 +66,9 @@ endif
 all: b examples gtest
 
 .PHONY: test
-test: test-ex1
+# TODO(strager): Include test-ex1 once ex1 supports $CC and
+# $CXX environment variables.
+test: test-gtest
 
 .PHONY: b
 b: $(b_lib_shared_file)
@@ -83,6 +85,10 @@ gtest: $(out_dir)/test/gtest
 .PHONY: test-ex1
 test-ex1: ex1
 	$(out_dir)/ex1
+
+.PHONY: test-gtest
+test-gtest: ex1
+	$(out_dir)/test/gtest
 
 .PHONY: clean
 clean: | $(out_dirs)
