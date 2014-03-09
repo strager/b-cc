@@ -33,10 +33,17 @@
 #include <B/Thread.h>
 
 #include <errno.h>
-#include <pthread.h>
-#include <spawn.h>
 #include <sys/queue.h>
-#include <unistd.h>
+
+#if defined(B_CONFIG_PTHREAD)
+# include <pthread.h>
+#endif
+
+#if defined(B_CONFIG_POSIX_SPAWN)
+# include <spawn.h>
+# include <sys/wait.h>
+# include <unistd.h>
+#endif
 
 #if defined(B_CONFIG_KQUEUE)
 # include <sys/event.h>
@@ -596,8 +603,6 @@ b_process_loop_exec(
     // These steps are performed atomically (under the
     // ProcessLoop's lock).
 
-    int rc;
-
     struct ProcessInfo_ *proc;
     if (!b_allocate(sizeof(*proc), (void **) &proc, eh)) {
         return false;
@@ -628,7 +633,7 @@ b_process_loop_exec(
     LIST_INSERT_HEAD(&loop->processes, proc, link);
 
 #if defined(B_CONFIG_KQUEUE)
-    rc = kevent(loop->queue, &(struct kevent) {
+    int rc = kevent(loop->queue, &(struct kevent) {
         .ident = pid,
         .filter = EVFILT_PROC,
         .flags = EV_ADD,
@@ -641,7 +646,10 @@ b_process_loop_exec(
     // epoll does not support waiting for child processes
     // like kqueue does.  Instead, we wait for SIGCHLD using
     // the epoll_sigchld descriptor.
-    (void) rc;
+    // FIXME(strager): Why do we need to interrupt here?
+    if (!process_loop_interrupt_locked_(loop, eh)) {
+        // Ignore.
+    }
 #endif
 
     B_MUTEX_MUST_UNLOCK(loop->lock, eh);
@@ -750,6 +758,19 @@ run_sync_locked_(
     B_ASSERT(loop->loop_state
         == B_PROCESS_LOOP_NOT_RUNNING);
     while (loop->loop_request != B_PROCESS_LOOP_STOP) {
+#if defined(B_CONFIG_EPOLL)
+        if (!set_process_loop_state_locked_(
+                loop,
+                B_PROCESS_LOOP_BUSY,
+                eh)) {
+            B_ERROR_WHILE_LOCKED();
+            goto fail_locked;
+        }
+        if (!check_processes_locked_(loop, eh)) {
+            // Ignore.
+        }
+#endif
+
         if (!set_process_loop_state_locked_(
                 loop,
                 B_PROCESS_LOOP_POLLING,
@@ -1084,22 +1105,15 @@ handle_event_locked_(
         // Process event.
         B_ASSERT(event->fflags
             & (NOTE_EXIT | NOTE_EXITSTATUS));
-        int exit_status = (int) event->data;
+        int wait_status = (int) event->data;
         struct ProcessInfo_ *proc = event->udata;
+        B_ASSERT(proc);
         B_ASSERT(proc->pid == (pid_t) event->ident);
-        B_LOG(
-            B_DEBUG,
-            "Loop %p proc %p pid=%ld terminated with status %d",
+        return process_exited_locked_(
             loop,
             proc,
-            (long) proc->pid,
-            exit_status);
-        B_ASSERT(proc);
-        return process_exited_locked_(
-                loop,
-                proc,
-                exit_status,
-                eh);
+            wait_status,
+            eh);
 
     default:
         B_BUG();
@@ -1173,8 +1187,11 @@ check_processes_locked_(
             link,
             proc_tmp) {
 retry:;
-        int status;
-        pid_t rc = waitpid(proc->pid, &status, WNOHANG);
+        int wait_status;
+        pid_t rc = waitpid(
+            proc->pid,
+            &wait_status,
+            WNOHANG);
         if (rc == -1) {
             switch (B_RAISE_ERRNO_ERROR(
                     eh,
@@ -1197,44 +1214,20 @@ retry:;
         }
 
         B_ASSERT(rc == proc->pid);
-        if (WIFEXITED(status)) {
-            // NOTE[exit during iteration]: FIXME(strager):
-            // What if this causes the next proc to be
-            // removed or deallocated?
-            B_LOG(
-                B_DEBUG,
-                "Loop %p proc %p pid=%d terminated with status %d",
-                loop,
-                proc,
-                proc->pid,
-                WEXITSTATUS(status));
-            ok = process_exited_locked_(
-                loop,
-                proc,
-                WEXITSTATUS(status),
-                eh) && ok;
-        } else if (WIFSIGNALED(status)) {
-            B_ASSERT(WTERMSIG(status) != 0);
-            // See NOTE[exit during iteration].
-            // FIXME(strager): We need another channel in
-            // which to report structured error codes.
-            B_LOG(
-                B_DEBUG,
-                "Loop %p proc %p pid=%d terminated with signal %d",
-                loop,
-                proc,
-                proc->pid,
-                WTERMSIG(status));
-            ok = process_exited_locked_(
-                loop,
-                proc,
-                WTERMSIG(status),
-                eh) && ok;
-        } else {
-            B_ASSERT(WIFSTOPPED(status)
-                || WIFCONTINUED(status));
+        if (WIFSTOPPED(wait_status)
+                || WIFCONTINUED(wait_status)) {
+            // Ignore.
             continue;
         }
+
+        // NOTE[exit during iteration]: FIXME(strager): What
+        // if this causes the next proc to be removed or
+        // deallocated?
+        ok = process_exited_locked_(
+            loop,
+            proc,
+            wait_status,
+            eh) && ok;
     }
     return ok;
 }
@@ -1244,10 +1237,38 @@ static B_FUNC
 process_exited_locked_(
         struct B_ProcessLoop *loop,
         struct ProcessInfo_ *proc,
-        int exit_status,
+        int wait_status,
         struct B_ErrorHandler const *eh) {
     B_ASSERT(loop);
     B_ASSERT(proc);
+
+    int exit_status;
+    if (WIFEXITED(wait_status)) {
+        exit_status = WEXITSTATUS(wait_status);
+        B_LOG(
+            B_DEBUG,
+            "Loop %p proc %p pid=%d terminated with status %d",
+            loop,
+            proc,
+            proc->pid,
+            exit_status);
+    } else if (WIFSIGNALED(wait_status)) {
+        exit_status = WTERMSIG(wait_status);
+        B_ASSERT(exit_status != 0);
+        B_LOG(
+            B_DEBUG,
+            "Loop %p proc %p pid=%d terminated with signal %d",
+            loop,
+            proc,
+            proc->pid,
+            exit_status);
+    } else if (WIFSTOPPED(wait_status)) {
+        B_BUG();
+    } else if (WIFCONTINUED(wait_status)) {
+        B_BUG();
+    } else {
+        B_BUG();
+    }
 
     // 1. Remove the process from the loop.  (The kernel
     //    already removed the process from the kqueue.)
