@@ -32,6 +32,10 @@
 #include <B/Process.h>
 #include <B/Thread.h>
 
+#if defined(B_CONFIG_EPOLL)
+# include <B/Misc.h>
+#endif
+
 #include <errno.h>
 #include <sys/queue.h>
 
@@ -271,26 +275,13 @@ retry_eventfd:
             goto retry_eventfd;
         }
     }
-retry_add_eventfd:
-    rc = epoll_ctl(
-        epoll,
-        EPOLL_CTL_ADD,
-        epoll_interrupt,
-        &(struct epoll_event) {
-            .events = EPOLLIN,
-            .data = { .fd = epoll_interrupt },
-        });
-    if (rc == -1) {
-        switch (B_RAISE_ERRNO_ERROR(
-                eh,
-                errno,
-                "epoll_ctl")) {
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            goto fail;
-        case B_ERROR_RETRY:
-            goto retry_add_eventfd;
-        }
+    if (!b_epoll_ctl_fd(
+            epoll,
+            EPOLL_CTL_ADD,
+            epoll_interrupt,
+            EPOLLIN,
+            eh)) {
+        goto fail;
     }
 
 retry_signalfd:
@@ -315,26 +306,13 @@ retry_signalfd:
             }
         }
     }
-retry_add_signalfd:
-    rc = epoll_ctl(
-        epoll,
-        EPOLL_CTL_ADD,
-        epoll_sigchld,
-        &(struct epoll_event) {
-            .events = EPOLLIN,
-            .data = { .fd = epoll_sigchld },
-        });
-    if (rc == -1) {
-        switch (B_RAISE_ERRNO_ERROR(
-                eh,
-                errno,
-                "epoll_ctl")) {
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            goto fail;
-        case B_ERROR_RETRY:
-            goto retry_add_signalfd;
-        }
+    if (!b_epoll_ctl_fd(
+            epoll,
+            EPOLL_CTL_ADD,
+            epoll_sigchld,
+            EPOLLIN,
+            eh)) {
+        goto fail;
     }
 #endif
 
