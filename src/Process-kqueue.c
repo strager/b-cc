@@ -236,8 +236,6 @@ b_process_loop_deallocate(
         B_ASSERT(loop->loop_state
             == B_PROCESS_LOOP_NOT_RUNNING);
     }
-    rc = pthread_mutex_unlock(&loop->lock);
-    B_ASSERT(rc == 0);
     B_MUTEX_MUST_UNLOCK(loop->lock, eh);
 
     rc = pthread_mutex_destroy(&loop->lock);
