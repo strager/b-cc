@@ -36,7 +36,7 @@
 
 // Initialized in main.
 std::unique_ptr<B_ProcessLoop, B_ProcessLoopDeleter>
-g_process_loop_;
+g_process_loop_(nullptr, nullptr);
 
 struct FileQuestion :
         public B_Question {
@@ -281,7 +281,6 @@ run_link(
         "src/Alloc.c.o",
         "src/AnswerContext.c.o",
         "src/Error.c.o",
-        "src/Error_cxx.cc.o",
         "src/Log.c.o",
         "src/Process.c.o",
         "src/QuestionDispatch.c.o",

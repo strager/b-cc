@@ -16,11 +16,6 @@ struct B_Deleter {
     operator=(
             B_Deleter const &) = delete;
 
-    // TODO(strager): Remove this constructor.
-    B_Deleter() :
-            error_handler(b_error_handler_cxx_throw()) {
-    }
-
     B_Deleter(
             B_ErrorHandler const *error_handler) :
             error_handler(error_handler) {
