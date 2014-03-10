@@ -52,6 +52,8 @@
 #if defined(B_CONFIG_KQUEUE)
 # include <sys/event.h>
 #elif defined(B_CONFIG_EPOLL)
+# include <stdio.h>
+# include <stdlib.h>
 # include <sys/epoll.h>
 # include <sys/eventfd.h>
 # include <sys/signalfd.h>
@@ -119,6 +121,8 @@ struct B_ProcessLoop {
     int epoll_sigchld;  // signalfd(SIGCHLD)
 #endif
 
+    enum B_ProcessConfiguration configuration;
+
     size_t concurrent_process_limit;
 
     enum LoopState_ loop_state;
@@ -182,10 +186,19 @@ process_loop_stop_locked_(
         struct B_ErrorHandler const *);
 
 static B_FUNC
+process_loop_wait_for_stop_locked_(
+        struct B_ProcessLoop *,
+        struct B_ErrorHandler const *);
+
+static B_FUNC
 set_process_loop_state_locked_(
         struct B_ProcessLoop *,
         enum LoopState_ loop_state,
         struct B_ErrorHandler const *);
+
+static bool
+should_stop_loop_locked_(
+        struct B_ProcessLoop *);
 
 #if defined(B_CONFIG_KQUEUE)
 static B_FUNC
@@ -215,9 +228,32 @@ process_exited_locked_(
         int exit_status,
         struct B_ErrorHandler const *);
 
+#if defined(B_CONFIG_EPOLL)
+static void
+check_sigprocmask_locked_(
+        struct B_ProcessLoop *);
+#endif
+
+B_EXPORT enum B_ProcessConfiguration
+b_process_auto_configuration_unsafe(void) {
+#if defined(B_CONFIG_KQUEUE)
+    return B_PROCESS_CONFIGURATION_KQUEUE;
+#elif defined(B_CONFIG_EPOLL)
+    sigset_t sigmask;
+    sigemptyset(&sigmask);
+    sigaddset(&sigmask, SIGCHLD);
+    int rc = sigprocmask(SIG_BLOCK, &sigmask, NULL);
+    B_ASSERT(rc == 0);
+    return B_PROCESS_CONFIGURATION_SIGCHLD_MASKED;
+#else
+# error "Unknown B_ProcessLoop configuration"
+#endif
+}
+
 B_EXPORT_FUNC
 b_process_loop_allocate(
         size_t concurrent_process_limit,
+        enum B_ProcessConfiguration configuration,
         B_OUTPTR struct B_ProcessLoop **out,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, out);
@@ -231,6 +267,40 @@ b_process_loop_allocate(
     int epoll_interrupt = -1;
     int epoll_sigchld = -1;
 #endif
+
+    switch (configuration) {
+#if 0
+    case B_PROCESS_CONFIGURATION_WIN32:
+#endif
+#if defined(B_CONFIG_KQUEUE)
+    case B_PROCESS_CONFIGURATION_KQUEUE:
+#endif
+#if defined(B_CONFIG_EPOLL)
+    case B_PROCESS_CONFIGURATION_SIGCHLD_MASKED:
+#endif
+#if defined(B_CONFIG_EPOLL) || defined(B_CONFIG_KQUEUE)
+    case B_PROCESS_CONFIGURATION_SIGCHLD_CALL:
+#endif
+        break;
+    default:
+        (void) B_RAISE_ERRNO_ERROR(
+            eh,
+            EINVAL,
+            "configuration");
+        return false;
+    }
+
+    if (configuration
+            == B_PROCESS_CONFIGURATION_SIGCHLD_CALL) {
+        // TODO(strager)
+        B_NYI();
+    }
+
+    if (configuration
+            == B_PROCESS_CONFIGURATION_KQUEUE) {
+        // TODO(strager): Technically not supported, but we
+        // get away with lack of support for now.
+    }
 
     if (!b_allocate(sizeof(*loop), (void **) &loop, eh)) {
         goto fail;
@@ -286,6 +356,10 @@ retry_eventfd:
 
 retry_signalfd:
     {
+#if defined(B_CONFIG_EPOLL)
+        check_sigprocmask_locked_(loop);
+#endif
+
         sigset_t sigmask;
         sigemptyset(&sigmask);
         sigaddset(&sigmask, SIGCHLD);
@@ -401,6 +475,9 @@ b_process_loop_deallocate(
 
         // Stop the loop.
         ok = process_loop_stop_locked_(loop, eh) && ok;
+        if (!ok) B_ERROR_WHILE_LOCKED();
+        ok = process_loop_wait_for_stop_locked_(loop, eh)
+            && ok;
         if (!ok) B_ERROR_WHILE_LOCKED();
 
 #if defined(B_CONFIG_KQUEUE)
@@ -533,6 +610,8 @@ b_process_loop_stop(
         struct B_ProcessLoop *loop,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, loop);
+
+    B_LOG(B_DEBUG, "Stopping loop %p", loop);
 
     if (!B_MUTEX_LOCK(loop->lock, eh)) return false;
 
@@ -735,7 +814,7 @@ run_sync_locked_(
 
     B_ASSERT(loop->loop_state
         == B_PROCESS_LOOP_NOT_RUNNING);
-    while (loop->loop_request != B_PROCESS_LOOP_STOP) {
+    while (!should_stop_loop_locked_(loop)) {
 #if defined(B_CONFIG_EPOLL)
         if (!set_process_loop_state_locked_(
                 loop,
@@ -747,6 +826,10 @@ run_sync_locked_(
         if (!check_processes_locked_(loop, eh)) {
             // Ignore.
         }
+
+        if (should_stop_loop_locked_(loop)) {
+            break;
+        }
 #endif
 
         if (!set_process_loop_state_locked_(
@@ -756,6 +839,10 @@ run_sync_locked_(
             B_ERROR_WHILE_LOCKED();
             goto fail_locked;
         }
+
+#if defined(B_CONFIG_EPOLL)
+        check_sigprocmask_locked_(loop);
+#endif
 
 #if defined(B_CONFIG_KQUEUE)
         int queue = loop->queue;
@@ -771,7 +858,8 @@ run_sync_locked_(
         // Poll for events, unlocked.  queue should not be
         // closed because loop->loop_state ==
         // B_PROCESS_LOOP_POLLING.
-        size_t const events_count = 5;
+        // FIXME(strager): See NOTE[event buffering].
+        size_t const events_count = 1;
 #if defined(B_CONFIG_KQUEUE)
         struct kevent events[events_count];
 #elif defined(B_CONFIG_EPOLL)
@@ -842,7 +930,7 @@ run_sync_locked_(
             }
         }
 
-        if (loop->loop_request == B_PROCESS_LOOP_STOP) {
+        if (should_stop_loop_locked_(loop)) {
             // FIXME(strager): What about events?  Should we
             // re-add them to the kqueue somehow?  Should we
             // process them?
@@ -861,12 +949,20 @@ run_sync_locked_(
         for (size_t i = 0; i < events_received; ++i) {
             ok = handle_event_locked_(loop, &events[i], eh)
                 && ok;
+            if (should_stop_loop_locked_(loop)) {
+                if (i != events_received - 1) {
+                    // NOTE[event buffering]: We need to
+                    // buffer events.
+                    B_BUG();
+                }
+                break;
+            }
         }
         if (!ok) {
             goto fail_locked;
         }
     }
-    B_ASSERT(loop->loop_request == B_PROCESS_LOOP_STOP);
+    B_ASSERT(should_stop_loop_locked_(loop));
     if (!set_process_loop_state_locked_(
             loop,
             B_PROCESS_LOOP_NOT_RUNNING,
@@ -1009,14 +1105,21 @@ process_loop_stop_locked_(
         return true;
     }
 
-    // Tell the running loop to stop.
     loop->loop_request = B_PROCESS_LOOP_STOP;
     if (!process_loop_interrupt_locked_(loop, eh)) {
         B_ERROR_WHILE_LOCKED();
         return false;
     }
 
-    // Wait until the running loop has stopped.
+    return true;
+}
+
+static B_FUNC
+process_loop_wait_for_stop_locked_(
+        struct B_ProcessLoop *loop,
+        struct B_ErrorHandler const *eh) {
+    B_ASSERT(loop);
+
     while (loop->loop_state != B_PROCESS_LOOP_NOT_RUNNING) {
         int rc = pthread_cond_wait(
             &loop->loop_state_cond,
@@ -1060,6 +1163,12 @@ retry:;
     }
 
     return true;
+}
+
+static bool
+should_stop_loop_locked_(
+        struct B_ProcessLoop *loop) {
+    return loop->loop_request == B_PROCESS_LOOP_STOP;
 }
 
 #if defined(B_CONFIG_KQUEUE)
@@ -1156,6 +1265,7 @@ static B_FUNC
 check_processes_locked_(
         struct B_ProcessLoop *loop,
         struct B_ErrorHandler const *eh) {
+    check_sigprocmask_locked_(loop);
     bool ok = true;
     struct ProcessInfo_ *proc;
     struct ProcessInfo_ *proc_tmp;
@@ -1206,6 +1316,10 @@ retry:;
             proc,
             wait_status,
             eh) && ok;
+
+        if (should_stop_loop_locked_(loop)) {
+            break;
+        }
     }
     return ok;
 }
@@ -1273,3 +1387,26 @@ process_exited_locked_(
 
     return ok;
 }
+
+#if defined(B_CONFIG_EPOLL)
+static void
+check_sigprocmask_locked_(
+        struct B_ProcessLoop *loop) {
+    if (loop->configuration
+            != B_PROCESS_CONFIGURATION_SIGCHLD_MASKED) {
+        return;
+    }
+
+    sigset_t sigmask;
+    int rc = sigprocmask(SIG_BLOCK, NULL, &sigmask);
+    B_ASSERT(rc);
+
+    if (!sigismember(&sigmask, SIGCHLD)) {
+        fprintf(
+            stderr,
+            "b: FATAL: SIGCHLD is not masked (see B_PROCESS_CONFIGURATION_SIGCHLD_MASKED)\n");
+        fflush(stderr);
+        abort();
+    }
+}
+#endif

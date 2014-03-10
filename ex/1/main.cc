@@ -525,6 +525,7 @@ main(
     B_ProcessLoop *process_loop_raw;
     if (!b_process_loop_allocate(
             1,
+            b_process_auto_configuration_unsafe(),
             &process_loop_raw,
             eh)) {
         return 1;

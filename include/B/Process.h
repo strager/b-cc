@@ -24,8 +24,55 @@ struct B_ErrorHandler;
 //   application.
 //
 // Thread-safe: YES
-// Signal-safe: NO
+// Signal-safe: NO, unless specified otherwise
 struct B_ProcessLoop;
+
+// Configuration for process-wide invariants related to
+// signal handling on POSIX systems.
+//
+// POSIX signals are norotious for being non-composable.
+// In practice, signal handlers and masks are owned by the
+// application, and libraries (assuming they are good
+// citizens) must expose APIs if they wish to leverage
+// signals.
+enum B_ProcessConfiguration {
+    // A ProcessLoop will use Win32 APIs.  Valid only on
+    // Win32 (Microsoft Windows).
+    B_PROCESS_CONFIGURATION_WIN32 = 1,
+
+    // A ProcessLoop will use kqueue to handle SIGCHLD
+    // signals.  Valid only on systems supporting kqueue
+    // (e.g. Mac OS X and FreeBSD).
+    B_PROCESS_CONFIGURATION_KQUEUE = 2,
+
+    // A ProcessLoop will use POSIX APIs.  SIGCHLD has been
+    // masked by the caller (with sigprocmask), and will
+    // remain masked until the ProcessLoop is deallocated.
+    // Valid only on Linux.
+    //
+    // This configuration is necessary due to the semantics
+    // of signalfd().
+    //
+    // If SIGCHLD becomes unmasked, B may call abort().
+    B_PROCESS_CONFIGURATION_SIGCHLD_MASKED = 3,
+
+    // A ProcessLoop will use POSIX APIs.  The ProcessLoop
+    // will be notified of a SIGCHLD signal via a call to
+    // b_process_loop_sigchld.  Valid only on POSIX systems.
+    //
+    // Example usage:
+    //
+    // #include <signal.h>
+    // void catch_sigchld(int signo) {
+    //   assert(signo == SIGCHLD);
+    //   b_process_loop_sigchld();
+    // }
+    // int main() {
+    //   signal(SIGCHLD, catch_sigchld);
+    //   /* ... */
+    // }
+    B_PROCESS_CONFIGURATION_SIGCHLD_CALL = 4,
+};
 
 typedef B_FUNC
 B_ProcessExitCallback(
@@ -43,6 +90,13 @@ B_ProcessErrorCallback(
 extern "C" {
 #endif
 
+// Installs signal handlers or signal masks as necessary for
+// ProcessLoop to function correctly.  Returns a
+// configuration which should be passed to
+// b_process_loop_allocate.  Idempotent.
+B_EXPORT enum B_ProcessConfiguration
+b_process_auto_configuration_unsafe(void);
+
 // Allocates a ProcessLoop with no processes.  Processes can
 // be run on the returned ProcessLoop using
 // b_process_loop_exec.  concurrent_process_limit is the
@@ -52,6 +106,7 @@ extern "C" {
 B_EXPORT_FUNC
 b_process_loop_allocate(
         size_t concurrent_process_limit,
+        enum B_ProcessConfiguration,
         B_OUTPTR struct B_ProcessLoop **,
         struct B_ErrorHandler const *);
 
@@ -72,7 +127,7 @@ b_process_loop_deallocate(
 // FIXME(strager): What a bummer!
 //
 // When b_process_loop_stop is called, the thread is
-// terminated.  
+// terminated.
 B_EXPORT_FUNC
 b_process_loop_run_async_unsafe(
         struct B_ProcessLoop *,
@@ -99,9 +154,9 @@ b_process_loop_run_sync(
 // again.  If B_ERROR_IGNORE is requested, the failure to
 // kill the process is ignored.  If B_ERROR_ABORT is
 // requested, the process is hard-killed[2], and
-// b_process_loop_stop waits
+// b_process_loop_kill waits
 // process_force_kill_after_picoseconds for the function to
-// die.  In any case, b_process_loop_stop returns true if a
+// die.  In any case, b_process_loop_kill returns true if a
 // process fails to be killed.
 //
 // [1] On POSIX-like systems, a process is soft-killed by
@@ -121,6 +176,8 @@ b_process_loop_kill(
 
 // Causes b_process_loop_run_sync to return.  Processes
 // running in the ProcessLoop continue to run.
+// Non-blocking, thus may be called from a ProcessLoop
+// callback.
 B_EXPORT_FUNC
 b_process_loop_stop(
         struct B_ProcessLoop *,
@@ -143,6 +200,15 @@ b_process_loop_exec(
         B_ProcessErrorCallback *,
         void *callback_opaque,
         struct B_ErrorHandler const *);
+
+// Call when SIGCHLD is received if using the
+// B_PROCESS_CONFIGURATION_SIGCHLD_CALL configuration.
+// Valid only on POSIX systems.
+//
+// Thread-safe: YES
+// Signal-safe: YES
+B_EXPORT void
+b_process_loop_sigchld(void);
 
 #if defined(__cplusplus)
 }
