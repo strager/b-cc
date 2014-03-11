@@ -6,6 +6,7 @@ out_dir := out
 vendor_gtest := vendor/gtest-1.7.0
 
 out_dirs := \
+	$(out_dir)/ex/1 \
 	$(out_dir)/src \
 	$(out_dir)/test \
 	$(out_dir)/$(vendor_gtest)/src
@@ -18,6 +19,10 @@ cc_files := $(wildcard src/*.cc)
 o_files := \
 	$(addprefix $(out_dir)/,$(c_files:.c=.c.o) $(cc_files:.cc=.cc.o))
 
+ex1_cc_files := $(wildcard ex/1/*.cc)
+ex1_o_files := \
+	$(addprefix $(out_dir)/,$(ex1_cc_files:.cc=.cc.o))
+
 gtest_cc_files := \
 	$(wildcard test/*.cc) \
 	$(vendor_gtest)/src/gtest-all.cc \
@@ -28,7 +33,7 @@ gtest_o_files := \
 c_cc_flags := -Iinclude -g -Wall -Wextra -pedantic -Werror
 CFLAGS += $(c_cc_flags) -std=c11
 CXXFLAGS += $(c_cc_flags) -std=c++11
-LDFLAGS += $(c_cc_flags)
+LDFLAGS +=
 
 # TODO(strager): Remove need for these extensions.
 ifeq ($(cc_is_clang),1)
@@ -77,14 +82,14 @@ b: $(b_lib_shared_file)
 examples: ex1
 
 .PHONY: ex1
-ex1: $(out_dir)/ex1
+ex1: $(out_dir)/ex/1/ex1
 
 .PHONY: gtest
 gtest: $(out_dir)/test/gtest
 
 .PHONY: test-ex1
 test-ex1: ex1
-	$(out_dir)/ex1
+	$(out_dir)/ex/1/ex1
 
 .PHONY: test-gtest
 test-gtest: ex1
@@ -112,8 +117,11 @@ $(out_dir)/%.c.o: %.c $(h_files) $(build_files) | $(out_dirs)
 $(out_dir)/%.cc.o: %.cc $(h_files) $(build_files) | $(out_dirs)
 	$(CXX) -c -o $@ $(CXXFLAGS) $<
 
-$(out_dir)/ex1: ex/1/main.cc $(h_files) $(b_lib_shared_file) $(build_files) | $(out_dirs)
-	$(CXX) -o $@ $(CXXFLAGS) $(b_lib_shared_file) ex/1/main.cc
+$(out_dir)/ex/1/%.cc.o: ex/1/%.cc $(h_files) $(build_files) | $(out_dirs)
+	$(CXX) -c -o $@ $(CXXFLAGS) $<
+
+$(out_dir)/ex/1/ex1: $(ex1_o_files) $(h_files) $(b_lib_shared_file) $(build_files) | $(out_dirs)
+	$(CXX) -o $@ $(ex1_o_files) $(b_lib_shared_file) $(LDFLAGS)
 
 $(out_dir)/test/gtest: $(gtest_o_files) $(h_files) $(b_lib_shared_file) $(build_files) | $(out_dirs)
-	$(CXX) -o $@ $(LDFLAGS) $(b_lib_shared_file) $(gtest_o_files)
+	$(CXX) -o $@ $(gtest_o_files) $(b_lib_shared_file) $(LDFLAGS)

@@ -1,6 +1,5 @@
 env:
-    # FIXME(strager): gcc-4.8 fails to link ex1 in Travis CI .
-    #- cc=gcc-4.8 cxx=g++-4.8 apt_packages="g++-4.8 libstdc++-4.8-dev"
+    - cc=gcc-4.8 cxx=g++-4.8 apt_packages="g++-4.8 libstdc++-4.8-dev"
     - cc=clang-3.3 cxx=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.8-dev"
     - cc=clang-3.4 cxx=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.8-dev"
 before_install:
