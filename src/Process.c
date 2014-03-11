@@ -3,6 +3,11 @@
 
 #include <B/Config.h>
 
+// If defined, always assume processes need to be enqueued
+// (i.e. a running loop will start the process).  If not
+// defined, processes can be spawned immediately.
+//#define B_DEBUG_ALWAYS_ENQUEUE
+
 // FIXME(strager): Must be included before other files for
 // some reason.  Otherwise, sigemptyset is not defined.
 #if defined(B_CONFIG_EPOLL)
@@ -37,6 +42,7 @@
 #endif
 
 #include <errno.h>
+#include <string.h>
 #include <sys/queue.h>
 
 #if defined(B_CONFIG_PTHREAD)
@@ -74,9 +80,25 @@
             (_var) = (_tmp_var))
 #endif
 
+#if !defined(LIST_FOREACH)
+# if !defined(__GLIBC__)
+#  error "Missing LIST_FOREACH"
+# endif
+# define LIST_FOREACH(_var, _head, _name) \
+    for ( \
+            (_var) = (_head)->lh_first; \
+            (_var); \
+            (_var) = (_var)->_name.le_next)
+#endif
+
 // FIXME(strager): Reporting errors while holding a lock is
 // a bad idea!
 #define B_ERROR_WHILE_LOCKED() B_BUG()
+
+#if defined(B_CONFIG_POSIX_SPAWN)
+// FIXME(strager)
+# define B_INVALID_PID ((pid_t) -1)
+#endif
 
 enum {
     // The EVFILT_USER kevent ident for the kevent which is
@@ -139,7 +161,12 @@ struct ProcessInfo_ {
     B_ProcessExitCallback *B_CONST_STRUCT_MEMBER exit_callback;
     B_ProcessErrorCallback *B_CONST_STRUCT_MEMBER error_callback;
     void *B_CONST_STRUCT_MEMBER callback_opaque;
-    pid_t B_CONST_STRUCT_MEMBER pid;
+    pid_t pid;
+
+    // Locked by owning ProcessLoop::lock.  If non-NULL,
+    // this process hasn't yet started; it is queued for
+    // start.
+    B_OPT char const *const *args;
 
     // Locked by owning ProcessLoop::lock.
     LIST_ENTRY(ProcessInfo_) link;
@@ -154,6 +181,15 @@ struct ProcessLoopRunAsyncClosure_ {
     bool errored;
     struct B_Error error;
 };
+
+// Duplicates args such that a call to b_deallocate on the
+// output pointer will deallocate the entire args array,
+// including strings.
+static B_FUNC
+dup_args_(
+        char const *const *args,
+        B_OUTPTR char const *const **,
+        struct B_ErrorHandler const *);
 
 static B_FUNC
 create_async_thread_(
@@ -173,6 +209,31 @@ static B_FUNC
 spawn_process_(
         char const *const *args,
         B_OUT pid_t *,
+        struct B_ErrorHandler const *);
+
+static B_FUNC
+process_loop_exec_now_locked_(
+        struct B_ProcessLoop *,
+        struct ProcessInfo_ *,
+        char const *const *args,
+        struct B_ErrorHandler const *);
+
+static B_FUNC
+process_loop_exec_later_locked_(
+        struct B_ProcessLoop *,
+        struct ProcessInfo_ *,
+        char const *const *args,
+        struct B_ErrorHandler const *);
+
+static bool
+process_loop_can_exec_one_more_locked_(
+        struct B_ProcessLoop *);
+
+// Spawns processes until either the queue is empty or
+// concurrent_process_limit is reached.
+static B_FUNC
+process_loop_fill_process_list_locked_(
+        struct B_ProcessLoop *,
         struct B_ErrorHandler const *);
 
 static B_FUNC
@@ -198,6 +259,14 @@ set_process_loop_state_locked_(
 
 static bool
 should_stop_loop_locked_(
+        struct B_ProcessLoop *);
+
+static bool
+process_is_queued_locked_(
+        struct ProcessInfo_ const *);
+
+static size_t
+running_process_count_locked_(
         struct B_ProcessLoop *);
 
 #if defined(B_CONFIG_KQUEUE)
@@ -670,47 +739,107 @@ b_process_loop_exec(
         return false;
     }
 
-    // NOTE[late spawn]: Spawn as late as possible, so we
-    // don't need to kill the process when unwinding due to
-    // an error.
-    pid_t pid;
-    if (!spawn_process_(args, &pid, eh)) {
-        B_ERROR_WHILE_LOCKED();
-        (void) b_deallocate(proc, eh);
-        return false;
-    }
     *proc = (struct ProcessInfo_) {
         .exit_callback = exit_callback,
         .error_callback = error_callback,
         .callback_opaque = callback_opaque,
-        .pid = pid,
+        .args = NULL,
+        .pid = B_INVALID_PID,
         // .link
     };
+#if defined(B_DEBUG_ALWAYS_ENQUEUE)
+    bool exec_now = false;
+    (void) running_process_count_locked_;
+#else
+    bool exec_now
+        = process_loop_can_exec_one_more_locked_(loop);
+#endif
+    bool ok = exec_now
+        ? process_loop_exec_now_locked_(
+                loop,
+                proc,
+                args,
+                eh)
+        : process_loop_exec_later_locked_(
+                loop,
+                proc,
+                args,
+                eh);
+    if (!ok) {
+        B_ERROR_WHILE_LOCKED();
+        (void) b_deallocate(proc, eh);
+        goto done;
+    }
 
     LIST_INSERT_HEAD(&loop->processes, proc, link);
 
-#if defined(B_CONFIG_KQUEUE)
-    int rc = kevent(loop->queue, &(struct kevent) {
-        .ident = pid,
-        .filter = EVFILT_PROC,
-        .flags = EV_ADD,
-        .fflags = NOTE_EXIT | NOTE_EXITSTATUS,
-        .data = (intptr_t) NULL,
-        .udata = proc,
-    }, 1, NULL, 0, NULL);
-    B_ASSERT(rc == 0);  // FIXME(strager)
-#elif defined(B_CONFIG_EPOLL)
-    // epoll does not support waiting for child processes
-    // like kqueue does.  Instead, we wait for SIGCHLD using
-    // the epoll_sigchld descriptor.
-    // FIXME(strager): Why do we need to interrupt here?
-    if (!process_loop_interrupt_locked_(loop, eh)) {
-        // Ignore.
-    }
-#endif
-
+done:
     B_MUTEX_MUST_UNLOCK(loop->lock, eh);
+    return true;
+}
 
+static B_FUNC
+dup_args_(
+        char const *const *args,
+        B_OUTPTR char const *const **out,
+        struct B_ErrorHandler const *eh) {
+    B_ASSERT(args);
+    B_ASSERT(out);
+
+    size_t arg_count = 0;    // Excludes NULL terminator.
+    size_t args_length = 0;  // Excludes \0 terminators.
+    for (char const *const *p = args; *p; ++p) {
+        arg_count += 1;
+        args_length += strlen(*p);
+    }
+
+    // Layout:
+    // 0000: 0008  // Pointer to "echo".
+    // 0002: 000D  // Pointer to "hello".
+    // 0004: 0013  // Pointer to "world".
+    // 0006: 0000  // NULL terminator for args.
+    // 0008: "echo\0"
+    // 000D: "hello\0"
+    // 0013: "world\0"
+    // 0019: <end of buffer>
+    size_t arg_pointers_size
+        = sizeof(char const *) * (arg_count + 1);
+    size_t arg_strings_size = args_length + arg_count;
+    size_t arg_buffer_size
+        = arg_pointers_size + arg_strings_size;
+    char const *const *args_buffer;
+    if (!b_allocate(
+            arg_buffer_size,
+            (void **) &args_buffer,
+            eh)) {
+        return false;
+    }
+    void *args_buffer_end
+        = (char *) args_buffer + arg_buffer_size;
+
+    // Copy arg pointers.
+    char const **out_arg_pointer
+        = (char const **) args_buffer;
+    for (char const *const *p = args; *p; ++p) {
+        *out_arg_pointer++ = *p;
+    }
+    *out_arg_pointer++ = NULL;
+    B_ASSERT((char *) out_arg_pointer
+        == (char *) args_buffer + arg_pointers_size);
+
+    // Copy arg strings.
+    char *out_arg_string = (char *) out_arg_pointer;
+    for (char const *const *p = args; *p; ++p) {
+        size_t p_size = strlen(*p) + 1;
+        B_ASSERT(out_arg_string + p_size
+            <= (char *) args_buffer_end);
+        memcpy(out_arg_string, *p, p_size);
+        B_ASSERT(out_arg_string[p_size - 1] == '\0');
+        out_arg_string += p_size;
+    }
+    B_ASSERT(out_arg_string == (char *) args_buffer_end);
+
+    *out = args_buffer;
     return true;
 }
 
@@ -815,7 +944,6 @@ run_sync_locked_(
     B_ASSERT(loop->loop_state
         == B_PROCESS_LOOP_NOT_RUNNING);
     while (!should_stop_loop_locked_(loop)) {
-#if defined(B_CONFIG_EPOLL)
         if (!set_process_loop_state_locked_(
                 loop,
                 B_PROCESS_LOOP_BUSY,
@@ -823,14 +951,22 @@ run_sync_locked_(
             B_ERROR_WHILE_LOCKED();
             goto fail_locked;
         }
+
+        if (!process_loop_fill_process_list_locked_(
+                loop,
+                eh)) {
+            // Ignore.
+        }
+
+#if defined(B_CONFIG_EPOLL)
         if (!check_processes_locked_(loop, eh)) {
             // Ignore.
         }
+#endif
 
         if (should_stop_loop_locked_(loop)) {
             break;
         }
-#endif
 
         if (!set_process_loop_state_locked_(
                 loop,
@@ -1025,6 +1161,133 @@ retry:;
 }
 
 static B_FUNC
+process_loop_exec_now_locked_(
+        struct B_ProcessLoop *loop,
+        struct ProcessInfo_ *proc,
+        char const *const *args,
+        struct B_ErrorHandler const *eh) {
+    B_ASSERT(loop);
+    B_ASSERT(proc);
+    B_ASSERT(args);
+    B_ASSERT(!proc->args);
+    B_ASSERT(proc->pid == B_INVALID_PID);
+
+    B_LOG(B_DEBUG, "Executing proc %p now", proc);
+
+    // NOTE[late spawn]: Spawn as late as possible, so we
+    // don't need to kill the process when unwinding due to
+    // an error.
+    pid_t pid;
+    if (!spawn_process_(args, &pid, eh)) {
+        B_ERROR_WHILE_LOCKED();
+        (void) b_deallocate(proc, eh);
+        return false;
+    }
+    proc->pid = pid;
+
+#if defined(B_CONFIG_KQUEUE)
+retry_kevent:;
+    int rc = kevent(loop->queue, &(struct kevent) {
+        .ident = pid,
+        .filter = EVFILT_PROC,
+        .flags = EV_ADD,
+        .fflags = NOTE_EXIT | NOTE_EXITSTATUS,
+        .data = (intptr_t) NULL,
+        .udata = proc,
+    }, 1, NULL, 0, NULL);
+    if (rc == -1) {
+        switch (B_RAISE_ERRNO_ERROR(eh, errno, "kevent")) {
+        case B_ERROR_RETRY:
+            // FIXME(strager)
+            //B_ERROR_WHILE_LOCKED();
+            goto retry_kevent;
+        case B_ERROR_IGNORE:
+        case B_ERROR_ABORT:
+            // FIXME(strager): The process is perhaps
+            // running.  Should we kill it?
+            B_ERROR_WHILE_LOCKED();
+            return false;
+        }
+    }
+#elif defined(B_CONFIG_EPOLL)
+    // epoll does not support waiting for child processes
+    // like kqueue does.  Instead, we wait for SIGCHLD using
+    // the epoll_sigchld descriptor.
+    // FIXME(strager): Why do we need to interrupt here?
+    // FIXME(strager): We shouldn't interrupt the loop if we
+    // are calling this from within the loop.
+    if (!process_loop_interrupt_locked_(loop, eh)) {
+        // Ignore.
+    }
+#endif
+
+    return true;
+}
+
+static B_FUNC
+process_loop_exec_later_locked_(
+        struct B_ProcessLoop *loop,
+        struct ProcessInfo_ *proc,
+        char const *const *args,
+        struct B_ErrorHandler const *eh) {
+    B_ASSERT(loop);
+    B_ASSERT(proc);
+    B_ASSERT(args);
+    B_ASSERT(!proc->args);
+    B_ASSERT(proc->pid == B_INVALID_PID);
+
+    B_LOG(B_DEBUG, "Executing proc %p later", proc);
+
+    if (!dup_args_(args, &proc->args, eh)) {
+        B_ERROR_WHILE_LOCKED();
+        return false;
+    }
+    if (!process_loop_interrupt_locked_(loop, eh)) {
+        // Ignore.
+    }
+    return true;
+}
+
+static bool
+process_loop_can_exec_one_more_locked_(
+        struct B_ProcessLoop *loop) {
+    return loop->concurrent_process_limit == 0
+        || loop->concurrent_process_limit
+            != running_process_count_locked_(loop);
+}
+
+static B_FUNC
+process_loop_fill_process_list_locked_(
+        struct B_ProcessLoop *loop,
+        struct B_ErrorHandler const *eh) {
+    B_ASSERT(loop);
+    bool ok = true;
+    struct ProcessInfo_ *proc;
+    LIST_FOREACH(
+            proc,
+            &loop->processes,
+            link) {
+        if (!process_loop_can_exec_one_more_locked_(loop)) {
+            break;
+        }
+        if (process_is_queued_locked_(proc)) {
+            char const *const *args = proc->args;
+            proc->args = NULL;
+            ok = process_loop_exec_now_locked_(
+                loop,
+                proc,
+                args,
+                eh) && ok;
+            if (!b_deallocate((void *) args, eh)) {
+                // FIXME(strager)
+                B_BUG();
+            }
+        }
+    }
+    return ok;
+}
+
+static B_FUNC
 process_loop_interrupt_locked_(
         struct B_ProcessLoop *loop,
         struct B_ErrorHandler const *eh) {
@@ -1171,6 +1434,36 @@ should_stop_loop_locked_(
     return loop->loop_request == B_PROCESS_LOOP_STOP;
 }
 
+static bool
+process_is_queued_locked_(
+        struct ProcessInfo_ const *proc) {
+    B_ASSERT(proc);
+    if (proc->pid == B_INVALID_PID) {
+        B_ASSERT(proc->args);
+        return true;
+    } else {
+        B_ASSERT(!proc->args);
+        return false;
+    }
+}
+
+static size_t
+running_process_count_locked_(
+        struct B_ProcessLoop *loop) {
+    B_ASSERT(loop);
+    size_t count = 0;
+    struct ProcessInfo_ *proc;
+    LIST_FOREACH(
+            proc,
+            &loop->processes,
+            link) {
+        if (!process_is_queued_locked_(proc)) {
+            count += 1;
+        }
+    }
+    return count;
+}
+
 #if defined(B_CONFIG_KQUEUE)
 static B_FUNC
 handle_event_locked_(
@@ -1287,6 +1580,11 @@ check_processes_locked_(
             &loop->processes,
             link,
             proc_tmp) {
+        if (process_is_queued_locked_(proc)) {
+            continue;
+        }
+        B_ASSERT(proc->pid != B_INVALID_PID);
+
 retry:;
         int wait_status;
         pid_t rc = waitpid(

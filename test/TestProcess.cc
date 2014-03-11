@@ -4,6 +4,19 @@
 #include <B/Thread.h>
 
 #include <gtest/gtest.h>
+#include <list>
+#include <stdint.h>
+#include <sys/time.h>
+
+static uint64_t
+timeval_microseconds_(
+        struct timeval tv) {
+    return tv.tv_usec
+        + (uint64_t)tv.tv_sec * (uint64_t)(1000 * 1000);
+}
+
+static uint64_t const
+g_variance_microseconds_ = 100 * 1000;  // 100ms
 
 class ExecClosure_ {
 public:
@@ -19,10 +32,6 @@ public:
             ExecClosure_ &&) = delete;
 
     ExecClosure_() :
-#if defined(B_CONFIG_PTHREAD)
-            lock(PTHREAD_MUTEX_INITIALIZER),
-            cond(PTHREAD_COND_INITIALIZER),
-#endif
             callback_called(false),
             received_exit_code(false),
             exit_code(0),
@@ -51,20 +60,55 @@ public:
 
     void
     await(
-            bool *received_exit_code,
-            int *exit_code) {
-        B_ASSERT(this->did_exec);
+            B_OUTPTR bool *received_exit_code,
+            B_OUTPTR int *exit_code) {
+        ExecClosure_ **signaled_closure;
+        ExecClosure_ *self = this;
+        await_many(
+            &self,
+            &self + 1,
+            &signaled_closure,
+            received_exit_code,
+            exit_code);
+        B_ASSERT(*signaled_closure == this);
+    }
+
+    template<typename TIter>
+    static void
+    await_many(
+            TIter const &begin,
+            TIter const &end,
+            B_OUTPTR TIter *signaled_closure,
+            B_OUTPTR bool *received_exit_code,
+            B_OUTPTR int *exit_code) {
+        B_ASSERT(begin != end);
+
+        for (TIter i = begin; i != end; ++i) {
+            ExecClosure_ *closure = *i;
+            B_ASSERT(closure->did_exec);
+        }
+
 #if defined(B_CONFIG_PTHREAD)
         {
-            B_PthreadMutexHolder locker(&this->lock);
-            while (!this->callback_called) {
+            B_PthreadMutexHolder locker(&shared_lock);
+
+            for (;;) {
+                for (TIter i = begin; i != end; ++i) {
+                    ExecClosure_ *closure = *i;
+                    if (closure->callback_called) {
+                        *signaled_closure = i;
+                        *received_exit_code
+                            = closure->received_exit_code;
+                        *exit_code = closure->exit_code;
+                        return;
+                    }
+                }
+
                 int rc = pthread_cond_wait(
-                    &this->cond,
-                    &this->lock);
+                    &shared_cond,
+                    &shared_lock);
                 ASSERT_EQ(0, rc);
             }
-            *received_exit_code = this->received_exit_code;
-            *exit_code = this->exit_code;
         }
 #else
 # error "Unknown threads implementation"
@@ -73,9 +117,10 @@ public:
 
 private:
 #if defined(B_CONFIG_PTHREAD)
-    pthread_mutex_t lock;
-    pthread_cond_t cond;
+    static pthread_mutex_t shared_lock;
+    static pthread_cond_t shared_cond;
 #endif
+
     bool callback_called;
     bool received_exit_code;
     int exit_code;
@@ -89,14 +134,14 @@ private:
         auto closure = static_cast<ExecClosure_ *>(opaque);
         {
 #if defined(B_CONFIG_PTHREAD)
-            B_PthreadMutexHolder locker(&closure->lock);
+            B_PthreadMutexHolder locker(&shared_lock);
 #endif
             B_ASSERT(!closure->callback_called);
             closure->received_exit_code = true;
             closure->exit_code = exit_code;
             closure->callback_called = true;
 #if defined(B_CONFIG_PTHREAD)
-            int rc = pthread_cond_signal(&closure->cond);
+            int rc = pthread_cond_signal(&shared_cond);
             B_ASSERT(rc == 0);
 #endif
             return true;
@@ -111,19 +156,27 @@ private:
         auto closure = static_cast<ExecClosure_ *>(opaque);
         {
 #if defined(B_CONFIG_PTHREAD)
-            B_PthreadMutexHolder locker(&closure->lock);
+            B_PthreadMutexHolder locker(&shared_lock);
 #endif
             B_ASSERT(!closure->callback_called);
             closure->received_exit_code = false;
             closure->callback_called = true;
 #if defined(B_CONFIG_PTHREAD)
-            int rc = pthread_cond_signal(&closure->cond);
+            int rc = pthread_cond_signal(&shared_cond);
             B_ASSERT(rc == 0);
 #endif
             return true;
         }
     }
 };
+
+#if defined(B_CONFIG_PTHREAD)
+pthread_mutex_t
+ExecClosure_::shared_lock = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_cond_t
+ExecClosure_::shared_cond = PTHREAD_COND_INITIALIZER;
+#endif
 
 TEST(TestProcess, AllocateDeallocate) {
     B_ErrorHandler const *eh = nullptr;
@@ -422,6 +475,100 @@ TEST(TestProcess, TenProcessesNoLimit) {
         EXPECT_TRUE(received_exit_code);
         if (received_exit_code) {
             EXPECT_EQ(0, exit_code);
+        }
+    }
+
+    EXPECT_TRUE(b_process_loop_deallocate(loop, 0, eh));
+}
+
+TEST(TestProcess, TenProcessesThreeLimit) {
+    size_t const process_count = 10;
+    size_t const process_limit = 3;
+    B_ErrorHandler const *eh = nullptr;
+
+    B_ProcessLoop *loop;
+    ASSERT_TRUE(b_process_loop_allocate(
+        process_limit,
+        b_process_auto_configuration_unsafe(),
+        &loop,
+        eh));
+    ASSERT_TRUE(b_process_loop_run_async_unsafe(loop, eh));
+
+    ExecClosure_ exec_closures[process_count];
+
+    char const *const args[] = {
+        "sleep",
+        "3",
+        nullptr,
+    };
+    for (size_t i = 0; i < process_count; ++i) {
+        ASSERT_TRUE(exec_closures[i].exec(loop, args, eh));
+    }
+
+    std::list<ExecClosure_ *> remaining_closures;
+    for (size_t i = 0; i < process_count; ++i) {
+        remaining_closures.push_back(&exec_closures[i]);
+    }
+
+    uint64_t times_us[process_count];
+    for (size_t i = 0; !remaining_closures.empty(); ++i) {
+        std::list<ExecClosure_ *>::iterator
+            signaled_closure;
+        bool received_exit_code;
+        int exit_code;
+        ExecClosure_::await_many(
+            remaining_closures.begin(),
+            remaining_closures.end(),
+            &signaled_closure,
+            &received_exit_code,
+            &exit_code);
+        EXPECT_TRUE(received_exit_code);
+        if (received_exit_code) {
+            EXPECT_EQ(0, exit_code);
+        }
+        struct timeval tv;
+        ASSERT_EQ(0, gettimeofday(&tv, nullptr));
+        times_us[i] = timeval_microseconds_(tv);
+        remaining_closures.erase(signaled_closure);
+    }
+
+    // Ensure times within a round match, and times across
+    // rounds differ by three seconds.  E.g.
+    //
+    // 0: 10s
+    // 1: 10s
+    // 2: 10s
+    // 3: 13s
+    // 4: 13s
+    // 5: 14s  // Bad!
+    // 6: 16s
+    size_t const round_count
+        = (process_count + process_limit - 1)
+        / process_limit;
+    B_STATIC_ASSERT(
+        round_count == 4,
+        "round_count inaccurate; please change this assertion or fix the formula");
+    for (size_t round = 0; round < round_count; ++round) {
+        size_t round_start = round * process_limit;
+        size_t round_end = std::min(
+            round_start + process_limit,
+            process_count);
+        uint64_t first_time_us = times_us[round_start];
+
+        EXPECT_NEAR(
+            times_us[0]
+                + round * (3 * 1000 * 1000 /* 3s */),
+            first_time_us,
+            g_variance_microseconds_)
+            << "round " << round
+            << " did not come " << round * 3 << "s"
+            << " after round 0";
+        for (size_t i = round_start; i < round_end; ++i) {
+            EXPECT_NEAR(
+                first_time_us,
+                times_us[i],
+                g_variance_microseconds_)
+                << "round " << round << ", index " << i;
         }
     }
 
