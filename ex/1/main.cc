@@ -282,6 +282,7 @@ run_link(
         "src/AnswerContext.c.o",
         "src/Error.c.o",
         "src/Log.c.o",
+        "src/Misc.c.o",
         "src/Process.c.o",
         "src/QuestionDispatch.c.o",
         "src/QuestionQueue.cc.o",
