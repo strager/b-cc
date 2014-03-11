@@ -92,7 +92,7 @@ test-ex1: ex1
 	$(out_dir)/ex/1/ex1
 
 .PHONY: test-gtest
-test-gtest: ex1
+test-gtest: gtest
 	$(out_dir)/test/gtest
 
 .PHONY: clean
