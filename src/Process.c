@@ -1220,6 +1220,19 @@ handle_event_locked_(
     if (event->data.fd == loop->epoll_interrupt) {
         // Interrupt event.
         B_LOG(B_DEBUG, "Loop %p interrupted", loop);
+retry_eventfd_read:;
+        eventfd_t value;
+        int rc = eventfd_read(loop->epoll_interrupt, &value);
+        if (rc == -1) {
+            switch (B_RAISE_ERRNO_ERROR(eh, errno, eh)) {
+            case B_ERROR_ABORT:
+            case B_ERROR_IGNORE:
+                return false;
+                return false;
+            case B_ERROR_RETRY:
+                goto retry_eventfd_read;
+            }
+        }
         return true;
     } else if (event->data.fd == loop->epoll_sigchld) {
         // SIGCHLD.

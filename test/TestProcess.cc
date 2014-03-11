@@ -389,3 +389,41 @@ TEST(TestProcess, ReentrantStopSyncWithOthersRunning) {
 
     EXPECT_TRUE(b_process_loop_deallocate(loop, 0, eh));
 }
+
+TEST(TestProcess, TenProcessesNoLimit) {
+    size_t const process_count = 10;
+    B_ErrorHandler const *eh = nullptr;
+
+    B_ProcessLoop *loop;
+    ASSERT_TRUE(b_process_loop_allocate(
+        0,
+        b_process_auto_configuration_unsafe(),
+        &loop,
+        eh));
+    ASSERT_TRUE(b_process_loop_run_async_unsafe(loop, eh));
+
+    ExecClosure_ exec_closures[process_count];
+
+    char const *const args[] = {
+        "sleep",
+        "3",
+        nullptr,
+    };
+    for (size_t i = 0; i < process_count; ++i) {
+        ASSERT_TRUE(exec_closures[i].exec(loop, args, eh));
+    }
+
+    for (size_t i = 0; i < process_count; ++i) {
+        bool received_exit_code;
+        int exit_code;
+        exec_closures[i].await(
+            &received_exit_code,
+            &exit_code);
+        EXPECT_TRUE(received_exit_code);
+        if (received_exit_code) {
+            EXPECT_EQ(0, exit_code);
+        }
+    }
+
+    EXPECT_TRUE(b_process_loop_deallocate(loop, 0, eh));
+}
