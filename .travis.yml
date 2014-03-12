@@ -14,7 +14,15 @@ before_script:
     - echo "$CC" && "$CC" --version
     - echo "$CXX" && "$CXX" --version
 script:
-    - make
     - make test
     - if $valgrind; then make test run_with='valgrind --tool=memcheck'; fi
-    # TODO(strager): Helgrind (not clean) and DRD (crashes).
+    - if $valgrind; then make test run_with='valgrind --tool=helgrind'; fi
+
+    # Now with optimizations!
+    - export CFLAGS='-O3'
+    - export CXXFLAGS="$CFLAGS"
+    - make test
+    - if $valgrind; then make test run_with='valgrind --tool=memcheck'; fi
+    - if $valgrind; then make test run_with='valgrind --tool=helgrind'; fi
+
+    # TODO(strager): DRD (valgrind tool) crashes on vfork (posix_spawn).
