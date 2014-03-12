@@ -425,10 +425,6 @@ retry_eventfd:
 
 retry_signalfd:
     {
-#if defined(B_CONFIG_EPOLL)
-        check_sigprocmask_locked_(loop);
-#endif
-
         sigset_t sigmask;
         sigemptyset(&sigmask);
         sigaddset(&sigmask, SIGCHLD);
@@ -468,6 +464,7 @@ retry_signalfd:
         .epoll_interrupt = epoll_interrupt,
         .epoll_sigchld = epoll_sigchld,
 #endif
+        .configuration = configuration,
         .concurrent_process_limit
             = concurrent_process_limit,
         .loop_state = B_PROCESS_LOOP_NOT_RUNNING,
@@ -1710,7 +1707,7 @@ check_sigprocmask_locked_(
 
     sigset_t sigmask;
     int rc = sigprocmask(SIG_BLOCK, NULL, &sigmask);
-    B_ASSERT(rc);
+    B_ASSERT(rc == 0);
 
     if (!sigismember(&sigmask, SIGCHLD)) {
         fprintf(
