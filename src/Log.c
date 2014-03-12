@@ -8,6 +8,8 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <sys/time.h>
+#include <time.h>
 
 #if defined(B_CONFIG_PTHREAD)
 # include <pthread.h>
@@ -63,6 +65,32 @@ b_log_format_impl(
         B_LOG_FILE,
         "[%s ",
         log_level_name_(log_level));
+
+    // Current time:
+    // Year-Month-Day Hour:Minute:Second.Microsecond
+    {
+        char buffer[256];
+        struct timeval now_tv;
+        if (gettimeofday(&now_tv, NULL) == 0) {
+            struct tm now_tm;
+            (void) localtime_r(
+                &(time_t) {now_tv.tv_sec},
+                &now_tm);
+            size_t rc = strftime(
+                buffer,
+                sizeof(buffer),
+                "%Y-%m-%d %H:%M:%S",
+                &now_tm);
+            if (rc != 0 && rc < sizeof(buffer)
+                    && buffer[rc] == '\0') {
+                (void) fprintf(
+                    B_LOG_FILE,
+                    "%s.%06u ",
+                    buffer,
+                    (unsigned int) now_tv.tv_usec);
+            }
+        }
+    }
 
     // Thread ID.
     // TODO(strager): Print thread name as well.
