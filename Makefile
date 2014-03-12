@@ -1,5 +1,8 @@
 include configure.make
 
+# For example: make test-gtest run_with=valgrind
+run_with :=
+
 build_files := Makefile configure.make
 
 out_dir := out
@@ -89,11 +92,11 @@ gtest: $(out_dir)/test/gtest
 
 .PHONY: test-ex1
 test-ex1: ex1
-	$(out_dir)/ex/1/ex1
+	$(run_with) $(out_dir)/ex/1/ex1
 
 .PHONY: test-gtest
 test-gtest: gtest
-	$(out_dir)/test/gtest
+	$(run_with) $(out_dir)/test/gtest
 
 .PHONY: clean
 clean: | $(out_dirs)
