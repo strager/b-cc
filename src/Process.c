@@ -693,21 +693,6 @@ b_process_loop_exec(
     B_CHECK_PRECONDITION(eh, exit_callback);
     B_CHECK_PRECONDITION(eh, error_callback);
 
-    {
-        // Log the command being run.
-        bool acquired_lock = b_log_lock();
-
-        b_log_format_raw_locked("$");
-        for (char const *const *arg = args; *arg; ++arg) {
-            b_log_format_raw_locked(" %s", *arg);
-        }
-        b_log_format_raw_locked("\n");
-
-        if (acquired_lock) {
-            b_log_unlock();
-        }
-    }
-
     // * Notify the loop, if running, that the process list
     // has changed.
     // * Spawn the child process.
@@ -1096,6 +1081,21 @@ process_loop_exec_now_locked_(
     B_ASSERT(proc->pid == B_INVALID_PID);
 
     B_LOG(B_DEBUG, "Executing proc %p now", proc);
+
+    {
+        // Log the command being run.
+        bool acquired_lock = b_log_lock();
+
+        b_log_format_raw_locked("$");
+        for (char const *const *arg = args; *arg; ++arg) {
+            b_log_format_raw_locked(" %s", *arg);
+        }
+        b_log_format_raw_locked("\n");
+
+        if (acquired_lock) {
+            b_log_unlock();
+        }
+    }
 
     // NOTE[late spawn]: Spawn as late as possible, so we
     // don't need to kill the process when unwinding due to
