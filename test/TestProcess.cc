@@ -574,3 +574,108 @@ TEST(TestProcess, TenProcessesThreeLimit) {
 
     EXPECT_TRUE(b_process_loop_deallocate(loop, 0, eh));
 }
+
+static B_FUNC
+process_begets_process_exec_(
+        ExecReentrantStopClosure_ *,
+        B_ErrorHandler const *);
+
+static B_FUNC
+process_begets_process_exit_(
+        int exit_code,
+        void *opaque,
+        B_ErrorHandler const *);
+
+static B_FUNC
+process_begets_process_error_(
+        B_Error,
+        void *opaque,
+        B_ErrorHandler const *);
+
+static B_FUNC
+process_begets_process_exec_(
+        ExecReentrantStopClosure_ *closure,
+        B_ErrorHandler const *eh) {
+    B_ASSERT(closure);
+    B_ASSERT(closure->loop);
+
+    char const *const args[] = {
+        "true",
+        nullptr,
+    };
+    bool ok = b_process_loop_exec(
+        closure->loop,
+        args,
+        process_begets_process_exit_,
+        process_begets_process_error_,
+        closure + 1,
+        eh);
+    EXPECT_TRUE(ok);
+    return ok;
+}
+
+static B_FUNC
+process_begets_process_exit_(
+        int,
+        void *opaque,
+        B_ErrorHandler const *eh) {
+    auto *closure
+        = static_cast<ExecReentrantStopClosure_ *>(opaque);
+    B_ASSERT(closure);
+
+    EXPECT_FALSE(closure->called);
+    closure->called = true;
+
+    bool ok = true;
+    if (closure->loop) {
+        ok = process_begets_process_exec_(closure, eh)
+            && ok;
+    } else {
+        // HACK(strager)
+        ok = b_process_loop_stop(closure[-1].loop, eh)
+            && ok;
+    }
+    EXPECT_TRUE(ok);
+    return ok;
+}
+
+static B_FUNC
+process_begets_process_error_(
+        B_Error,
+        void *opaque,
+        B_ErrorHandler const *) {
+    auto *closure
+        = static_cast<ExecReentrantStopClosure_ *>(opaque);
+    B_ASSERT(closure);
+
+    closure->called = true;
+    ADD_FAILURE();
+    return true;
+}
+
+TEST(TestProcess, ProcessBegetsProcess) {
+    size_t const nest_level = 10;
+
+    B_ErrorHandler const *eh = nullptr;
+
+    B_ProcessLoop *loop;
+    ASSERT_TRUE(b_process_loop_allocate(
+        0,
+        b_process_auto_configuration_unsafe(),
+        &loop,
+        eh));
+
+    ExecReentrantStopClosure_ closures[nest_level + 1] = {
+        loop, loop, loop, loop, loop,
+        loop, loop, loop, loop, loop,
+        nullptr,
+    };
+
+    ASSERT_TRUE(process_begets_process_exec_(
+        &closures[0],
+        eh));
+
+    ASSERT_TRUE(b_process_loop_run_sync(loop, eh));
+
+    EXPECT_TRUE(b_process_loop_deallocate(loop, 0, eh));
+}
