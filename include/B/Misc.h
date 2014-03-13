@@ -4,12 +4,18 @@
 #include <B/Base.h>
 #include <B/Config.h>
 
-struct B_ErrorHandler;
-
 #if defined(B_CONFIG_EPOLL)
 # include <stdint.h>
 # include <sys/epoll.h>
+#endif
 
+struct B_ErrorHandler;
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
+#if defined(B_CONFIG_EPOLL)
 // epoll_ctl, setting the data to fd.
 B_EXPORT_FUNC
 b_epoll_ctl_fd(
@@ -18,6 +24,19 @@ b_epoll_ctl_fd(
         int fd,
         uint32_t events,
         struct B_ErrorHandler const *);
+#endif
+
+// Duplicates args such that a call to b_deallocate on the
+// output pointer will deallocate the entire args array,
+// including strings.
+B_EXPORT_FUNC
+b_dup_args(
+        char const *const *args,
+        B_OUTPTR char const *const **,
+        struct B_ErrorHandler const *);
+
+#if defined(__cplusplus)
+}
 #endif
 
 #endif
