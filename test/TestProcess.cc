@@ -16,7 +16,7 @@ timeval_microseconds_(
 }
 
 static uint64_t const
-g_variance_microseconds_ = 100 * 1000;  // 100ms
+g_variance_microseconds_ = 500 * 1000;  // 500ms
 
 class ExecClosure_ {
 public:
