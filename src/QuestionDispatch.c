@@ -1,6 +1,7 @@
 #include <B/Alloc.h>
 #include <B/AnswerContext.h>
 #include <B/Assert.h>
+#include <B/Database.h>
 #include <B/DependencyDelegate.h>
 #include <B/Error.h>
 #include <B/QuestionDispatch.h>
@@ -9,9 +10,20 @@
 #include <stdlib.h>
 
 struct AnswerCallbackClosure_ {
-    struct B_AnswerContext *answer_context;
-    struct B_QuestionQueueItemObject *queue_item;
+    struct B_AnswerContext *B_CONST_STRUCT_MEMBER answer_context;
+    struct B_QuestionQueueItemObject *B_CONST_STRUCT_MEMBER queue_item;
+    struct B_Database *B_CONST_STRUCT_MEMBER database;
 };
+
+struct DatabaseDependencyDelegate_ {
+    struct B_DependencyDelegateObject super;
+    struct B_Database *B_CONST_STRUCT_MEMBER database;
+};
+
+B_STATIC_ASSERT(
+    offsetof(struct DatabaseDependencyDelegate_, super)
+        == 0,
+    "DatabaseDependencyDelegate_::super must be the first member");
 
 static B_FUNC
 answer_callback_(
@@ -22,29 +34,46 @@ answer_callback_(
 static B_FUNC
 dispatch_one_(
         struct B_QuestionQueue *question_queue,
+        struct B_Database *database,
         struct B_DependencyDelegateObject *dependency_delegate,
-        QuestionDispatchCallback *callback,
+        B_QuestionDispatchCallback *callback,
         void *callback_opaque,
         bool *keep_going,
         struct B_ErrorHandler const *eh);
 
+static B_FUNC
+delegate_dependency_(
+        struct B_DependencyDelegateObject *,
+        struct B_Question const *from,
+        struct B_QuestionVTable const *from_vtable,
+        struct B_Question const *to,
+        struct B_QuestionVTable const *to_vtable,
+        struct B_ErrorHandler const *);
+
 B_EXPORT_FUNC
 b_question_dispatch(
         struct B_QuestionQueue *question_queue,
-        struct B_DependencyDelegateObject *dependency_delegate,
-        QuestionDispatchCallback *callback,
+        struct B_Database *database,
+        B_QuestionDispatchCallback *callback,
         void *callback_opaque,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, question_queue);
-    B_CHECK_PRECONDITION(eh, dependency_delegate);
-    B_CHECK_PRECONDITION(eh, dependency_delegate->dependency);
+    B_CHECK_PRECONDITION(eh, database);
     B_CHECK_PRECONDITION(eh, callback);
+
+    struct DatabaseDependencyDelegate_ delegate = {
+        .super = {
+            .dependency = delegate_dependency_,
+        },
+        .database = database,
+    };
 
     bool keep_going = true;
     while (keep_going) {
         if (!dispatch_one_(
                 question_queue,
-                dependency_delegate,
+                database,
+                &delegate.super,
                 callback,
                 callback_opaque,
                 &keep_going,
@@ -58,17 +87,58 @@ b_question_dispatch(
 static B_FUNC
 dispatch_one_(
         struct B_QuestionQueue *question_queue,
+        struct B_Database *database,
         struct B_DependencyDelegateObject *dependency_delegate,
-        QuestionDispatchCallback *callback,
+        B_QuestionDispatchCallback *callback,
         void *callback_opaque,
         bool *keep_going,
         struct B_ErrorHandler const *eh) {
+    B_ASSERT(question_queue);
+    B_ASSERT(database);
+    B_ASSERT(dependency_delegate);
+    B_ASSERT(callback);
+    B_ASSERT(keep_going);
+
     struct AnswerCallbackClosure_ *closure = NULL;
     struct B_QuestionQueueItemObject *queue_item = NULL;
     struct B_AnswerContext *answer_context = NULL;
 
-    // Perform allocations before dequeueing to front-load
-    // errors.
+    if (!b_question_queue_dequeue(
+            question_queue,
+            &queue_item,
+            eh)) {
+        goto fail;
+    }
+    if (!queue_item) {
+        *keep_going = false;
+        return true;
+    }
+    B_ASSERT(queue_item->question);
+    B_ASSERT(queue_item->question_vtable);
+    B_ASSERT(queue_item->answer_callback);
+
+    // Try asking the database for an answer.
+    struct B_Answer *answer;
+    if (b_database_look_up_answer(
+            database,
+            queue_item->question,
+            queue_item->question_vtable,
+            &answer,
+            eh) && answer) {
+        bool ok = queue_item->answer_callback(
+            answer,
+            queue_item,
+            eh);
+        (void) b_question_queue_item_object_deallocate(
+            queue_item,
+            eh);
+        return ok;
+    }
+
+    // Answer the question The Hard Way.
+    // FIXME(strager): If AnswerCallbackClosure_ and
+    // B_AnswerContext have the same lifetime, they can be
+    // merged into one allocation.
     if (!b_allocate(
             sizeof(*closure),
             (void **) &closure,
@@ -81,26 +151,10 @@ dispatch_one_(
             eh)) {
         goto fail;
     }
-
-    if (!b_question_queue_dequeue(
-            question_queue,
-            &queue_item,
-            eh)) {
-        goto fail;
-    }
-    if (!queue_item) {
-        (void) b_deallocate(closure, eh);
-        (void) b_deallocate(answer_context, eh);
-        *keep_going = false;
-        return true;
-    }
-    B_ASSERT(queue_item->question);
-    B_ASSERT(queue_item->question_vtable);
-    B_ASSERT(queue_item->answer_callback);
-
     *closure = (struct AnswerCallbackClosure_) {
         .answer_context = answer_context,
         .queue_item = queue_item,
+        .database = database,
     };
     *answer_context = (struct B_AnswerContext) {
         .question = queue_item->question,
@@ -151,10 +205,19 @@ answer_callback_(
     B_CHECK_PRECONDITION(eh, closure->queue_item);
     B_CHECK_PRECONDITION(eh, closure->queue_item->answer_callback);
 
+    if (!b_database_record_answer(
+            closure->database,
+            closure->answer_context->question,
+            closure->answer_context->question_vtable,
+            answer,
+            eh)) {
+        return false;
+    }
+
     if (!closure->queue_item->answer_callback(
-        answer,
-        closure->queue_item,
-        eh)) {
+            answer,
+            closure->queue_item,
+            eh)) {
         return false;
     }
 
@@ -164,4 +227,29 @@ answer_callback_(
         eh);
     (void) b_deallocate(closure, eh);
     return true;
+}
+
+static B_FUNC
+delegate_dependency_(
+        struct B_DependencyDelegateObject *super,
+        struct B_Question const *from,
+        struct B_QuestionVTable const *from_vtable,
+        struct B_Question const *to,
+        struct B_QuestionVTable const *to_vtable,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, super);
+    B_CHECK_PRECONDITION(eh, from);
+    B_CHECK_PRECONDITION(eh, to);
+    B_CHECK_PRECONDITION(eh, from_vtable);
+    B_CHECK_PRECONDITION(eh, to_vtable);
+
+    struct DatabaseDependencyDelegate_ *delegate
+        = (struct DatabaseDependencyDelegate_ *) super;
+    return b_database_record_dependency(
+        delegate->database,
+        from,
+        from_vtable,
+        to,
+        to_vtable,
+        eh);
 }

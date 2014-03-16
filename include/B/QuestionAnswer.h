@@ -32,6 +32,8 @@ struct B_Answer;
 
 struct B_AnswerVTable;
 
+struct B_Serialized;
+
 // A function to be called when an answer is available for a
 // previously-asked question.  See AnswerContext.
 typedef B_FUNC
@@ -44,6 +46,7 @@ B_ABSTRACT struct B_Question {
 };
 
 // Invariant: x.replicate() == x
+// Invariant: x == y iff x.serialize() == y.serialize()
 struct B_QuestionVTable {
     struct B_UUID uuid;
     struct B_AnswerVTable const *answer_vtable;
@@ -69,7 +72,19 @@ struct B_QuestionVTable {
 
     B_FUNC
     (*deallocate)(
-        struct B_Question *,
+        B_TRANSFER struct B_Question *,
+        struct B_ErrorHandler const *);
+
+    B_FUNC
+    (*serialize)(
+        struct B_Question const *,
+        B_OUT B_TRANSFER struct B_Serialized *,
+        struct B_ErrorHandler const *);
+
+    B_FUNC
+    (*deserialize)(
+        B_BORROWED struct B_Serialized,
+        B_OUTPTR struct B_Question **,
         struct B_ErrorHandler const *);
 };
 
@@ -77,6 +92,7 @@ B_ABSTRACT struct B_Answer {
 };
 
 // Invariant: x.replicate() == x
+// Invariant: x == y iff x.serialize() == y.serialize()
 struct B_AnswerVTable {
     B_FUNC
     (*equal)(
@@ -93,8 +109,27 @@ struct B_AnswerVTable {
 
     B_FUNC
     (*deallocate)(
-        struct B_Answer const *,
+        B_TRANSFER struct B_Answer const *,
         struct B_ErrorHandler const *);
+
+    B_FUNC
+    (*serialize)(
+        struct B_Answer const *,
+        B_OUT B_TRANSFER struct B_Serialized *,
+        struct B_ErrorHandler const *);
+
+    B_FUNC
+    (*deserialize)(
+        B_BORROWED struct B_Serialized,
+        B_OUTPTR struct B_Answer **,
+        struct B_ErrorHandler const *);
+};
+
+struct B_Serialized {
+    // Allocate data with b_allocate.  Deallocate data with
+    // b_deallocate.
+    void *data;
+    size_t size;
 };
 
 #endif

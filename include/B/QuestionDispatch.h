@@ -4,14 +4,14 @@
 #include <B/Base.h>
 
 struct B_AnswerContext;
-struct B_DependencyDelegateObject;
+struct B_Database;
 struct B_ErrorHandler;
 struct B_Question;
 struct B_QuestionQueue;
 struct B_QuestionVTable;
 
 typedef B_FUNC
-QuestionDispatchCallback(
+B_QuestionDispatchCallback(
         struct B_AnswerContext const *,
         void *opaque,
         struct B_ErrorHandler const *);
@@ -22,12 +22,14 @@ extern "C" {
 
 // Dequeues items from the given QuestionQueue, answering
 // questions by calling the given QuestionCallback with a
-// corresponding AnswerContext.
+// corresponding AnswerContext.  Consults a Database for
+// previously-determined Answers and writes dependencies and
+// answers to the Database.
 B_EXPORT_FUNC
 b_question_dispatch(
         struct B_QuestionQueue *,
-        struct B_DependencyDelegateObject *,
-        QuestionDispatchCallback *callback,
+        struct B_Database *,
+        B_QuestionDispatchCallback *callback,
         void *callback_opaque,
         struct B_ErrorHandler const *);
 

@@ -1,20 +1,28 @@
+#include <B/Alloc.h>
 #include <B/AnswerContext.h>
 #include <B/Assert.h>
+#include <B/Database.h>
 #include <B/DependencyDelegate.h>
 #include <B/Error.h>
 #include <B/Process.h>
 #include <B/QuestionAnswer.h>
 #include <B/QuestionDispatch.h>
 #include <B/QuestionQueue.h>
+#include <B/QuestionVTableSet.h>
 
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <errno.h>
+#include <fstream>
 #include <memory>
+#include <sqlite3.h>
 #include <string>
 #include <sys/stat.h>
 #include <vector>
+
+// HACK HACK(strager)
+#define BUILDING_ON_STRAGERS_MACHINE
 
 // HACK(strager)
 #if defined(__APPLE__)
@@ -40,12 +48,13 @@ g_process_loop_(nullptr, nullptr);
 
 struct FileQuestion :
         public B_Question {
+    explicit
     FileQuestion(
             std::string path) :
             path(path) {
     }
 
-    std::string path;
+    std::string const path;
 };
 
 bool
@@ -55,15 +64,38 @@ operator==(
     return a.path == b.path;
 }
 
-struct FileAnswer : public B_Answer {
-    // TODO(strager)
+struct FileAnswer :
+        public B_Answer {
+    explicit
+    FileAnswer(
+            uint64_t sum_hash) :
+            sum_hash(sum_hash) {
+    }
+
+    static uint64_t
+    sum_hash_from_path(
+            std::string path) {
+        std::ifstream input(path);
+        if (!input) {
+            return 0;  // FIXME(strager)
+        }
+        uint64_t sum_hash = 0;
+        char c;
+        while (input.get(c)) {
+            sum_hash += static_cast<uint8_t>(c);
+        }
+        return sum_hash;
+    }
+
+    // TODO(strager): Store a hash instead (e.g. SHA-256).
+    uint64_t const sum_hash;
 };
 
 bool
 operator==(
-        FileAnswer const &,
-        FileAnswer const &) {
-    return true;  // TODO(strager)
+        FileAnswer const &a,
+        FileAnswer const &b) {
+    return a.sum_hash == b.sum_hash;
 }
 
 static FileQuestion *
@@ -98,11 +130,12 @@ file_answer_vtable = {
 
     // replicate
     [](
-            B_Answer const *,
+            B_Answer const *answer,
             B_OUTPTR B_Answer **out,
             B_ErrorHandler const *eh) {
         (void) eh;  // TODO(strager)
-        *out = new FileAnswer();  // TODO(strager)
+        FileAnswer const *fa = file_answer(answer);
+        *out = new FileAnswer(*fa);
         return true;
     },
 
@@ -112,6 +145,45 @@ file_answer_vtable = {
             B_ErrorHandler const *eh) {
         (void) eh;  // TODO(strager)
         delete file_answer(answer);
+        return true;
+    },
+
+    // serialize
+    [](
+            B_Answer const *answer,
+            B_OUT B_Serialized *out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, answer);
+        B_CHECK_PRECONDITION(eh, out);
+
+        FileAnswer const *fa = file_answer(answer);
+
+        size_t size = sizeof(uint64_t);
+        if (!b_allocate(size, &out->data, eh)) {
+            return false;
+        }
+        // FIXME(strager): This is endianness-dependent.
+        *reinterpret_cast<uint64_t *>(out->data)
+            = fa->sum_hash;
+        out->size = size;
+        return true;
+    },
+
+    // deserialize
+    [](
+            B_BORROWED struct B_Serialized serialized,
+            B_OUTPTR struct B_Answer **out,
+            struct B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, out);
+        B_CHECK_PRECONDITION(eh, serialized.data);
+
+        if (serialized.size != sizeof(uint64_t)) {
+            // TODO(strager): Report error.
+            return false;
+        }
+        // FIXME(strager): This is endianness-dependent.
+        *out = new FileAnswer(*reinterpret_cast<uint64_t *>(
+            serialized.data));
         return true;
     },
 };
@@ -128,10 +200,10 @@ file_question_vtable = {
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
-        // TODO(strager)
-        (void) question;
-
-        *out = new FileAnswer();
+        FileQuestion const *fq = file_question(question);
+        uint64_t sum_hash
+            = FileAnswer::sum_hash_from_path(fq->path);
+        *out = new FileAnswer(sum_hash);
         return true;
     },
 
@@ -167,6 +239,39 @@ file_question_vtable = {
         delete file_question(question);
         return true;
     },
+
+    // serialize
+    [](
+            B_Question const *question,
+            B_OUT B_Serialized *out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, question);
+
+        FileQuestion const *fq = file_question(question);
+        size_t size = fq->path.size();
+        if (!b_memdup(
+                fq->path.c_str(),
+                size,
+                &out->data,
+                eh)) {
+            return false;
+        }
+        out->size = size;
+        return true;
+    },
+
+    // deserialize
+    [](
+            B_BORROWED struct B_Serialized serialized,
+            B_OUTPTR struct B_Question **out,
+            struct B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, out);
+
+        *out = new FileQuestion(std::string(
+            static_cast<char const *>(serialized.data),
+            serialized.size));
+        return true;
+    }
 };
 
 static std::string::size_type
@@ -280,12 +385,14 @@ run_link(
         "ex/1/main.cc.o",
         "src/Alloc.c.o",
         "src/AnswerContext.c.o",
+        "src/Database.c.o",
         "src/Error.c.o",
         "src/Log.c.o",
         "src/Misc.c.o",
         "src/Process.c.o",
         "src/QuestionDispatch.c.o",
         "src/QuestionQueue.cc.o",
+        "src/QuestionVTableSet.c.o",
         "src/RefCount.c.o",
         "src/Thread.c.o",
         "src/UUID.c.o",
@@ -327,6 +434,9 @@ run_link(
 
             std::vector<char const *> args = {
                 "clang++",
+#if defined(BUILDING_ON_STRAGERS_MACHINE)
+                "-L/usr/local/opt/sqlite/lib",
+#endif
                 EXTRA_LDFLAGS
                 "-Iinclude",
                 "-o", exe_path.c_str(),
@@ -339,6 +449,7 @@ run_link(
                         const std::string &o_path) {
                     return o_path.c_str();
                 });
+            args.push_back("-lsqlite3");
             args.push_back(nullptr);
             return b_answer_context_exec(
                 answer_context,
@@ -379,6 +490,9 @@ run_c_compile(
             char const *command[] = {
                 "clang",
                 "-std=c99",
+#if defined(BUILDING_ON_STRAGERS_MACHINE)
+                "-I/usr/local/opt/sqlite/include",
+#endif
                 EXTRA_CFLAGS
                 "-Iinclude",
                 "-o", o_path.c_str(),
@@ -425,6 +539,9 @@ run_cc_compile(
             char const *command[] = {
                 "clang++",
                 "-std=c++11",
+#if defined(BUILDING_ON_STRAGERS_MACHINE)
+                "-I/usr/local/opt/sqlite/include",
+#endif
                 EXTRA_CXXFLAGS
                 "-Iinclude",
                 "-o", o_path.c_str(),
@@ -550,6 +667,44 @@ main(
         question_queue(question_queue_raw, eh);
     question_queue_raw = nullptr;
 
+    B_Database *database_raw;
+    if (!b_database_load_sqlite(
+            "b_database.sqlite3",
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+            NULL,
+            &database_raw,
+            eh)) {
+        return 1;
+    }
+    std::unique_ptr<B_Database, B_DatabaseDeleter>
+        database(database_raw, eh);
+    database_raw = nullptr;
+
+    B_QuestionVTableSet *question_vtable_set_raw;
+    if (!b_question_vtable_set_allocate(
+            &question_vtable_set_raw,
+            eh)) {
+        return 1;
+    }
+    std::unique_ptr<
+            B_QuestionVTableSet,
+            B_QuestionVTableSetDeleter>
+        question_vtable_set(question_vtable_set_raw, eh);
+    question_vtable_set_raw = nullptr;
+    if (!b_question_vtable_set_add(
+            question_vtable_set.get(),
+            &file_question_vtable,
+            eh)) {
+        return 1;
+    }
+
+    if (!b_database_recheck_all(
+            database.get(),
+            question_vtable_set.get(),
+            eh)) {
+        return 1;
+    }
+
     int exit_code;
     bool exit_code_set = false;
 
@@ -585,27 +740,9 @@ main(
         return 1;
     }
 
-    B_DependencyDelegateObject dependency_delegate = {
-        // dependency
-        [](
-                struct B_DependencyDelegateObject *,
-                struct B_Question const *from,
-                struct B_QuestionVTable const *from_vtable,
-                struct B_Question const *to,
-                struct B_QuestionVTable const *to_vtable,
-                struct B_ErrorHandler const *eh) {
-            // TODO(strager): Something interesting.
-            (void) from;
-            (void) from_vtable;
-            (void) to;
-            (void) to_vtable;
-            (void) eh;
-            return true;
-        }
-    };
     if (!b_question_dispatch(
             question_queue.get(),
-            &dependency_delegate,
+            database.get(),
             dispatch_question,
             nullptr,
             eh)) {

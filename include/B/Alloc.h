@@ -23,6 +23,13 @@ b_deallocate(
         B_TRANSFER void *,
         struct B_ErrorHandler const *);
 
+B_EXPORT_FUNC
+b_memdup(
+        void const *data,
+        size_t byte_count,
+        B_OUTPTR void **,
+        struct B_ErrorHandler const *);
+
 #if defined(__cplusplus)
 }
 #endif

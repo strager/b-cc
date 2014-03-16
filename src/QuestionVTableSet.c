@@ -6,6 +6,8 @@
 #include <B/Queue.h>
 #include <B/UUID.h>
 
+#include <errno.h>
+
 struct VTableEntry_ {
     struct B_QuestionVTable const *B_CONST_STRUCT_MEMBER vtable;
     SLIST_ENTRY(VTableEntry_) link;
@@ -95,6 +97,10 @@ b_question_vtable_set_look_up(
             return true;
         }
     }
-    *out = NULL;
-    return true;
+
+    (void) B_RAISE_ERRNO_ERROR(
+        eh,
+        ENOENT,
+        "b_question_vtable_set_look_up");
+    return false;
 }

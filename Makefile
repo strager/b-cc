@@ -3,22 +3,34 @@ include configure.make
 # For example: make test-gtest run_with=valgrind
 run_with :=
 
+# Set to 1 to compile and link vendor/sqlite-3.4.1/
+# statically.  Set to non-1 to use the system sqlite3.
+sqlite3_static := 1
+
 build_files := Makefile configure.make
 
 out_dir := out
 vendor_gtest := vendor/gtest-1.7.0
+vendor_sqlite3 := vendor/sqlite-3.8.4.1
 
 out_dirs := \
 	$(out_dir)/ex/1 \
 	$(out_dir)/src \
 	$(out_dir)/test \
-	$(out_dir)/$(vendor_gtest)/src
+	$(out_dir)/$(vendor_gtest)/src \
+	$(out_dir)/$(vendor_sqlite3)
 
 b_lib_shared_file := $(out_dir)/libb$(shared_extension)
 
 h_files := $(wildcard include/B/*.h)
 c_files := $(wildcard src/*.c)
 cc_files := $(wildcard src/*.cc)
+
+ifeq ($(sqlite3_static),1)
+	c_files += $(vendor_sqlite3)/sqlite3.c
+	h_files += $(vendor_sqlite3)/sqlite3.h
+endif
+
 o_files := \
 	$(addprefix $(out_dir)/,$(c_files:.c=.c.o) $(cc_files:.cc=.cc.o))
 
@@ -37,6 +49,13 @@ c_cc_flags := -Iinclude -g -Wall -Wextra -pedantic -Werror
 CFLAGS += $(c_cc_flags) -std=c11
 CXXFLAGS += $(c_cc_flags) -std=c++11
 LDFLAGS +=
+
+ifeq ($(sqlite3_static),1)
+	sqlite3_user_cflags := "-I$(vendor_sqlite3)"
+else
+	sqlite3_user_cflags :=
+	LDFLAGS += -lsqlite3
+endif
 
 # TODO(strager): Remove need for these extensions.
 ifeq ($(cc_is_clang),1)
@@ -68,6 +87,9 @@ endif
 
 ifeq ($(uname),Linux)
 	LDFLAGS += -lpthread
+	ifeq ($(sqlite3_static),1)
+		LDFLAGS += -ldl
+	endif
 endif
 
 .PHONY: all
@@ -114,14 +136,17 @@ $(out_dir)/test/%.cc.o: test/%.cc $(h_files) $(build_files) | $(out_dirs)
 $(out_dir)/$(vendor_gtest)/%.cc.o: $(vendor_gtest)/%.cc $(build_files) | $(out_dirs)
 	$(CXX) -c -o $@ $(CXXFLAGS) "-I$(vendor_gtest)/include" "-I$(vendor_gtest)" -Wno-missing-field-initializers $<
 
+$(out_dir)/$(vendor_sqlite3)/%.c.o: $(vendor_sqlite3)/%.c $(build_files) | $(out_dirs)
+	$(CC) -c -o $@ $(CFLAGS) -Wno-unused-variable $<
+
 $(out_dir)/%.c.o: %.c $(h_files) $(build_files) | $(out_dirs)
-	$(CC) -c -o $@ $(CFLAGS) $<
+	$(CC) -c -o $@ $(CFLAGS) $(sqlite3_user_cflags) $<
 
 $(out_dir)/%.cc.o: %.cc $(h_files) $(build_files) | $(out_dirs)
-	$(CXX) -c -o $@ $(CXXFLAGS) $<
+	$(CXX) -c -o $@ $(CXXFLAGS) $(sqlite3_user_cflags) $<
 
 $(out_dir)/ex/1/%.cc.o: ex/1/%.cc $(h_files) $(build_files) | $(out_dirs)
-	$(CXX) -c -o $@ $(CXXFLAGS) $<
+	$(CXX) -c -o $@ $(CXXFLAGS) $(sqlite3_user_cflags) $<
 
 $(out_dir)/ex/1/ex1: $(ex1_o_files) $(h_files) $(b_lib_shared_file) $(build_files) | $(out_dirs)
 	$(CXX) -o $@ $(ex1_o_files) $(b_lib_shared_file) $(LDFLAGS)
