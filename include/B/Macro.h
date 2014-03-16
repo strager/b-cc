@@ -15,9 +15,9 @@
     ('0' <= (x) && (x) <= '9' \
         ? (x) - '0' \
         : 'A' <= (x) && (x) <= 'F' \
-        ? (x) - 'A' \
+        ? (x) - 'A' + 10 \
             : 'a' <= (x) && (x) <= 'f' \
-            ? (x) - 'a' \
+            ? (x) - 'a' + 10 \
             : 0 /* FIXME(strager): Assert. */)
 
 #if defined(B_CONFIG_GNU_ATTRIBUTES)

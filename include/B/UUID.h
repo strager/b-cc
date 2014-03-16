@@ -17,6 +17,7 @@ struct B_UUID {
 // B_UUID_LITERAL(CE4903AD-73F9-41AE-B56C-578084BC529F)
 // has type 'struct B_UUID'.
 // TODO(strager): Assert length and dashes.
+// FIXME(strager): Bytes aren't ordered properly.
 #define B_UUID_LITERAL(x) \
     (B_COMPOUND_INIT_STRUCT(B_UUID, { \
 \
@@ -39,7 +40,7 @@ struct B_UUID {
         B_UUID_GETHEX8(#x, 30), \
         B_UUID_GETHEX8(#x, 32), \
         B_UUID_GETHEX8(#x, 34), \
-    })) \
+    }))
 
 #define B_UUID_GETHEX4(string, offset) \
     B_HEX_DIGIT_TO_INT((string)[(offset)])
