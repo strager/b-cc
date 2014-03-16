@@ -4,7 +4,7 @@
 
 TEST(TestUUID, LiteralUUID) {
     B_UUID const uuid
-        = B_UUID_LITERAL(12345678-9ABC-DEF0-0000-000000000000);
+        = B_UUID_LITERAL("12345678-9ABC-DEF0-0000-000000000000");
 
     // FIXME(strager): Bytes aren't ordered properly.
     EXPECT_EQ(0x12, uuid.data[0]);
