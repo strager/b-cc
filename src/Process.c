@@ -36,6 +36,7 @@
 #include <B/Macro.h>
 #include <B/Misc.h>
 #include <B/Process.h>
+#include <B/Queue.h>
 #include <B/Thread.h>
 
 #if defined(B_CONFIG_EPOLL)
@@ -43,7 +44,6 @@
 #endif
 
 #include <errno.h>
-#include <sys/queue.h>
 
 #if defined(B_CONFIG_PTHREAD)
 # include <pthread.h>
@@ -64,31 +64,6 @@
 # include <sys/eventfd.h>
 # include <sys/signalfd.h>
 # include <sys/wait.h>
-#endif
-
-// FIXME(strager): We should use FreeBSD's excellent
-// <sys/queue.h> implementation.  Linux does not have
-// LIST_FOREACH or LIST_FOREACH_SAFE, for example.
-#if !defined(LIST_FOREACH_SAFE)
-# if !defined(__GLIBC__)
-#  error "Missing LIST_FOREACH_SAFE"
-# endif
-# define LIST_FOREACH_SAFE(_var, _head, _name, _tmp_var) \
-    for ( \
-            (_var) = (_head)->lh_first; \
-            (_var) && (((_tmp_var) = (_var)->_name.le_next), true); \
-            (_var) = (_tmp_var))
-#endif
-
-#if !defined(LIST_FOREACH)
-# if !defined(__GLIBC__)
-#  error "Missing LIST_FOREACH"
-# endif
-# define LIST_FOREACH(_var, _head, _name) \
-    for ( \
-            (_var) = (_head)->lh_first; \
-            (_var); \
-            (_var) = (_var)->_name.le_next)
 #endif
 
 // FIXME(strager): Reporting errors while holding a lock is
@@ -1186,10 +1161,7 @@ process_loop_fill_process_list_locked_(
     B_ASSERT(loop);
     bool ok = true;
     struct ProcessInfo_ *proc;
-    LIST_FOREACH(
-            proc,
-            &loop->processes,
-            link) {
+    LIST_FOREACH(proc, &loop->processes, link) {
         if (!process_loop_can_exec_one_more_locked_(loop)) {
             break;
         }
@@ -1376,10 +1348,7 @@ running_process_count_locked_(
     B_ASSERT(loop);
     size_t count = 0;
     struct ProcessInfo_ *proc;
-    LIST_FOREACH(
-            proc,
-            &loop->processes,
-            link) {
+    LIST_FOREACH(proc, &loop->processes, link) {
         if (!process_is_queued_locked_(proc)) {
             count += 1;
         }
