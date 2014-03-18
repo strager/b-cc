@@ -8,11 +8,11 @@
 #include <B/Error.h>
 #include <B/QuestionAnswer.h>
 #include <B/QuestionVTableSet.h>
+#include <B/SQLite3.h>
 #include <B/Thread.h>
 #include <B/UUID.h>
 
 #include <errno.h>
-#include <limits.h>
 #include <sqlite3.h>
 #include <stddef.h>
 #include <string.h>
@@ -20,10 +20,6 @@
 #if defined(B_CONFIG_PTHREAD)
 # include <pthread.h>
 #endif
-
-// FIXME(strager): _sqlite_error should be used.
-#define B_RAISE_SQLITE_ERROR(_eh, _sqlite_error, _context) \
-    B_RAISE_ERRNO_ERROR((_eh), ENOTSUP, (_context))
 
 // NOTE[insert dependency query]: These are host parameter
 // names for b_database_record_dependency's INSERT query.
@@ -138,15 +134,6 @@ recheck_all_locked_(
         struct B_ErrorHandler const *);
 
 static B_FUNC
-bind_blob_(
-        sqlite3_stmt *,
-        int host_parameter_name,
-        void const *data,
-        size_t data_size,
-        sqlite3_destructor_type,
-        struct B_ErrorHandler const *);
-
-static B_FUNC
 bind_uuid_(
         sqlite3_stmt *,
         int host_parameter_name,
@@ -160,19 +147,6 @@ bind_serialized_(
         B_TRANSFER struct B_Serialized,
         struct B_ErrorHandler const *);
 
-static B_FUNC
-prepare_statement_(
-        sqlite3 *,
-        char const *query,
-        size_t query_size,
-        B_OUTPTR sqlite3_stmt **,
-        struct B_ErrorHandler const *);
-
-static B_FUNC
-step_expecting_end_(
-        sqlite3_stmt *,
-        struct B_ErrorHandler const *);
-
 static void
 deallocate_serialized_data_(
         void *data);
@@ -182,12 +156,6 @@ question_answer_matches_locked_(
         sqlite3_context *,
         int arg_count,
         sqlite3_value **args);
-
-static B_FUNC
-value_blob_(
-        sqlite3_value *,
-        B_OUT B_BORROWED struct B_Serialized *,
-        struct B_ErrorHandler const *);
 
 static B_FUNC
 value_uuid_(
@@ -506,7 +474,7 @@ retry_create_table:
         "    to_question_uuid,\n"
         "    to_question_data)\n"
         "VALUES (?1, ?2, ?3, ?4);";
-    if (!prepare_statement_(
+    if (!b_sqlite3_prepare(
             handle,
             insert_dependency_query,
             sizeof(insert_dependency_query),
@@ -522,7 +490,7 @@ retry_create_table:
         "    question_data,\n"
         "    answer_data)\n"
         "VALUES (?1, ?2, ?3);";
-    if (!prepare_statement_(
+    if (!b_sqlite3_prepare(
             handle,
             insert_answer_query,
             sizeof(insert_answer_query),
@@ -537,7 +505,7 @@ retry_create_table:
         "    FROM answers\n"
         "    WHERE question_uuid = ?1\n"
         "      AND question_data = ?2;";
-    if (!prepare_statement_(
+    if (!b_sqlite3_prepare(
             handle,
             select_answer_query,
             sizeof(select_answer_query),
@@ -576,7 +544,7 @@ retry_create_table:
         "        INNER JOIN invalid_answers AS invalid\n"
         "        ON answers.question_uuid = invalid.question_uuid\n"
         "           AND answers.question_data = invalid.question_data);";
-    if (!prepare_statement_(
+    if (!b_sqlite3_prepare(
             handle,
             recheck_all_answers_query,
             sizeof(recheck_all_answers_query),
@@ -677,7 +645,7 @@ insert_answer_locked_(
     need_free_answer_data = false;
     if (!ok) goto done_no_reset;
 
-    ok = step_expecting_end_(stmt, eh);
+    ok = b_sqlite3_step_expecting_end(stmt, eh);
     // TODO(strager): Error reporting.
     (void) sqlite3_reset(stmt);
 
@@ -784,7 +752,7 @@ insert_dependency_locked_(
     need_free_to_data = false;
     if (!ok) goto done_no_reset;
 
-    ok = step_expecting_end_(stmt, eh);
+    ok = b_sqlite3_step_expecting_end(stmt, eh);
     // TODO(strager): Error reporting.
     (void) sqlite3_reset(stmt);
 
@@ -869,7 +837,7 @@ retry_step:
     // Deserialize the answer.
     struct B_Serialized answer_serialized;
     // NOTE(strager): answer_serialized.data is valid until
-    // the call to step_expecting_end_.
+    // the call to b_sqlite3_step_expecting_end.
     // NOTE(strager): Calls must be performed in this order
     // (sqlite3_column_blob then sqlite3_column_bytes)
     // according to the sqlite3 documentation.
@@ -909,7 +877,7 @@ retry_get_answer_blob:
         out_answer,
         eh);
     // Ignore errors, as our lookup is done.
-    (void) step_expecting_end_(stmt, eh);
+    (void) b_sqlite3_step_expecting_end(stmt, eh);
 
     // TODO(strager): Error reporting.
 done_reset:
@@ -939,7 +907,7 @@ recheck_all_locked_(
     database->udf.eh = eh;
     database->udf.question_vtable_set = question_vtable_set;
 
-    bool ok = step_expecting_end_(
+    bool ok = b_sqlite3_step_expecting_end(
         database->recheck_all_answers_stmt,
         eh);
     // TODO(strager): Error reporting.
@@ -953,49 +921,13 @@ recheck_all_locked_(
 }
 
 static B_FUNC
-bind_blob_(
-        sqlite3_stmt *stmt,
-        int host_parameter_name,
-        B_TRANSFER void const *data,
-        size_t data_size,
-        sqlite3_destructor_type destructor,
-        struct B_ErrorHandler const *eh) {
-    B_ASSERT(stmt);
-    B_ASSERT(data);
-
-    // FIXME(strager): Should this be a reported error?
-    B_ASSERT(data_size <= INT_MAX);
-
-retry:;
-    int rc = sqlite3_bind_blob(
-        stmt,
-        host_parameter_name,
-        data,
-        data_size,
-        destructor);
-    if (rc != SQLITE_OK) {
-        switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                rc,
-                "sqlite3_bind_blob")) {
-        case B_ERROR_RETRY:
-            goto retry;
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            return false;
-        }
-    }
-    return true;
-}
-
-static B_FUNC
 bind_uuid_(
         sqlite3_stmt *stmt,
         int host_parameter_name,
         struct B_UUID uuid,
         struct B_ErrorHandler const *eh) {
     B_ASSERT(stmt);
-    return bind_blob_(
+    return b_sqlite3_bind_blob(
         stmt,
         host_parameter_name,
         uuid.data,
@@ -1012,75 +944,13 @@ bind_serialized_(
         B_TRANSFER struct B_Serialized serialized,
         struct B_ErrorHandler const *eh) {
     B_ASSERT(stmt);
-    return bind_blob_(
+    return b_sqlite3_bind_blob(
         stmt,
         host_parameter_name,
         serialized.data,
         serialized.size,
         deallocate_serialized_data_,
         eh);
-}
-
-static B_FUNC
-prepare_statement_(
-        sqlite3 *handle,
-        char const *query,
-        size_t query_size,
-        B_OUTPTR sqlite3_stmt **out,
-        struct B_ErrorHandler const *eh) {
-retry:;
-    sqlite3_stmt *stmt;
-    int rc = sqlite3_prepare_v2(
-        handle,
-        query,
-        query_size,
-        &stmt,
-        NULL);
-    if (rc != SQLITE_OK) {
-        switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                rc,
-                "sqlite3_prepare_v2")) {
-        case B_ERROR_RETRY:
-            goto retry;
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            return false;
-        }
-    }
-
-    // "If the input text contains no SQL (if the input is
-    // an empty string or a comment) then *ppStmt is set to
-    // NULL."
-    B_ASSERT(stmt);
-
-    *out = stmt;
-    return true;
-}
-
-static B_FUNC
-step_expecting_end_(
-        sqlite3_stmt *stmt,
-        struct B_ErrorHandler const *eh) {
-retry:;
-    int rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
-        B_ASSERT(rc != SQLITE_OK);
-        B_ASSERT(rc != SQLITE_ROW);
-        switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                rc,
-                "sqlite3_step")) {
-        case B_ERROR_RETRY:
-            // TODO(strager): Error reporting.
-            goto retry;
-        case B_ERROR_ABORT:
-            return false;
-        case B_ERROR_IGNORE:
-            break;
-        }
-    }
-    return true;
 }
 
 static void
@@ -1129,7 +999,11 @@ question_answer_matches_locked_(
     // NOTE(strager): question_data.data is valid until we
     // touch args again.
     struct B_Serialized question_data;
-    if (!value_blob_(args[1], &question_data, eh)) {
+    if (!b_sqlite3_value_blob(
+            args[1],
+            (void const **) &question_data.data,
+            &question_data.size,
+            eh)) {
         goto fail;
     }
     if (!b_question_vtable_set_look_up(
@@ -1165,18 +1039,23 @@ question_answer_matches_locked_(
     question = NULL;
 
     // Get stored answer.  Invalidates question_data.
-    struct B_Serialized answer_data;
-    if (!value_blob_(args[2], &answer_data, eh)) {
+    void const *answer_data;
+    size_t answer_data_size;
+    if (!b_sqlite3_value_blob(
+            args[2],
+            &answer_data,
+            &answer_data_size,
+            eh)) {
         goto fail;
     }
     question_data.data = NULL;
 
     // Check answer.
-    result = (answer_data.size == actual_answer_data.size)
+    result = (answer_data_size == actual_answer_data.size)
         && (memcmp(
-            answer_data.data,
+            answer_data,
             actual_answer_data.data,
-            answer_data.size) == 0);
+            answer_data_size) == 0);
     goto done;
 
 done:
@@ -1196,41 +1075,6 @@ fail:
     // sqlite3_result_error instead?
     result = false;
     goto done;
-}
-
-static B_FUNC
-value_blob_(
-        sqlite3_value *value,
-        B_OUT B_BORROWED struct B_Serialized *out_data,
-        struct B_ErrorHandler const *eh) {
-    B_ASSERT(value);
-    B_ASSERT(out_data);
-
-    // NOTE[value blob ordering]:
-    // "Please pay particular attention to the fact that the
-    // pointer returned from sqlite3_value_blob(),
-    // sqlite3_value_text(), or sqlite3_value_text16() can
-    // be invalidated by a subsequent call to
-    // sqlite3_value_bytes(), sqlite3_value_bytes16(),
-    // sqlite3_value_text(), or sqlite3_value_text16()."
-    // FIXME(strager): This contradicts the documentation of
-    // sqlite3_column_blob.
-    int size = sqlite3_value_bytes(value);
-    B_ASSERT(size >= 0);
-    out_data->size = size;
-    if (size == 0) {
-        // "The return value from sqlite3_column_blob() for
-        // a zero-length BLOB is a NULL pointer."
-        // FIXME(strager): I assume sqlite3_value_blob
-        // behaves the same way.
-        // Various deserialize functions will expect a
-        // non-NULL data pointer.
-        out_data->data = &out_data->data;
-    } else {
-        out_data->data = (void *) sqlite3_value_blob(value);
-    }
-    return true;
-    (void) eh;
 }
 
 static B_FUNC

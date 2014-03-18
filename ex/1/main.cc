@@ -394,6 +394,7 @@ run_link(
         "src/QuestionQueue.cc.o",
         "src/QuestionVTableSet.c.o",
         "src/RefCount.c.o",
+        "src/SQLite3.c.o",
         "src/Thread.c.o",
         "src/UUID.c.o",
     };
