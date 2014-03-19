@@ -144,10 +144,10 @@ class B_AnswerClass :
 public:
     static B_FUNC
     equal(
-            T const &a,
-            T const &b,
-            B_OUTPTR bool *out,
-            B_ErrorHandler const *eh);
+            T const &,
+            T const &,
+            B_OUTPTR bool *,
+            B_ErrorHandler const *);
 
     B_FUNC
     replicate(
@@ -173,9 +173,9 @@ public:
 
     static B_FUNC
     deserialize(
-            B_BORROWED B_Serialized serialized,
-            B_OUTPTR T **out,
-            B_ErrorHandler const *eh);
+            B_BORROWED B_Serialized,
+            B_OUTPTR T **,
+            B_ErrorHandler const *);
 
     static B_AnswerVTable const *
     vtable() {
@@ -272,10 +272,10 @@ public:
 
     static B_FUNC
     equal(
-            T const &a,
-            T const &b,
-            B_OUTPTR bool *out,
-            B_ErrorHandler const *eh);
+            T const &,
+            T const &,
+            B_OUTPTR bool *,
+            B_ErrorHandler const *);
 
     B_FUNC
     replicate(
@@ -300,9 +300,9 @@ public:
 
     static B_FUNC
     deserialize(
-            B_BORROWED B_Serialized serialized,
-            B_OUTPTR T **out,
-            B_ErrorHandler const *eh);
+            B_BORROWED B_Serialized,
+            B_OUTPTR T **,
+            B_ErrorHandler const *);
 
     static B_QuestionVTable const *
     vtable() {
