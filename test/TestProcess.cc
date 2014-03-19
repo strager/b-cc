@@ -679,3 +679,13 @@ TEST(TestProcess, ProcessBegetsProcess) {
 
     EXPECT_TRUE(b_process_loop_deallocate(loop, 0, eh));
 }
+
+TEST(TestProcess, AllocateInvalidParameter) {
+    B_ErrorHandler const *eh = nullptr;
+
+    ASSERT_FALSE(b_process_loop_allocate(
+        0,
+        b_process_auto_configuration_unsafe(),
+        nullptr,
+        eh));
+}

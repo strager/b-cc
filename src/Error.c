@@ -43,9 +43,10 @@ b_raise_errno_error_impl(
 B_EXPORT bool
 b_raise_precondition_error_impl(
         struct B_ErrorHandler const *error_handler) {
-    return b_raise_error(error_handler, (struct B_Error) {
+    (void) b_raise_error(error_handler, (struct B_Error) {
         .errno_value = EINVAL,  // FIXME(strager)
     });
+    return false;
 }
 
 static enum B_ErrorHandlerResult
