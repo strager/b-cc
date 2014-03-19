@@ -10,14 +10,15 @@ sqlite3_static := 1
 build_files := Makefile configure.make
 
 out_dir := out
-vendor_gtest := vendor/gtest-1.7.0
+vendor_gmock := vendor/gmock-1.7.0
 vendor_sqlite3 := vendor/sqlite-3.8.4.1
 
 out_dirs := \
 	$(out_dir)/ex/1 \
 	$(out_dir)/src \
 	$(out_dir)/test \
-	$(out_dir)/$(vendor_gtest)/src \
+	$(out_dir)/$(vendor_gmock)/gtest/src \
+	$(out_dir)/$(vendor_gmock)/src \
 	$(out_dir)/$(vendor_sqlite3)
 
 b_lib_shared_file := $(out_dir)/libb$(shared_extension)
@@ -40,8 +41,9 @@ ex1_o_files := \
 
 gtest_cc_files := \
 	$(wildcard test/*.cc) \
-	$(vendor_gtest)/src/gtest-all.cc \
-	$(vendor_gtest)/src/gtest_main.cc
+	$(vendor_gmock)/gtest/src/gtest-all.cc \
+	$(vendor_gmock)/src/gmock-all.cc \
+	$(vendor_gmock)/src/gmock_main.cc
 gtest_o_files := \
 	$(addprefix $(out_dir)/,$(gtest_cc_files:.cc=.cc.o))
 
@@ -131,10 +133,13 @@ $(b_lib_shared_file): $(o_files) $(build_files) | $(out_dirs)
 	$(CXX) -shared -o $@ $(LDFLAGS) $(o_files)
 
 $(out_dir)/test/%.cc.o: test/%.cc $(h_files) $(build_files) | $(out_dirs)
-	$(CXX) -c -o $@ $(CXXFLAGS) "-I$(vendor_gtest)/include" $<
+	$(CXX) -c -o $@ $(CXXFLAGS) "-I$(vendor_gmock)/include" "-I$(vendor_gmock)/gtest/include" $<
 
-$(out_dir)/$(vendor_gtest)/%.cc.o: $(vendor_gtest)/%.cc $(build_files) | $(out_dirs)
-	$(CXX) -c -o $@ $(CXXFLAGS) "-I$(vendor_gtest)/include" "-I$(vendor_gtest)" -Wno-missing-field-initializers $<
+$(out_dir)/$(vendor_gmock)/gtest/%.cc.o: $(vendor_gmock)/gtest/%.cc $(build_files) | $(out_dirs)
+	$(CXX) -c -o $@ $(CXXFLAGS) "-I$(vendor_gmock)/gtest/include" "-I$(vendor_gmock)/gtest" -Wno-missing-field-initializers $<
+
+$(out_dir)/$(vendor_gmock)/%.cc.o: $(vendor_gmock)/%.cc $(build_files) | $(out_dirs)
+	$(CXX) -c -o $@ $(CXXFLAGS) "-I$(vendor_gmock)/gtest/include" "-I$(vendor_gmock)/include" "-I$(vendor_gmock)" -Wno-missing-field-initializers $<
 
 $(out_dir)/$(vendor_sqlite3)/%.c.o: $(vendor_sqlite3)/%.c $(build_files) | $(out_dirs)
 	$(CC) -c -o $@ $(CFLAGS) -Wno-unused-variable $<
