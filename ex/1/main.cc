@@ -46,26 +46,8 @@
 std::unique_ptr<B_ProcessLoop, B_ProcessLoopDeleter>
 g_process_loop_(nullptr, nullptr);
 
-struct FileQuestion :
-        public B_Question {
-    explicit
-    FileQuestion(
-            std::string path) :
-            path(path) {
-    }
-
-    std::string const path;
-};
-
-bool
-operator==(
-        FileQuestion const &a,
-        FileQuestion const &b) {
-    return a.path == b.path;
-}
-
 struct FileAnswer :
-        public B_Answer {
+        public B_AnswerClass<FileAnswer> {
     explicit
     FileAnswer(
             uint64_t sum_hash) :
@@ -87,76 +69,39 @@ struct FileAnswer :
         return sum_hash;
     }
 
-    // TODO(strager): Store a hash instead (e.g. SHA-256).
-    uint64_t const sum_hash;
-};
-
-bool
-operator==(
-        FileAnswer const &a,
-        FileAnswer const &b) {
-    return a.sum_hash == b.sum_hash;
-}
-
-static FileQuestion *
-file_question(B_Question *q) {
-    return static_cast<FileQuestion *>(q);
-}
-
-static FileQuestion const *
-file_question(B_Question const *q) {
-    return static_cast<FileQuestion const *>(q);
-}
-
-static FileAnswer const *
-file_answer(B_Answer const *a) {
-    return static_cast<FileAnswer const *>(a);
-}
-
-static B_AnswerVTable
-file_answer_vtable = {
-    // equal
-    [](
-            B_Answer const *answer_a,
-            B_Answer const *answer_b,
+    static B_FUNC
+    equal(
+            FileAnswer const &a,
+            FileAnswer const &b,
             B_OUTPTR bool *out,
             B_ErrorHandler const *eh) {
         (void) eh;  // TODO(strager)
-        FileAnswer const *a = file_answer(answer_a);
-        FileAnswer const *b = file_answer(answer_b);
-        *out = *a == *b;
+        *out = a == b;
         return true;
-    },
+    }
 
-    // replicate
-    [](
-            B_Answer const *answer,
-            B_OUTPTR B_Answer **out,
+    B_FUNC
+    replicate(
+            B_OUTPTR FileAnswer **out,
+            B_ErrorHandler const *eh) const {
+        (void) eh;  // TODO(strager)
+        *out = new FileAnswer(*this);
+        return true;
+    }
+
+    B_FUNC
+    deallocate(
             B_ErrorHandler const *eh) {
         (void) eh;  // TODO(strager)
-        FileAnswer const *fa = file_answer(answer);
-        *out = new FileAnswer(*fa);
+        delete this;
         return true;
-    },
+    }
 
-    // deallocate
-    [](
-            B_Answer const *answer,
-            B_ErrorHandler const *eh) {
-        (void) eh;  // TODO(strager)
-        delete file_answer(answer);
-        return true;
-    },
-
-    // serialize
-    [](
-            B_Answer const *answer,
+    B_FUNC
+    serialize(
             B_OUT B_Serialized *out,
-            B_ErrorHandler const *eh) {
-        B_CHECK_PRECONDITION(eh, answer);
+            B_ErrorHandler const *eh) const {
         B_CHECK_PRECONDITION(eh, out);
-
-        FileAnswer const *fa = file_answer(answer);
 
         size_t size = sizeof(uint64_t);
         if (!b_allocate(size, &out->data, eh)) {
@@ -164,16 +109,16 @@ file_answer_vtable = {
         }
         // FIXME(strager): This is endianness-dependent.
         *reinterpret_cast<uint64_t *>(out->data)
-            = fa->sum_hash;
+            = this->sum_hash;
         out->size = size;
         return true;
-    },
+    }
 
-    // deserialize
-    [](
-            B_BORROWED struct B_Serialized serialized,
-            B_OUTPTR struct B_Answer **out,
-            struct B_ErrorHandler const *eh) {
+    static B_FUNC
+    deserialize(
+            B_BORROWED B_Serialized serialized,
+            B_OUTPTR FileAnswer **out,
+            B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
         B_CHECK_PRECONDITION(eh, serialized.data);
 
@@ -185,72 +130,77 @@ file_answer_vtable = {
         *out = new FileAnswer(*reinterpret_cast<uint64_t *>(
             serialized.data));
         return true;
-    },
+    }
+
+    bool
+    operator==(
+            FileAnswer const &other) const {
+        return other.sum_hash == this->sum_hash;
+    }
+
+    // TODO(strager): Store a hash instead (e.g. SHA-256).
+    uint64_t const sum_hash;
 };
 
-static B_QuestionVTable
-file_question_vtable = {
-    B_UUID_LITERAL("B6BD5D3B-DDC1-43B2-832B-2B5836BF78FC"),
-    &file_answer_vtable,
+struct FileQuestion :
+        public B_QuestionClass<FileQuestion> {
+    typedef FileAnswer AnswerClass;
 
-    // begin_answer
-    [](
-            B_Question const *question,
-            B_OUTPTR B_Answer **out,
-            B_ErrorHandler const *eh) {
+    explicit
+    FileQuestion(
+            std::string path) :
+            path(path) {
+    }
+
+    std::string const path;
+
+    B_FUNC
+    answer(
+            B_OUTPTR FileAnswer **out,
+            B_ErrorHandler const *eh) const {
         B_CHECK_PRECONDITION(eh, out);
 
-        FileQuestion const *fq = file_question(question);
         uint64_t sum_hash
-            = FileAnswer::sum_hash_from_path(fq->path);
+            = FileAnswer::sum_hash_from_path(this->path);
         *out = new FileAnswer(sum_hash);
         return true;
-    },
+    }
 
-    // equal
-    [](
-            B_Question const *question_a,
-            B_Question const *question_b,
+    static B_FUNC
+    equal(
+            FileQuestion const &a,
+            FileQuestion const &b,
             B_OUTPTR bool *out,
             B_ErrorHandler const *eh) {
         (void) eh;  // TODO(strager)
-        FileQuestion const *a = file_question(question_a);
-        FileQuestion const *b = file_question(question_b);
-        *out = *a == *b;
+        *out = a == b;
         return true;
-    },
+    }
 
-    // replicate
-    [](
-            B_Question const *question,
-            B_OUTPTR B_Question **out,
+    B_FUNC
+    replicate(
+            B_OUTPTR FileQuestion **out,
+            B_ErrorHandler const *eh) const {
+        (void) eh;  // TODO(strager)
+        *out = new FileQuestion(*this);
+        return true;
+    }
+
+    B_FUNC
+    deallocate(
             B_ErrorHandler const *eh) {
         (void) eh;  // TODO(strager)
-        FileQuestion const *fq = file_question(question);
-        *out = new FileQuestion(*fq);
+        delete this;
         return true;
-    },
+    }
 
-    // deallocate
-    [](
-            B_Question *question,
-            B_ErrorHandler const *eh) {
-        (void) eh;  // TODO(strager)
-        delete file_question(question);
-        return true;
-    },
-
-    // serialize
-    [](
-            B_Question const *question,
+    B_FUNC
+    serialize(
             B_OUT B_Serialized *out,
-            B_ErrorHandler const *eh) {
-        B_CHECK_PRECONDITION(eh, question);
-
-        FileQuestion const *fq = file_question(question);
-        size_t size = fq->path.size();
+            B_ErrorHandler const *eh) const {
+        size_t size = this->path.size();
         if (!b_memdup(
-                fq->path.c_str(),
+                this->path.c_str(),
                 size,
                 &out->data,
                 eh)) {
@@ -258,13 +208,13 @@ file_question_vtable = {
         }
         out->size = size;
         return true;
-    },
+    }
 
-    // deserialize
-    [](
-            B_BORROWED struct B_Serialized serialized,
-            B_OUTPTR struct B_Question **out,
-            struct B_ErrorHandler const *eh) {
+    static B_FUNC
+    deserialize(
+            B_BORROWED B_Serialized serialized,
+            B_OUTPTR FileQuestion **out,
+            B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
         *out = new FileQuestion(std::string(
@@ -272,7 +222,18 @@ file_question_vtable = {
             serialized.size));
         return true;
     }
+
+    bool
+    operator==(
+            FileQuestion const &other) const {
+        return other.path == this->path;
+    }
 };
+
+template<>
+B_UUID
+B_QuestionClass<FileQuestion>::uuid
+    = B_UUID_LITERAL("B6BD5D3B-DDC1-43B2-832B-2B5836BF78FC");
 
 static std::string::size_type
 path_extensions_index(
@@ -350,7 +311,7 @@ dispatch_question(
         void *,
         B_ErrorHandler const *eh) {
     if (answer_context->question_vtable->uuid
-            != file_question_vtable.uuid) {
+            != FileQuestion::vtable()->uuid) {
         (void) B_RAISE_ERRNO_ERROR(
             eh,
             EINVAL,
@@ -358,8 +319,8 @@ dispatch_question(
         return false;
     }
 
-    FileQuestion const *fq
-        = file_question(answer_context->question);
+    auto fq = static_cast<FileQuestion const *>(
+        answer_context->question);
     std::string extension = path_extensions(fq->path);
     if (extension == "") {
         return run_link(fq, answer_context, eh);
@@ -417,11 +378,12 @@ run_link(
                 const std::unique_ptr<FileQuestion> &q) {
             return q.get();
         });
-    std::vector<B_QuestionVTable *> questions_vtables_raw;
+    std::vector<B_QuestionVTable const *>
+        questions_vtables_raw;
     std::fill_n(
             std::back_inserter(questions_vtables_raw),
             questions.size(),
-            &file_question_vtable);
+            FileQuestion::vtable());
     return b_answer_context_need(
         answer_context,
         questions_raw.data(),
@@ -481,7 +443,7 @@ run_c_compile(
     return b_answer_context_need_one(
         answer_context,
         question.get(),
-        &file_question_vtable,
+        FileQuestion::vtable(),
         [answer_context, c_path, o_path](
                 B_Answer *answer,
                 B_ErrorHandler const *eh) {
@@ -530,7 +492,7 @@ run_cc_compile(
     return b_answer_context_need_one(
         answer_context,
         question.get(),
-        &file_question_vtable,
+        FileQuestion::vtable(),
         [answer_context, cc_path, o_path](
                 B_Answer *answer,
                 B_ErrorHandler const *eh) {
@@ -600,7 +562,7 @@ struct RootQueueItem_ :
     template<typename TAnswerCallback>
     RootQueueItem_(
             B_Question *question,
-            B_QuestionVTable *question_vtable,
+            B_QuestionVTable const *question_vtable,
             TAnswerCallback answer_callback) :
             B_QuestionQueueItemObject {
                 deallocate_,
@@ -694,7 +656,7 @@ main(
     question_vtable_set_raw = nullptr;
     if (!b_question_vtable_set_add(
             question_vtable_set.get(),
-            &file_question_vtable,
+            FileQuestion::vtable(),
             eh)) {
         return 1;
     }
@@ -713,7 +675,7 @@ main(
             new FileQuestion("ex1"));
     RootQueueItem_ *root_queue_item = new RootQueueItem_(
         initial_question.get(),
-        &file_question_vtable,
+        FileQuestion::vtable(),
         [&question_queue, &exit_code, &exit_code_set](
                 B_TRANSFER B_OPT B_Answer *answer,
                 void *,
@@ -725,7 +687,7 @@ main(
             }
 
             if (answer) {
-                (void) file_question_vtable.answer_vtable
+                (void) FileQuestion::vtable()->answer_vtable
                         ->deallocate(answer, eh);
             }
 
