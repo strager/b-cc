@@ -56,7 +56,7 @@ struct B_AnswerContext {
     B_BORROWED struct B_QuestionQueue *question_queue;
 
     // ::dependency called by b_answer_context_need.
-    B_BORROWED struct B_DependencyDelegateObject *dependency_delegate;
+    B_BORROWED B_OPT struct B_DependencyDelegateObject *dependency_delegate;
 };
 
 #if defined(__cplusplus)

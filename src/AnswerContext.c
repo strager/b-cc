@@ -18,7 +18,9 @@
         B_CHECK_PRECONDITION((_eh), (_answer_context)->question_vtable); \
         B_CHECK_PRECONDITION((_eh), (_answer_context)->answer_callback); \
         B_CHECK_PRECONDITION((_eh), (_answer_context)->question_queue); \
-        B_CHECK_PRECONDITION((_eh), (_answer_context)->dependency_delegate); \
+        if ((_answer_context)->dependency_delegate) { \
+            B_CHECK_PRECONDITION((_eh), (_answer_context)->dependency_delegate->dependency); \
+        } \
     } while (0)
 
 #define B_CHECK_PRECONDITION_NEED_CLOSURE(_eh, _need_closure) \
@@ -145,8 +147,6 @@ b_answer_context_need(
         void *callback_opaque,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION_ANSWER_CONTEXT(eh, answer_context);
-    B_CHECK_PRECONDITION(eh, answer_context->dependency_delegate);
-    B_CHECK_PRECONDITION(eh, answer_context->dependency_delegate->dependency);
     B_CHECK_PRECONDITION(eh, questions);
     B_CHECK_PRECONDITION(eh, questions_vtables);
     B_CHECK_PRECONDITION(eh, completed_callback);
@@ -239,14 +239,16 @@ need_one_(
     }
     release_need_closure = true;
 
-    if (!answer_context->dependency_delegate->dependency(
+    if (answer_context->dependency_delegate) {
+        if (!answer_context->dependency_delegate->dependency(
                 answer_context->dependency_delegate,
                 answer_context->question,
                 answer_context->question_vtable,
                 question,
                 question_vtable,
                 eh)) {
-        goto fail;
+            goto fail;
+        }
     }
     if (!question_vtable->replicate(
             question,
