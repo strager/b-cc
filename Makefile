@@ -39,6 +39,8 @@ ex1_cc_files := $(wildcard ex/1/*.cc)
 ex1_o_files := \
 	$(addprefix $(out_dir)/,$(ex1_cc_files:.cc=.cc.o))
 
+test_h_files := $(wildcard test/*.h)
+
 gtest_cc_files := \
 	$(wildcard test/*.cc) \
 	$(vendor_gmock)/gtest/src/gtest-all.cc \
@@ -132,7 +134,7 @@ $(out_dirs):
 $(b_lib_shared_file): $(o_files) $(build_files) | $(out_dirs)
 	$(CXX) -shared -o $@ $(LDFLAGS) $(o_files)
 
-$(out_dir)/test/%.cc.o: test/%.cc $(h_files) $(build_files) | $(out_dirs)
+$(out_dir)/test/%.cc.o: test/%.cc $(h_files) $(test_h_files) $(build_files) | $(out_dirs)
 	$(CXX) -c -o $@ $(CXXFLAGS) "-I$(vendor_gmock)/include" "-I$(vendor_gmock)/gtest/include" $<
 
 $(out_dir)/$(vendor_gmock)/gtest/%.cc.o: $(vendor_gmock)/gtest/%.cc $(build_files) | $(out_dirs)

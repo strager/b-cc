@@ -180,67 +180,78 @@ public:
     static B_AnswerVTable const *
     vtable() {
         static B_AnswerVTable vtable = {
-            // equal
-            [](
-                    B_Answer const *a,
-                    B_Answer const *b,
-                    B_OUTPTR bool *out,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, a);
-                B_CHECK_PRECONDITION(eh, b);
-                return T::equal(
-                    *static_cast<T const *>(a),
-                    *static_cast<T const *>(b),
-                    out,
-                    eh);
-            },
-            // replicate
-            [](
-                    B_Answer const *answer,
-                    B_OUTPTR B_Answer **out,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, answer);
-                B_CHECK_PRECONDITION(eh, out);
-                T *tmp;
-                if (!static_cast<T const *>(answer)
-                        ->replicate(&tmp, eh)) {
-                    return false;
-                }
-                *out = tmp;
-                return true;
-            },
-            // deallocate
-            [](
-                    B_TRANSFER B_Answer *answer,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, answer);
-                return static_cast<T *>(answer)
-                    ->deallocate(eh);
-            },
-            // serialize
-            [](
-                    B_Answer const *answer,
-                    B_OUT B_TRANSFER B_Serialized *out,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, answer);
-                return static_cast<T const *>(answer)
-                    ->serialize(out, eh);
-            },
-            // deserialize
-            [](
-                    B_BORROWED B_Serialized serialized,
-                    B_OUTPTR B_Answer **out,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, out);
-                T *tmp;
-                if (!T::deserialize(serialized, &tmp, eh)) {
-                    return false;
-                }
-                *out = tmp;
-                return true;
-            },
+            equal_,
+            replicate_,
+            deallocate_,
+            serialize_,
+            deserialize_,
         };
         return &vtable;
+    }
+
+private:
+    static B_FUNC
+    equal_(
+            B_Answer const *a,
+            B_Answer const *b,
+            B_OUTPTR bool *out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, a);
+        B_CHECK_PRECONDITION(eh, b);
+        return T::equal(
+            *static_cast<T const *>(a),
+            *static_cast<T const *>(b),
+            out,
+            eh);
+    }
+
+    static B_FUNC
+    replicate_(
+            B_Answer const *answer,
+            B_OUTPTR B_Answer **out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, answer);
+        B_CHECK_PRECONDITION(eh, out);
+        T *tmp;
+        if (!static_cast<T const *>(answer)
+                ->replicate(&tmp, eh)) {
+            return false;
+        }
+        *out = tmp;
+        return true;
+    }
+
+    static B_FUNC
+    deallocate_(
+            B_TRANSFER B_Answer *answer,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, answer);
+        return static_cast<T *>(answer)
+            ->deallocate(eh);
+    }
+
+    static B_FUNC
+    serialize_(
+            B_Answer const *answer,
+            B_OUT B_TRANSFER B_Serialized *out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, answer);
+        return static_cast<T const *>(answer)
+            ->serialize(out, eh);
+    }
+
+    static B_FUNC
+    deserialize_(
+            B_BORROWED B_Serialized serialized,
+            B_OUTPTR B_Answer **out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, out);
+        T *tmp;
+        if (!T::deserialize(serialized, &tmp, eh)) {
+            return false;
+        }
+        *out = tmp;
+        return true;
     }
 };
 
@@ -307,90 +318,100 @@ public:
     static B_QuestionVTable const *
     vtable() {
         static B_QuestionVTable vtable = {
-            // uuid
             B_QuestionClass::uuid,
-            // answer_vtable
             T::AnswerClass::vtable(),
-            // answer
-            [](
-                    B_Question const *question,
-                    B_OUTPTR B_Answer **out,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, question);
-                B_CHECK_PRECONDITION(eh, out);
-                typename T::AnswerClass *tmp;
-                if (!static_cast<T const *>(question)
-                        ->answer(&tmp, eh)) {
-                    return false;
-                }
-                *out = tmp;
-                return true;
-            },
-            // equal
-            [](
-                    B_Question const *a,
-                    B_Question const *b,
-                    B_OUTPTR bool *out,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, a);
-                B_CHECK_PRECONDITION(eh, b);
-                return T::equal(
-                    *static_cast<T const *>(a),
-                    *static_cast<T const *>(b),
-                    out,
-                    eh);
-            },
-            // replicate
-            [](
-                    B_Question const *question,
-                    B_OUTPTR B_Question **out,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, question);
-                B_CHECK_PRECONDITION(eh, out);
-                T *tmp;
-                if (!static_cast<T const *>(question)
-                        ->replicate(&tmp, eh)) {
-                    return false;
-                }
-                *out = tmp;
-                return true;
-            },
-            // deallocate
-            [](
-                    B_Question *question,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, question);
-                return static_cast<T *>(question)
-                    ->deallocate(eh);
-            },
-            // serialize
-            [](
-                    B_Question const *question,
-                    B_OUT B_TRANSFER B_Serialized *out,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, question);
-                return static_cast<T const *>(question)
-                    ->serialize(out, eh);
-            },
-            // deserialize
-            [](
-                    B_BORROWED B_Serialized serialized,
-                    B_OUTPTR B_Question **out,
-                    B_ErrorHandler const *eh) {
-                B_CHECK_PRECONDITION(eh, out);
-                T *tmp;
-                if (!T::deserialize(serialized, &tmp, eh)) {
-                    return false;
-                }
-                *out = tmp;
-                return true;
-            },
+            answer_,
+            equal_,
+            replicate_,
+            deallocate_,
+            serialize_,
+            deserialize_,
         };
         return &vtable;
     }
 
 private:
     static B_UUID uuid;
+
+    static B_FUNC
+    answer_(
+            B_Question const *question,
+            B_OUTPTR B_Answer **out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, question);
+        B_CHECK_PRECONDITION(eh, out);
+        typename T::AnswerClass *tmp;
+        if (!static_cast<T const *>(question)
+                ->answer(&tmp, eh)) {
+            return false;
+        }
+        *out = tmp;
+        return true;
+    }
+
+    B_FUNC
+    static equal_(
+            B_Question const *a,
+            B_Question const *b,
+            B_OUTPTR bool *out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, a);
+        B_CHECK_PRECONDITION(eh, b);
+        return T::equal(
+            *static_cast<T const *>(a),
+            *static_cast<T const *>(b),
+            out,
+            eh);
+    }
+
+    static B_FUNC
+    replicate_(
+            B_Question const *question,
+            B_OUTPTR B_Question **out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, question);
+        B_CHECK_PRECONDITION(eh, out);
+        T *tmp;
+        if (!static_cast<T const *>(question)
+                ->replicate(&tmp, eh)) {
+            return false;
+        }
+        *out = tmp;
+        return true;
+    }
+
+    static B_FUNC
+    deallocate_(
+            B_Question *question,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, question);
+        return static_cast<T *>(question)
+            ->deallocate(eh);
+    }
+
+    static B_FUNC
+    serialize_(
+            B_Question const *question,
+            B_OUT B_TRANSFER B_Serialized *out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, question);
+        return static_cast<T const *>(question)
+            ->serialize(out, eh);
+    }
+
+    static B_FUNC
+    deserialize_(
+            B_BORROWED B_Serialized serialized,
+            B_OUTPTR B_Question **out,
+            B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, out);
+        T *tmp;
+        if (!T::deserialize(serialized, &tmp, eh)) {
+            return false;
+        }
+        *out = tmp;
+        return true;
+    }
 };
 #endif
 
