@@ -52,6 +52,15 @@ b_question_queue_dequeue(
         B_OUTPTR struct B_QuestionQueueItemObject *B_OPT *,
         struct B_ErrorHandler const *);
 
+// Non-blocking.  Outputs a NULL pointer if
+// b_question_queue_close was called or if the queue is
+// empty.
+B_EXPORT_FUNC
+b_question_queue_try_dequeue(
+        struct B_QuestionQueue *,
+        B_OUTPTR struct B_QuestionQueueItemObject *B_OPT *,
+        struct B_ErrorHandler const *);
+
 // After this is called, b_question_queue_dequeue will
 // return NULL, and b_question_queue_enqueue will do
 // nothing.  Idempotent.
@@ -96,6 +105,19 @@ struct B_QuestionQueueDeleter :
             B_QuestionQueue *queue) {
         (void) b_question_queue_deallocate(
             queue,
+            this->error_handler);
+    }
+};
+
+struct B_QuestionQueueItemDeleter :
+        public B_Deleter {
+    using B_Deleter::B_Deleter;
+
+    void
+    operator()(
+            B_QuestionQueueItemObject *queue_item) {
+        (void) b_question_queue_item_object_deallocate(
+            queue_item,
             this->error_handler);
     }
 };

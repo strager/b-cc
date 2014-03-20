@@ -24,6 +24,11 @@ struct B_RefCount {
     })
 #endif
 
+#if defined(__cplusplus)
+#define B_REF_COUNT_CONSTRUCTOR_INITIALIZER \
+    B_REF_COUNTED_NAME_(B_REF_COUNT_INITIALIZER)
+#endif
+
 #define B_REF_COUNTED_NAME_ _object_ref_count
 
 #define B_REF_COUNTED_OBJECT \

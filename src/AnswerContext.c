@@ -379,9 +379,15 @@ need_queue_item_deallocate_(
         return false;
     }
 
-    (void) need_closure_release_(
-        need_queue_item->closure,
-        eh);
+    struct NeedClosure_ *need_closure
+        = need_queue_item->closure;
+    if (!need_closure->callback_called) {
+        // Ensure the callback is called so we don't leak
+        // resources.
+        (void) need_closure_cancel_(need_closure, eh);
+    }
+
+    (void) need_closure_release_(need_closure, eh);
     (void) b_deallocate(need_queue_item, eh);
     return true;
 }

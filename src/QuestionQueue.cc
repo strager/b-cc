@@ -78,6 +78,21 @@ struct B_QuestionQueue {
         }
     }
 
+    B_QuestionQueueItemObject *
+    try_dequeue() {
+        {
+            B_PthreadMutexHolder locker(&this->lock);
+
+            if (queue_items.empty()) {
+                return nullptr;
+            } else {
+                auto front = this->queue_items.front();
+                this->queue_items.pop_front();
+                return front;
+            }
+        }
+    }
+
     void
     close() {
         {
@@ -150,6 +165,18 @@ b_question_queue_dequeue(
     B_CHECK_PRECONDITION(eh, out);
 
     *out = queue->dequeue();
+    return true;
+}
+
+B_EXPORT_FUNC
+b_question_queue_try_dequeue(
+        struct B_QuestionQueue *queue,
+        B_OUTPTR struct B_QuestionQueueItemObject *B_OPT *out,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, queue);
+    B_CHECK_PRECONDITION(eh, out);
+
+    *out = queue->try_dequeue();
     return true;
 }
 
