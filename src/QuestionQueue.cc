@@ -39,6 +39,7 @@ struct B_QuestionQueue {
                 // Continue deallocation.
             }
         }
+        this->queue_items.clear();
     }
 
 #if defined(B_CONFIG_PTHREAD)
@@ -135,8 +136,7 @@ b_question_queue_deallocate(
     B_CHECK_PRECONDITION(eh, queue);
 
     queue->deallocate(eh);
-    delete queue;
-    return true;
+    return b_delete(queue, eh);
 }
 
 B_EXPORT_FUNC
