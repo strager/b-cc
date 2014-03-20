@@ -1,3 +1,10 @@
+// GCC 4.8.2 has a false warning.  With -Werror, this fails
+// the build.  The following block changes the failure into
+// a mere warning.
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic warning "-Wmaybe-uninitialized"
+#endif
+
 #include <B/Alloc.h>
 #include <B/AnswerContext.h>
 #include <B/Assert.h>

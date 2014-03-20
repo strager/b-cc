@@ -144,7 +144,7 @@ $(out_dir)/$(vendor_gmock)/%.cc.o: $(vendor_gmock)/%.cc $(build_files) | $(out_d
 	$(CXX) -c -o $@ $(CXXFLAGS) "-I$(vendor_gmock)/gtest/include" "-I$(vendor_gmock)/include" "-I$(vendor_gmock)" -Wno-missing-field-initializers $<
 
 $(out_dir)/$(vendor_sqlite3)/%.c.o: $(vendor_sqlite3)/%.c $(build_files) | $(out_dirs)
-	$(CC) -c -o $@ $(CFLAGS) -Wno-unused-variable $<
+	$(CC) -c -o $@ $(CFLAGS) -Wno-unused-variable -Wno-array-bounds $<
 
 $(out_dir)/%.c.o: %.c $(h_files) $(build_files) | $(out_dirs)
 	$(CC) -c -o $@ $(CFLAGS) $(sqlite3_user_cflags) $<
