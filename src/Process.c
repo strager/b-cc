@@ -66,6 +66,10 @@
 # include <sys/wait.h>
 #endif
 
+#if defined(B_CONFIG_VALGRIND)
+# include <valgrind/helgrind.h>
+#endif
+
 // FIXME(strager): Reporting errors while holding a lock is
 // a bad idea!
 #define B_ERROR_WHILE_LOCKED() B_BUG()
@@ -604,6 +608,13 @@ b_process_loop_run_async_unsafe(
         }
     }
     B_MUTEX_MUST_UNLOCK(closure.lock, eh);
+
+#if defined(B_CONFIG_VALGRIND)
+    // Helgrind does not like stack-allocated mutexes.
+    if (RUNNING_ON_VALGRIND) {
+        ANNOTATE_NEW_MEMORY(&closure.lock, sizeof(closure.lock));
+    }
+#endif
 
     return ok;
 }

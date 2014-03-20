@@ -14,17 +14,17 @@ before_script:
     - echo "$CC" && "$CC" --version
     - echo "$CXX" && "$CXX" --version
 script:
-    - make test
-    - if $valgrind; then make test run_with='valgrind --tool=memcheck --error-exitcode=1'; fi
-    # TODO(strager)
-    #- if $valgrind; then make test run_with='valgrind --tool=helgrind --error-exitcode=1'; fi
+    - makeflags="valgrind=$($valgrind && echo 1)"
+    - make test $makeflags
+    - if $valgrind; then make test $makeflags run_with='valgrind --tool=memcheck --error-exitcode=1'; fi
+    - if $valgrind; then make test $makeflags run_with='valgrind --tool=helgrind --error-exitcode=1'; fi
 
     # Now with optimizations!
     - export CFLAGS='-O3'
     - export CXXFLAGS="$CFLAGS"
-    - make test
-    - if $valgrind; then make test run_with='valgrind --tool=memcheck --error-exitcode=1'; fi
-    # TODO(strager)
-    #- if $valgrind; then make test run_with='valgrind --tool=helgrind --error-exitcode=1'; fi
+    - make clean $makeflags
+    - make test $makeflags
+    - if $valgrind; then make test $makeflags run_with='valgrind --tool=memcheck --error-exitcode=1'; fi
+    - if $valgrind; then make test $makeflags run_with='valgrind --tool=helgrind --error-exitcode=1'; fi
 
     # TODO(strager): DRD (valgrind tool) crashes on vfork (posix_spawn).

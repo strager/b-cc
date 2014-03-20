@@ -3,6 +3,12 @@ include configure.make
 # For example: make test-gtest run_with=valgrind
 run_with :=
 
+# Set to 1 to compile for Valgrind.  Various annotations are
+# included to work around Valgrind issues.  Does not affect
+# how tests are run.  Assumes Valgrind headers are
+# installed.
+valgrind := 0
+
 # Set to 1 to compile and link vendor/sqlite-3.4.1/
 # statically.  Set to non-1 to use the system sqlite3.
 sqlite3_static := 1
@@ -53,6 +59,11 @@ c_cc_flags := -Iinclude -g -Wall -Wextra -pedantic -Werror
 CFLAGS += $(c_cc_flags) -std=c11
 CXXFLAGS += $(c_cc_flags) -std=c++11
 LDFLAGS +=
+
+ifeq ($(valgrind),1)
+	CFLAGS += -DB_CONFIG_VALGRIND
+	CXXFLAGS += -DB_CONFIG_VALGRIND
+endif
 
 ifeq ($(sqlite3_static),1)
 	sqlite3_user_cflags := "-I$(vendor_sqlite3)"
