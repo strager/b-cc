@@ -107,7 +107,13 @@ public:
                 int rc = pthread_cond_wait(
                     &shared_cond,
                     &shared_lock);
-                ASSERT_EQ(0, rc);
+                /*
+                 * NOTE(strager): We can't ASSERT_EQ here as
+                 * that would leave output variables
+                 * uninitializezed.
+                 */
+                EXPECT_EQ(0, rc);
+                B_ASSERT(rc == 0);
             }
         }
 #else
