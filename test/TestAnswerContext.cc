@@ -35,8 +35,7 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
             B_Answer *,
             void *,
             B_ErrorHandler const *) {
-        // TODO(strager)
-        return false;
+        return true;
     };
     answer_context.answer_callback_opaque = nullptr;
     answer_context.question_queue = question_queue.get();
@@ -49,11 +48,11 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
         [](
                 B_TRANSFER B_Answer *,
                 B_ErrorHandler const *) {
-            return false;
+            return true;
         },
         [](
                 B_ErrorHandler const *) {
-            return false;
+            return true;
         },
         eh));
 
