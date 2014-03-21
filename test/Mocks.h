@@ -72,6 +72,18 @@ public:
             B_REF_COUNT_CONSTRUCTOR_INITIALIZER {
     }
 
+    ~MockAnswer() {
+        uint32_t ref_count;
+        bool ok = B_CURRENT_REF_COUNT_DEBUG(
+            this,
+            &ref_count,
+            nullptr);
+        EXPECT_TRUE(ok);
+        if (ok) {
+            EXPECT_EQ(1U, ref_count);
+        }
+    }
+
     MOCK_CONST_METHOD3(equals, B_FUNC(
         MockAnswer const &,
         B_OUTPTR bool *,
@@ -114,6 +126,18 @@ public:
 
     MockQuestion() :
             B_REF_COUNT_CONSTRUCTOR_INITIALIZER {
+    }
+
+    ~MockQuestion() {
+        uint32_t ref_count;
+        bool ok = B_CURRENT_REF_COUNT_DEBUG(
+            this,
+            &ref_count,
+            nullptr);
+        EXPECT_TRUE(ok);
+        if (ok) {
+            EXPECT_EQ(1U, ref_count);
+        }
     }
 
     MOCK_CONST_METHOD2(answer, B_FUNC(

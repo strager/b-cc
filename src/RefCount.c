@@ -51,3 +51,13 @@ b_ref_count_release(
     *should_dealloc = ref_count->ref_count == 0;
     return true;
 }
+
+B_EXPORT_FUNC
+b_ref_count_current_debug(
+        struct B_RefCount *ref_count,
+        uint32_t *out_ref_count,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, ref_count);
+    *out_ref_count = ref_count->ref_count;
+    return true;
+}

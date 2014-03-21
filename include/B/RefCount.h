@@ -47,6 +47,14 @@ struct B_RefCount {
         (_should_dealloc), \
         eh))
 
+// Should only be used for debugging and in control
+// environments (e.g. unit tests).
+#define B_CURRENT_REF_COUNT_DEBUG(_object, _out, _eh) \
+    (b_ref_count_current_debug( \
+        &(_object)->B_REF_COUNTED_NAME_, \
+        (_out), \
+        _eh))
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -71,6 +79,12 @@ B_EXPORT_FUNC
 b_ref_count_release(
         struct B_RefCount *,
         bool *should_dealloc,
+        struct B_ErrorHandler const *);
+
+B_EXPORT_FUNC
+b_ref_count_current_debug(
+        struct B_RefCount *,
+        uint32_t *out_ref_count,
         struct B_ErrorHandler const *);
 
 #if defined(__cplusplus)
