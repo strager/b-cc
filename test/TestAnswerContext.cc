@@ -241,3 +241,109 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
         eh));
     EXPECT_EQ(1U, need_callback_called);
 }
+
+// Ensures calling b_answer_context_success_answer calls the
+// AnswerContext's answer_callback with the answer.
+TEST(TestAnswerContext, SuccessAnswerCallsContextCallback) {
+    B_ErrorHandler const *eh = nullptr;
+
+    // Must be alive while question_queue is destructed.
+    StrictMock<MockQuestion> question;
+    MockRefCounting(question);
+    StrictMock<MockAnswer> answer;
+    MockRefCounting(answer);
+    B_AnswerContext answer_context;
+
+    B_QuestionQueue *question_queue_raw;
+    ASSERT_TRUE(b_question_queue_allocate(
+        &question_queue_raw,
+        eh));
+    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
+        question_queue(question_queue_raw, eh);
+    question_queue_raw = nullptr;
+
+    size_t answer_callback_called = 0;
+    auto answer_callback = [&](
+            B_Answer *cur_answer,
+            B_ErrorHandler const *cur_eh) {
+        answer_callback_called += 1;
+        EXPECT_EQ(&answer, cur_answer);
+        EXPECT_EQ(eh, cur_eh);
+        return true;
+    };
+    answer_context.question = &question;
+    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.answer_callback = [](
+            B_Answer *answer,
+            void *opaque,
+            B_ErrorHandler const *eh) {
+        return (*static_cast<decltype(answer_callback) *>(
+            opaque))(answer, eh);
+    };
+    answer_context.answer_callback_opaque
+        = &answer_callback;
+    answer_context.question_queue = question_queue.get();
+    answer_context.dependency_delegate = nullptr;
+
+    EXPECT_EQ(0U, answer_callback_called);
+    ASSERT_TRUE(b_answer_context_success_answer(
+        &answer_context,
+        &answer,
+        eh));
+    EXPECT_EQ(1U, answer_callback_called);
+}
+
+// Ensures calling b_answer_context_success_answer calls the
+// AnswerContext's answer_callback with the answer.
+TEST(TestAnswerContext, SuccessCallsContextCallback) {
+    B_ErrorHandler const *eh = nullptr;
+
+    // Must be alive while question_queue is destructed.
+    StrictMock<MockQuestion> question;
+    MockRefCounting(question);
+    StrictMock<MockAnswer> answer;
+    MockRefCounting(answer);
+    B_AnswerContext answer_context;
+
+    EXPECT_CALL(question, answer(_, _))
+        .WillOnce(DoAll(
+            SetArgPointee<0>(&answer),
+            Return(true)));
+
+    B_QuestionQueue *question_queue_raw;
+    ASSERT_TRUE(b_question_queue_allocate(
+        &question_queue_raw,
+        eh));
+    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
+        question_queue(question_queue_raw, eh);
+    question_queue_raw = nullptr;
+
+    size_t answer_callback_called = 0;
+    auto answer_callback = [&](
+            B_Answer *cur_answer,
+            B_ErrorHandler const *cur_eh) {
+        answer_callback_called += 1;
+        EXPECT_EQ(&answer, cur_answer);
+        EXPECT_EQ(eh, cur_eh);
+        return true;
+    };
+    answer_context.question = &question;
+    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.answer_callback = [](
+            B_Answer *answer,
+            void *opaque,
+            B_ErrorHandler const *eh) {
+        return (*static_cast<decltype(answer_callback) *>(
+            opaque))(answer, eh);
+    };
+    answer_context.answer_callback_opaque
+        = &answer_callback;
+    answer_context.question_queue = question_queue.get();
+    answer_context.dependency_delegate = nullptr;
+
+    EXPECT_EQ(0U, answer_callback_called);
+    ASSERT_TRUE(b_answer_context_success(
+        &answer_context,
+        eh));
+    EXPECT_EQ(1U, answer_callback_called);
+}
