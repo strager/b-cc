@@ -373,6 +373,8 @@ need_queue_item_deallocate_(
         struct B_ErrorHandler const *eh) {
     struct NeedQueueItem_ *need_queue_item
             = (struct NeedQueueItem_ *) queue_item;
+    // FIXME(strager): This disagrees with the comment in
+    // AnswerContext.h.
     if (!queue_item->question_vtable->deallocate(
             queue_item->question,
             eh)) {

@@ -51,6 +51,8 @@
 // By default, non-function pointers fields are owning.
 #define B_BORROWED
 
+#define B_FLAGS(_)
+
 #define B_ABSTRACT
 
 #if defined(B_CONFIG_SAL)

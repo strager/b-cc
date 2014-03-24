@@ -30,6 +30,24 @@ b_memdup(
         B_OUTPTR void **,
         struct B_ErrorHandler const *);
 
+// Allocates memory and copies from string until a 0
+// terminator is found.  Resulting data is 0-terminated.
+B_EXPORT_FUNC
+b_strdup(
+        char const *string,
+        B_OUTPTR char **,
+        struct B_ErrorHandler const *);
+
+// Allocates memory and copies from string until either a 0
+// terminator is found or string_length bytes have been
+// copied.  Resulting data is 0-terminated.
+B_EXPORT_FUNC
+b_strndup(
+        char const *string,
+        size_t string_length,
+        B_OUTPTR char **,
+        struct B_ErrorHandler const *);
+
 #if defined(__cplusplus)
 }
 #endif

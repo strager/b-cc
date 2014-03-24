@@ -1,16 +1,10 @@
-// GCC 4.8.2 has a false warning.  With -Werror, this fails
-// the build.  The following block changes the failure into
-// a mere warning.
-#if defined(__GNUC__) && !defined(__clang__)
-# pragma GCC diagnostic warning "-Wmaybe-uninitialized"
-#endif
-
 #include <B/Alloc.h>
 #include <B/AnswerContext.h>
 #include <B/Assert.h>
 #include <B/Database.h>
 #include <B/DependencyDelegate.h>
 #include <B/Error.h>
+#include <B/File.h>
 #include <B/Process.h>
 #include <B/QuestionAnswer.h>
 #include <B/QuestionDispatch.h>
@@ -21,7 +15,6 @@
 #include <cassert>
 #include <cstdio>
 #include <errno.h>
-#include <fstream>
 #include <memory>
 #include <sqlite3.h>
 #include <string>
@@ -52,195 +45,6 @@
 // Initialized in main.
 std::unique_ptr<B_ProcessLoop, B_ProcessLoopDeleter>
 g_process_loop_(nullptr, nullptr);
-
-struct FileAnswer :
-        public B_AnswerClass<FileAnswer> {
-    explicit
-    FileAnswer(
-            uint64_t sum_hash) :
-            sum_hash(sum_hash) {
-    }
-
-    static uint64_t
-    sum_hash_from_path(
-            std::string path) {
-        std::ifstream input(path);
-        if (!input) {
-            return 0;  // FIXME(strager)
-        }
-        uint64_t sum_hash = 0;
-        char c;
-        while (input.get(c)) {
-            sum_hash += static_cast<uint8_t>(c);
-        }
-        return sum_hash;
-    }
-
-    static B_FUNC
-    equal(
-            FileAnswer const &a,
-            FileAnswer const &b,
-            B_OUTPTR bool *out,
-            B_ErrorHandler const *eh) {
-        (void) eh;  // TODO(strager)
-        *out = a == b;
-        return true;
-    }
-
-    B_FUNC
-    replicate(
-            B_OUTPTR FileAnswer **out,
-            B_ErrorHandler const *eh) const {
-        (void) eh;  // TODO(strager)
-        *out = new FileAnswer(*this);
-        return true;
-    }
-
-    B_FUNC
-    deallocate(
-            B_ErrorHandler const *eh) {
-        (void) eh;  // TODO(strager)
-        delete this;
-        return true;
-    }
-
-    B_FUNC
-    serialize(
-            B_OUT B_Serialized *out,
-            B_ErrorHandler const *eh) const {
-        B_CHECK_PRECONDITION(eh, out);
-
-        size_t size = sizeof(uint64_t);
-        if (!b_allocate(size, &out->data, eh)) {
-            return false;
-        }
-        // FIXME(strager): This is endianness-dependent.
-        *reinterpret_cast<uint64_t *>(out->data)
-            = this->sum_hash;
-        out->size = size;
-        return true;
-    }
-
-    static B_FUNC
-    deserialize(
-            B_BORROWED B_Serialized serialized,
-            B_OUTPTR FileAnswer **out,
-            B_ErrorHandler const *eh) {
-        B_CHECK_PRECONDITION(eh, out);
-        B_CHECK_PRECONDITION(eh, serialized.data);
-
-        if (serialized.size != sizeof(uint64_t)) {
-            // TODO(strager): Report error.
-            return false;
-        }
-        // FIXME(strager): This is endianness-dependent.
-        *out = new FileAnswer(*reinterpret_cast<uint64_t *>(
-            serialized.data));
-        return true;
-    }
-
-    bool
-    operator==(
-            FileAnswer const &other) const {
-        return other.sum_hash == this->sum_hash;
-    }
-
-    // TODO(strager): Store a hash instead (e.g. SHA-256).
-    uint64_t const sum_hash;
-};
-
-struct FileQuestion :
-        public B_QuestionClass<FileQuestion> {
-    typedef FileAnswer AnswerClass;
-
-    explicit
-    FileQuestion(
-            std::string path) :
-            path(path) {
-    }
-
-    std::string const path;
-
-    B_FUNC
-    answer(
-            B_OUTPTR FileAnswer **out,
-            B_ErrorHandler const *eh) const {
-        B_CHECK_PRECONDITION(eh, out);
-
-        uint64_t sum_hash
-            = FileAnswer::sum_hash_from_path(this->path);
-        *out = new FileAnswer(sum_hash);
-        return true;
-    }
-
-    static B_FUNC
-    equal(
-            FileQuestion const &a,
-            FileQuestion const &b,
-            B_OUTPTR bool *out,
-            B_ErrorHandler const *eh) {
-        (void) eh;  // TODO(strager)
-        *out = a == b;
-        return true;
-    }
-
-    B_FUNC
-    replicate(
-            B_OUTPTR FileQuestion **out,
-            B_ErrorHandler const *eh) const {
-        (void) eh;  // TODO(strager)
-        *out = new FileQuestion(*this);
-        return true;
-    }
-
-    B_FUNC
-    deallocate(
-            B_ErrorHandler const *eh) {
-        (void) eh;  // TODO(strager)
-        delete this;
-        return true;
-    }
-
-    B_FUNC
-    serialize(
-            B_OUT B_Serialized *out,
-            B_ErrorHandler const *eh) const {
-        size_t size = this->path.size();
-        if (!b_memdup(
-                this->path.c_str(),
-                size,
-                &out->data,
-                eh)) {
-            return false;
-        }
-        out->size = size;
-        return true;
-    }
-
-    static B_FUNC
-    deserialize(
-            B_BORROWED B_Serialized serialized,
-            B_OUTPTR FileQuestion **out,
-            B_ErrorHandler const *eh) {
-        B_CHECK_PRECONDITION(eh, out);
-
-        *out = new FileQuestion(std::string(
-            static_cast<char const *>(serialized.data),
-            serialized.size));
-        return true;
-    }
-
-    bool
-    operator==(
-            FileQuestion const &other) const {
-        return other.path == this->path;
-    }
-};
-
-template<>
-B_UUID
-B_QuestionClass<FileQuestion>::uuid
-    = B_UUID_LITERAL("B6BD5D3B-DDC1-43B2-832B-2B5836BF78FC");
 
 static std::string::size_type
 path_extensions_index(
@@ -290,25 +94,25 @@ path_drop_extensions(
 
 static B_FUNC
 run_link(
-        FileQuestion const *file_question,
+        std::string const &path,
         B_AnswerContext const *answer_context,
         B_ErrorHandler const *eh);
 
 static B_FUNC
 run_c_compile(
-        FileQuestion const *file_question,
+        std::string const &path,
         B_AnswerContext const *answer_context,
         B_ErrorHandler const *eh);
 
 static B_FUNC
 run_cc_compile(
-        FileQuestion const *file_question,
+        std::string const &path,
         B_AnswerContext const *answer_context,
         B_ErrorHandler const *eh);
 
 static B_FUNC
 check_file(
-        FileQuestion const *file_question,
+        std::string const &path,
         B_AnswerContext const *answer_context,
         B_ErrorHandler const *eh);
 
@@ -318,7 +122,7 @@ dispatch_question(
         void *,
         B_ErrorHandler const *eh) {
     if (answer_context->question_vtable->uuid
-            != FileQuestion::vtable()->uuid) {
+            != b_file_contents_question_vtable()->uuid) {
         (void) B_RAISE_ERRNO_ERROR(
             eh,
             EINVAL,
@@ -326,35 +130,35 @@ dispatch_question(
         return false;
     }
 
-    auto fq = static_cast<FileQuestion const *>(
-        answer_context->question);
-    std::string extension = path_extensions(fq->path);
+    auto path_raw = static_cast<char const *>(
+        static_cast<void const *>(
+            answer_context->question));
+    std::string path(path_raw);
+    std::string extension = path_extensions(path);
     if (extension == "") {
-        return run_link(fq, answer_context, eh);
+        return run_link(path, answer_context, eh);
     } else if (extension == ".c.o") {
-        return run_c_compile(fq, answer_context, eh);
+        return run_c_compile(path, answer_context, eh);
     } else if (extension == ".cc.o") {
-        return run_cc_compile(fq, answer_context, eh);
+        return run_cc_compile(path, answer_context, eh);
     } else {
-        return check_file(fq, answer_context, eh);
+        return check_file(path, answer_context, eh);
     }
 }
 
 static B_FUNC
 run_link(
-        FileQuestion const *file_question,
+        std::string const &exe_path,
         B_AnswerContext const *answer_context,
         B_ErrorHandler const *eh) {
-    std::string exe_path = file_question->path;
-
-    // FIXME(strager): This is super ugly.
-    // TODO(strager): Use std::make_unique.
     std::vector<std::string> o_paths = {
         "ex/1/main.cc.o",
         "src/Alloc.c.o",
         "src/AnswerContext.c.o",
         "src/Database.c.o",
         "src/Error.c.o",
+        "src/File.cc.o",
+        "src/FilePath.c.o",
         "src/Log.c.o",
         "src/Misc.c.o",
         "src/Process.c.o",
@@ -366,42 +170,31 @@ run_link(
         "src/Thread.c.o",
         "src/UUID.c.o",
     };
-    std::vector<std::unique_ptr<FileQuestion>> questions;
+    std::vector<B_Question const *> questions;
     std::transform(
         o_paths.begin(),
         o_paths.end(),
         std::back_inserter(questions),
         [](
-                const std::string &o_path) {
-            return std::unique_ptr<FileQuestion>(
-                    new FileQuestion(o_path));
-        });
-    std::vector<B_Question const *> questions_raw;
-    std::transform(
-        questions.begin(),
-        questions.end(),
-        std::back_inserter(questions_raw),
-        [](
-                const std::unique_ptr<FileQuestion> &q) {
-            return q.get();
+                const std::string &path) {
+            return static_cast<B_Question const *>(
+                static_cast<void const *>(
+                    path.c_str()));
         });
     std::vector<B_QuestionVTable const *>
-        questions_vtables_raw;
+        questions_vtables;
     std::fill_n(
-            std::back_inserter(questions_vtables_raw),
+            std::back_inserter(questions_vtables),
             questions.size(),
-            FileQuestion::vtable());
+            b_file_contents_question_vtable());
     return b_answer_context_need(
         answer_context,
-        questions_raw.data(),
-        questions_vtables_raw.data(),
-        questions_raw.size(),
+        questions.data(),
+        questions_vtables.data(),
+        questions.size(),
         [answer_context, exe_path, o_paths](
-                B_Answer *const *answers,
+                B_Answer *const *,
                 B_ErrorHandler const *eh) {
-            // TODO(strager): Deallocate answers.
-            (void) answers;
-
             std::vector<char const *> args = {
                 "clang++",
 #if defined(BUILDING_ON_STRAGERS_MACHINE)
@@ -437,26 +230,21 @@ run_link(
 
 static B_FUNC
 run_c_compile(
-        FileQuestion const *file_question,
+        std::string const &o_path,
         B_AnswerContext const *answer_context,
         B_ErrorHandler const *eh) {
-    std::string o_path = file_question->path;
     std::string c_path
             = path_drop_extensions(o_path) + ".c";
 
-    // TODO(strager): Use std::make_unique.
-    auto question = std::unique_ptr<FileQuestion>(
-            new FileQuestion(c_path));
+    auto question = static_cast<B_Question const *>(
+        static_cast<void const *>(c_path.c_str()));
     return b_answer_context_need_one(
         answer_context,
-        question.get(),
-        FileQuestion::vtable(),
+        question,
+        b_file_contents_question_vtable(),
         [answer_context, c_path, o_path](
-                B_Answer *answer,
+                B_Answer *,
                 B_ErrorHandler const *eh) {
-            // TODO(strager): Deallocate answer.
-            (void) answer;
-
             char const *command[] = {
                 "clang",
                 "-std=c99",
@@ -486,26 +274,22 @@ run_c_compile(
 
 static B_FUNC
 run_cc_compile(
-        FileQuestion const *file_question,
+        std::string const &o_path,
         B_AnswerContext const *answer_context,
         B_ErrorHandler const *eh) {
-    std::string o_path = file_question->path;
     std::string cc_path
             = path_drop_extensions(o_path) + ".cc";
 
     // TODO(strager): Use std::make_unique.
-    auto question = std::unique_ptr<FileQuestion>(
-            new FileQuestion(cc_path));
+    auto question = static_cast<B_Question const *>(
+        static_cast<void const *>(cc_path.c_str()));
     return b_answer_context_need_one(
         answer_context,
-        question.get(),
-        FileQuestion::vtable(),
+        question,
+        b_file_contents_question_vtable(),
         [answer_context, cc_path, o_path](
-                B_Answer *answer,
+                B_Answer *,
                 B_ErrorHandler const *eh) {
-            // TODO(strager): Deallocate answer.
-            (void) answer;
-
             char const *command[] = {
                 "clang++",
                 "-std=c++11",
@@ -535,13 +319,11 @@ run_cc_compile(
 
 static B_FUNC
 check_file(
-        FileQuestion const *file_question,
+        std::string const &path,
         B_AnswerContext const *answer_context,
         B_ErrorHandler const *eh) {
     struct stat stat_buffer;
-    int rc = stat(
-            file_question->path.c_str(),
-            &stat_buffer);
+    int rc = stat(path.c_str(), &stat_buffer);
     if (rc == -1) {
         switch (errno) {
         case ENOENT:
@@ -663,7 +445,7 @@ main(
     question_vtable_set_raw = nullptr;
     if (!b_question_vtable_set_add(
             question_vtable_set.get(),
-            FileQuestion::vtable(),
+            b_file_contents_question_vtable(),
             eh)) {
         return 1;
     }
@@ -678,11 +460,12 @@ main(
     int exit_code;
     bool exit_code_set = false;
 
-    auto initial_question = std::unique_ptr<FileQuestion>(
-            new FileQuestion("ex1"));
+    // HACK(strager)
+    auto initial_question = static_cast<B_Question *>(
+        static_cast<void *>(const_cast<char *>("ex1")));
     RootQueueItem_ *root_queue_item = new RootQueueItem_(
-        initial_question.get(),
-        FileQuestion::vtable(),
+        initial_question,
+        b_file_contents_question_vtable(),
         [&question_queue, &exit_code, &exit_code_set](
                 B_TRANSFER B_OPT B_Answer *answer,
                 void *,
@@ -694,8 +477,8 @@ main(
             }
 
             if (answer) {
-                (void) FileQuestion::vtable()->answer_vtable
-                        ->deallocate(answer, eh);
+                (void) b_file_contents_question_vtable()
+                    ->answer_vtable->deallocate(answer, eh);
             }
 
             exit_code = answer == NULL ? 1 : 0;
