@@ -164,6 +164,311 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
     EXPECT_EQ(1U, need_callback_called);
 }
 
+// Ensures calling the enqueued item answer_callback-s of
+// two b_answer_context_need_one calls with an answer calls
+// the b_answer_context_need_one success callback.
+TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
+    B_ErrorHandler const *eh = nullptr;
+
+    // Must be alive while question_queue is destructed.
+    StrictMock<MockQuestion> question;
+    MockRefCounting(question);
+    StrictMock<MockQuestion> needed_question_1;
+    MockRefCounting(needed_question_1);
+    StrictMock<MockQuestion> needed_question_2;
+    MockRefCounting(needed_question_2);
+    StrictMock<MockAnswer> answer_1;
+    MockRefCounting(answer_1);
+    StrictMock<MockAnswer> answer_2;
+    MockRefCounting(answer_2);
+    B_AnswerContext answer_context;
+
+    B_QuestionQueue *question_queue_raw;
+    ASSERT_TRUE(b_question_queue_allocate(
+        &question_queue_raw,
+        eh));
+    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
+        question_queue(question_queue_raw, eh);
+    question_queue_raw = nullptr;
+
+    answer_context.question = &question;
+    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.answer_callback = [](
+            B_Answer *,
+            void *,
+            B_ErrorHandler const *) {
+        return true;
+    };
+    answer_context.answer_callback_opaque = nullptr;
+    answer_context.question_queue = question_queue.get();
+    answer_context.dependency_delegate = nullptr;
+
+    size_t need_callback_1_called = 0;
+    ASSERT_TRUE(b_answer_context_need_one(
+        &answer_context,
+        &needed_question_1,
+        MockQuestion::vtable(),
+        [&](
+                B_TRANSFER B_Answer *cur_answer,
+                B_ErrorHandler const *cur_eh) {
+            need_callback_1_called += 1;
+            EXPECT_EQ(&answer_1, cur_answer);
+            EXPECT_EQ(eh, cur_eh);
+            return true;
+        },
+        [](
+                B_ErrorHandler const *) {
+            ADD_FAILURE();
+            return true;
+        },
+        eh));
+
+    size_t need_callback_2_called = 0;
+    ASSERT_TRUE(b_answer_context_need_one(
+        &answer_context,
+        &needed_question_2,
+        MockQuestion::vtable(),
+        [&](
+                B_TRANSFER B_Answer *cur_answer,
+                B_ErrorHandler const *cur_eh) {
+            need_callback_2_called += 1;
+            EXPECT_EQ(&answer_2, cur_answer);
+            EXPECT_EQ(eh, cur_eh);
+            return true;
+        },
+        [](
+                B_ErrorHandler const *) {
+            ADD_FAILURE();
+            return true;
+        },
+        eh));
+
+    {
+        B_QuestionQueueItemObject *queue_item_1_raw;
+        ASSERT_TRUE(b_question_queue_try_dequeue(
+            question_queue.get(),
+            &queue_item_1_raw,
+            eh));
+        ASSERT_NE(nullptr, queue_item_1_raw);
+        std::unique_ptr<
+                B_QuestionQueueItemObject,
+                B_QuestionQueueItemDeleter>
+            queue_item_1(queue_item_1_raw, eh);
+        queue_item_1_raw = nullptr;
+        EXPECT_EQ(
+            MockQuestion::vtable(),
+            queue_item_1->question_vtable);
+        ASSERT_NE(nullptr, queue_item_1->answer_callback);
+
+        B_Answer *queue_item_1_answer;
+        size_t *queue_item_1_need_callback_called;
+        if (queue_item_1->question == &needed_question_1) {
+            queue_item_1_answer = &answer_1;
+            ASSERT_TRUE(B_RETAIN(&answer_1, eh));
+            queue_item_1_need_callback_called
+                = &need_callback_1_called;
+        } else if (queue_item_1->question
+                == &needed_question_2) {
+            queue_item_1_answer = &answer_2;
+            ASSERT_TRUE(B_RETAIN(&answer_2, eh));
+            queue_item_1_need_callback_called
+                = &need_callback_2_called;
+        } else {
+            FAIL();
+        }
+        EXPECT_EQ(0U, *queue_item_1_need_callback_called);
+        ASSERT_TRUE(queue_item_1->answer_callback(
+            queue_item_1_answer,
+            queue_item_1.get(),
+            eh));
+        EXPECT_EQ(1U, *queue_item_1_need_callback_called);
+    }
+
+    {
+        B_QuestionQueueItemObject *queue_item_2_raw;
+        ASSERT_TRUE(b_question_queue_try_dequeue(
+            question_queue.get(),
+            &queue_item_2_raw,
+            eh));
+        ASSERT_NE(nullptr, queue_item_2_raw);
+        std::unique_ptr<
+                B_QuestionQueueItemObject,
+                B_QuestionQueueItemDeleter>
+            queue_item_2(queue_item_2_raw, eh);
+        queue_item_2_raw = nullptr;
+        EXPECT_EQ(
+            MockQuestion::vtable(),
+            queue_item_2->question_vtable);
+        ASSERT_NE(nullptr, queue_item_2->answer_callback);
+
+        B_Answer *queue_item_2_answer;
+        size_t *queue_item_2_need_callback_called;
+        if (queue_item_2->question == &needed_question_1) {
+            queue_item_2_answer = &answer_1;
+            ASSERT_TRUE(B_RETAIN(&answer_1, eh));
+            queue_item_2_need_callback_called
+                = &need_callback_1_called;
+        } else if (queue_item_2->question
+                == &needed_question_2) {
+            queue_item_2_answer = &answer_2;
+            ASSERT_TRUE(B_RETAIN(&answer_2, eh));
+            queue_item_2_need_callback_called
+                = &need_callback_2_called;
+        } else {
+            FAIL();
+        }
+        EXPECT_EQ(0U, *queue_item_2_need_callback_called);
+        ASSERT_TRUE(queue_item_2->answer_callback(
+            queue_item_2_answer,
+            queue_item_2.get(),
+            eh));
+        EXPECT_EQ(1U, *queue_item_2_need_callback_called);
+    }
+}
+
+// Ensures calling the enqueued item answer_callback-s of a
+// b_answer_context_need call with an answer calls the
+// b_answer_context_need success callback.
+TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
+    B_ErrorHandler const *eh = nullptr;
+
+    // Must be alive while question_queue is destructed.
+    StrictMock<MockQuestion> question;
+    MockRefCounting(question);
+    StrictMock<MockQuestion> needed_question_1;
+    MockRefCounting(needed_question_1);
+    StrictMock<MockQuestion> needed_question_2;
+    MockRefCounting(needed_question_2);
+    StrictMock<MockAnswer> answer_1;
+    MockRefCounting(answer_1);
+    StrictMock<MockAnswer> answer_2;
+    MockRefCounting(answer_2);
+    B_AnswerContext answer_context;
+
+    B_QuestionQueue *question_queue_raw;
+    ASSERT_TRUE(b_question_queue_allocate(
+        &question_queue_raw,
+        eh));
+    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
+        question_queue(question_queue_raw, eh);
+    question_queue_raw = nullptr;
+
+    answer_context.question = &question;
+    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.answer_callback = [](
+            B_Answer *,
+            void *,
+            B_ErrorHandler const *) {
+        return true;
+    };
+    answer_context.answer_callback_opaque = nullptr;
+    answer_context.question_queue = question_queue.get();
+    answer_context.dependency_delegate = nullptr;
+
+    B_Question const *needed_questions[2] = {
+        &needed_question_1,
+        &needed_question_2,
+    };
+    B_QuestionVTable const *needed_question_vtables[2] = {
+        MockQuestion::vtable(),
+        MockQuestion::vtable(),
+    };
+
+    size_t need_callback_called = 0;
+    ASSERT_TRUE(b_answer_context_need(
+        &answer_context,
+        needed_questions,
+        needed_question_vtables,
+        2,
+        [&](
+                B_TRANSFER B_Answer *const *cur_answers,
+                B_ErrorHandler const *cur_eh) {
+            need_callback_called += 1;
+            EXPECT_EQ(&answer_1, cur_answers[0]);
+            EXPECT_EQ(&answer_2, cur_answers[1]);
+            EXPECT_EQ(eh, cur_eh);
+            return true;
+        },
+        [](
+                B_ErrorHandler const *) {
+            ADD_FAILURE();
+            return true;
+        },
+        eh));
+
+    {
+        B_QuestionQueueItemObject *queue_item_1_raw;
+        ASSERT_TRUE(b_question_queue_try_dequeue(
+            question_queue.get(),
+            &queue_item_1_raw,
+            eh));
+        ASSERT_NE(nullptr, queue_item_1_raw);
+        std::unique_ptr<
+                B_QuestionQueueItemObject,
+                B_QuestionQueueItemDeleter>
+            queue_item_1(queue_item_1_raw, eh);
+        queue_item_1_raw = nullptr;
+        EXPECT_EQ(
+            MockQuestion::vtable(),
+            queue_item_1->question_vtable);
+        ASSERT_NE(nullptr, queue_item_1->answer_callback);
+
+        B_Answer *queue_item_1_answer;
+        if (queue_item_1->question == &needed_question_1) {
+            queue_item_1_answer = &answer_1;
+            ASSERT_TRUE(B_RETAIN(&answer_1, eh));
+        } else if (queue_item_1->question
+                == &needed_question_2) {
+            queue_item_1_answer = &answer_2;
+            ASSERT_TRUE(B_RETAIN(&answer_2, eh));
+        } else {
+            FAIL();
+        }
+        EXPECT_EQ(0U, need_callback_called);
+        ASSERT_TRUE(queue_item_1->answer_callback(
+            queue_item_1_answer,
+            queue_item_1.get(),
+            eh));
+        EXPECT_EQ(0U, need_callback_called);
+    }
+
+    {
+        B_QuestionQueueItemObject *queue_item_2_raw;
+        ASSERT_TRUE(b_question_queue_try_dequeue(
+            question_queue.get(),
+            &queue_item_2_raw,
+            eh));
+        ASSERT_NE(nullptr, queue_item_2_raw);
+        std::unique_ptr<
+                B_QuestionQueueItemObject,
+                B_QuestionQueueItemDeleter>
+            queue_item_2(queue_item_2_raw, eh);
+        queue_item_2_raw = nullptr;
+        EXPECT_EQ(
+            MockQuestion::vtable(),
+            queue_item_2->question_vtable);
+        ASSERT_NE(nullptr, queue_item_2->answer_callback);
+
+        B_Answer *queue_item_2_answer;
+        if (queue_item_2->question == &needed_question_1) {
+            queue_item_2_answer = &answer_1;
+            ASSERT_TRUE(B_RETAIN(&answer_1, eh));
+        } else if (queue_item_2->question
+                == &needed_question_2) {
+            queue_item_2_answer = &answer_2;
+            ASSERT_TRUE(B_RETAIN(&answer_2, eh));
+        } else {
+            FAIL();
+        }
+        EXPECT_EQ(0U, need_callback_called);
+        ASSERT_TRUE(queue_item_2->answer_callback(
+            queue_item_2_answer,
+            queue_item_2.get(),
+            eh));
+        EXPECT_EQ(1U, need_callback_called);
+    }
+}
+
 // Ensures calling b_answer_context_need_one's enqueued
 // item answer_callback without an answer calls the
 // b_answer_context_need_one error callback.
