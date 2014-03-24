@@ -1,4 +1,5 @@
 #include "Mocks.h"
+#include "Util.h"
 
 #include <B/AnswerContext.h>
 #include <B/Assert.h>
@@ -8,6 +9,11 @@
 #include <memory>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+typedef std::unique_ptr<
+        B_QuestionQueueItemObject,
+        B_QuestionQueueItemDeleter>
+    QueueItemUniquePtr;
 
 // Ensures b_answer_context_need_one enqueues the question
 // on the QuestionQueue exactly once.
@@ -21,13 +27,10 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
     MockRefCounting(needed_question);
     B_AnswerContext answer_context;
 
-    B_QuestionQueue *question_queue_raw;
-    ASSERT_TRUE(b_question_queue_allocate(
-        &question_queue_raw,
-        eh));
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(question_queue_raw, eh);
-    question_queue_raw = nullptr;
+        question_queue(B_RETURN_OUTPTR(
+            B_QuestionQueue *,
+            b_question_queue_allocate(&_, eh)), eh);
 
     answer_context.question = &question;
     answer_context.question_vtable = MockQuestion::vtable();
@@ -57,29 +60,26 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
         },
         eh));
 
-    B_QuestionQueueItemObject *first_queue_item_raw;
-    ASSERT_TRUE(b_question_queue_try_dequeue(
-        question_queue.get(),
-        &first_queue_item_raw,
-        eh));
-    ASSERT_NE(nullptr, first_queue_item_raw);
-    std::unique_ptr<
-            B_QuestionQueueItemObject,
-            B_QuestionQueueItemDeleter>
-        first_queue_item(first_queue_item_raw, eh);
-    first_queue_item_raw = nullptr;
+    QueueItemUniquePtr first_queue_item(B_RETURN_OUTPTR(
+            B_QuestionQueueItemObject *,
+            b_question_queue_try_dequeue(
+                question_queue.get(),
+                &_,
+                eh)), eh);
+    ASSERT_NE(nullptr, first_queue_item);
 
     EXPECT_EQ(&needed_question, first_queue_item->question);
     EXPECT_EQ(
         MockQuestion::vtable(),
         first_queue_item->question_vtable);
 
-    B_QuestionQueueItemObject *second_queue_item_raw;
-    ASSERT_TRUE(b_question_queue_try_dequeue(
-        question_queue.get(),
-        &second_queue_item_raw,
-        eh));
-    ASSERT_EQ(nullptr, second_queue_item_raw);
+    QueueItemUniquePtr second_queue_item(B_RETURN_OUTPTR(
+            B_QuestionQueueItemObject *,
+            b_question_queue_try_dequeue(
+                question_queue.get(),
+                &_,
+                eh)), eh);
+    ASSERT_EQ(nullptr, second_queue_item);
 }
 
 // Ensures calling b_answer_context_need_one's enqueued
@@ -97,13 +97,10 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
     MockRefCounting(answer);
     B_AnswerContext answer_context;
 
-    B_QuestionQueue *question_queue_raw;
-    ASSERT_TRUE(b_question_queue_allocate(
-        &question_queue_raw,
-        eh));
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(question_queue_raw, eh);
-    question_queue_raw = nullptr;
+        question_queue(B_RETURN_OUTPTR(
+            B_QuestionQueue *,
+            b_question_queue_allocate(&_, eh)), eh);
 
     answer_context.question = &question;
     answer_context.question_vtable = MockQuestion::vtable();
@@ -137,17 +134,13 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
         },
         eh));
 
-    B_QuestionQueueItemObject *queue_item_raw;
-    ASSERT_TRUE(b_question_queue_try_dequeue(
-        question_queue.get(),
-        &queue_item_raw,
-        eh));
-    ASSERT_NE(nullptr, queue_item_raw);
-    std::unique_ptr<
-            B_QuestionQueueItemObject,
-            B_QuestionQueueItemDeleter>
-        queue_item(queue_item_raw, eh);
-    queue_item_raw = nullptr;
+    QueueItemUniquePtr queue_item(B_RETURN_OUTPTR(
+            B_QuestionQueueItemObject *,
+            b_question_queue_try_dequeue(
+                question_queue.get(),
+                &_,
+                eh)), eh);
+    ASSERT_NE(nullptr, queue_item);
 
     EXPECT_EQ(&needed_question, queue_item->question);
     EXPECT_EQ(
@@ -183,13 +176,10 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
     MockRefCounting(answer_2);
     B_AnswerContext answer_context;
 
-    B_QuestionQueue *question_queue_raw;
-    ASSERT_TRUE(b_question_queue_allocate(
-        &question_queue_raw,
-        eh));
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(question_queue_raw, eh);
-    question_queue_raw = nullptr;
+        question_queue(B_RETURN_OUTPTR(
+            B_QuestionQueue *,
+            b_question_queue_allocate(&_, eh)), eh);
 
     answer_context.question = &question;
     answer_context.question_vtable = MockQuestion::vtable();
@@ -244,17 +234,14 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
         eh));
 
     {
-        B_QuestionQueueItemObject *queue_item_1_raw;
-        ASSERT_TRUE(b_question_queue_try_dequeue(
-            question_queue.get(),
-            &queue_item_1_raw,
-            eh));
-        ASSERT_NE(nullptr, queue_item_1_raw);
-        std::unique_ptr<
-                B_QuestionQueueItemObject,
-                B_QuestionQueueItemDeleter>
-            queue_item_1(queue_item_1_raw, eh);
-        queue_item_1_raw = nullptr;
+        QueueItemUniquePtr queue_item_1(B_RETURN_OUTPTR(
+                B_QuestionQueueItemObject *,
+                b_question_queue_try_dequeue(
+                    question_queue.get(),
+                    &_,
+                    eh)), eh);
+        ASSERT_NE(nullptr, queue_item_1);
+
         EXPECT_EQ(
             MockQuestion::vtable(),
             queue_item_1->question_vtable);
@@ -285,17 +272,14 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
     }
 
     {
-        B_QuestionQueueItemObject *queue_item_2_raw;
-        ASSERT_TRUE(b_question_queue_try_dequeue(
-            question_queue.get(),
-            &queue_item_2_raw,
-            eh));
-        ASSERT_NE(nullptr, queue_item_2_raw);
-        std::unique_ptr<
-                B_QuestionQueueItemObject,
-                B_QuestionQueueItemDeleter>
-            queue_item_2(queue_item_2_raw, eh);
-        queue_item_2_raw = nullptr;
+        QueueItemUniquePtr queue_item_2(B_RETURN_OUTPTR(
+                B_QuestionQueueItemObject *,
+                b_question_queue_try_dequeue(
+                    question_queue.get(),
+                    &_,
+                    eh)), eh);
+        ASSERT_NE(nullptr, queue_item_2);
+
         EXPECT_EQ(
             MockQuestion::vtable(),
             queue_item_2->question_vtable);
@@ -345,13 +329,10 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
     MockRefCounting(answer_2);
     B_AnswerContext answer_context;
 
-    B_QuestionQueue *question_queue_raw;
-    ASSERT_TRUE(b_question_queue_allocate(
-        &question_queue_raw,
-        eh));
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(question_queue_raw, eh);
-    question_queue_raw = nullptr;
+        question_queue(B_RETURN_OUTPTR(
+            B_QuestionQueue *,
+            b_question_queue_allocate(&_, eh)), eh);
 
     answer_context.question = &question;
     answer_context.question_vtable = MockQuestion::vtable();
@@ -397,17 +378,14 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
         eh));
 
     {
-        B_QuestionQueueItemObject *queue_item_1_raw;
-        ASSERT_TRUE(b_question_queue_try_dequeue(
-            question_queue.get(),
-            &queue_item_1_raw,
-            eh));
-        ASSERT_NE(nullptr, queue_item_1_raw);
-        std::unique_ptr<
-                B_QuestionQueueItemObject,
-                B_QuestionQueueItemDeleter>
-            queue_item_1(queue_item_1_raw, eh);
-        queue_item_1_raw = nullptr;
+        QueueItemUniquePtr queue_item_1(B_RETURN_OUTPTR(
+                B_QuestionQueueItemObject *,
+                b_question_queue_try_dequeue(
+                    question_queue.get(),
+                    &_,
+                    eh)), eh);
+        ASSERT_NE(nullptr, queue_item_1);
+
         EXPECT_EQ(
             MockQuestion::vtable(),
             queue_item_1->question_vtable);
@@ -433,17 +411,14 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
     }
 
     {
-        B_QuestionQueueItemObject *queue_item_2_raw;
-        ASSERT_TRUE(b_question_queue_try_dequeue(
-            question_queue.get(),
-            &queue_item_2_raw,
-            eh));
-        ASSERT_NE(nullptr, queue_item_2_raw);
-        std::unique_ptr<
-                B_QuestionQueueItemObject,
-                B_QuestionQueueItemDeleter>
-            queue_item_2(queue_item_2_raw, eh);
-        queue_item_2_raw = nullptr;
+        QueueItemUniquePtr queue_item_2(B_RETURN_OUTPTR(
+                B_QuestionQueueItemObject *,
+                b_question_queue_try_dequeue(
+                    question_queue.get(),
+                    &_,
+                    eh)), eh);
+        ASSERT_NE(nullptr, queue_item_2);
+
         EXPECT_EQ(
             MockQuestion::vtable(),
             queue_item_2->question_vtable);
@@ -482,13 +457,10 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
     MockRefCounting(needed_question);
     B_AnswerContext answer_context;
 
-    B_QuestionQueue *question_queue_raw;
-    ASSERT_TRUE(b_question_queue_allocate(
-        &question_queue_raw,
-        eh));
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(question_queue_raw, eh);
-    question_queue_raw = nullptr;
+        question_queue(B_RETURN_OUTPTR(
+            B_QuestionQueue *,
+            b_question_queue_allocate(&_, eh)), eh);
 
     answer_context.question = &question;
     answer_context.question_vtable = MockQuestion::vtable();
@@ -521,17 +493,13 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
         },
         eh));
 
-    B_QuestionQueueItemObject *queue_item_raw;
-    ASSERT_TRUE(b_question_queue_try_dequeue(
-        question_queue.get(),
-        &queue_item_raw,
-        eh));
-    ASSERT_NE(nullptr, queue_item_raw);
-    std::unique_ptr<
-            B_QuestionQueueItemObject,
-            B_QuestionQueueItemDeleter>
-        queue_item(queue_item_raw, eh);
-    queue_item_raw = nullptr;
+    QueueItemUniquePtr queue_item(B_RETURN_OUTPTR(
+            B_QuestionQueueItemObject *,
+            b_question_queue_try_dequeue(
+                question_queue.get(),
+                &_,
+                eh)), eh);
+    ASSERT_NE(nullptr, queue_item);
 
     EXPECT_EQ(&needed_question, queue_item->question);
     EXPECT_EQ(
@@ -559,13 +527,10 @@ TEST(TestAnswerContext, SuccessAnswerCallsContextCallback) {
     MockRefCounting(answer);
     B_AnswerContext answer_context;
 
-    B_QuestionQueue *question_queue_raw;
-    ASSERT_TRUE(b_question_queue_allocate(
-        &question_queue_raw,
-        eh));
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(question_queue_raw, eh);
-    question_queue_raw = nullptr;
+        question_queue(B_RETURN_OUTPTR(
+            B_QuestionQueue *,
+            b_question_queue_allocate(&_, eh)), eh);
 
     size_t answer_callback_called = 0;
     auto answer_callback = [&](
@@ -615,13 +580,10 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
             SetArgPointee<0>(&answer),
             Return(true)));
 
-    B_QuestionQueue *question_queue_raw;
-    ASSERT_TRUE(b_question_queue_allocate(
-        &question_queue_raw,
-        eh));
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(question_queue_raw, eh);
-    question_queue_raw = nullptr;
+        question_queue(B_RETURN_OUTPTR(
+            B_QuestionQueue *,
+            b_question_queue_allocate(&_, eh)), eh);
 
     size_t answer_callback_called = 0;
     auto answer_callback = [&](
