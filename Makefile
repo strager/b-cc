@@ -22,7 +22,7 @@ vendor_sqlite3 := vendor/sqlite-3.8.4.1
 out_dirs := \
 	$(out_dir)/ex/1 \
 	$(out_dir)/src \
-	$(out_dir)/test \
+	$(out_dir)/test/gtest \
 	$(out_dir)/$(vendor_gmock)/gtest/src \
 	$(out_dir)/$(vendor_gmock)/src \
 	$(out_dir)/$(vendor_sqlite3)
@@ -48,7 +48,7 @@ ex1_o_files := \
 test_h_files := $(wildcard test/*.h)
 
 gtest_cc_files := \
-	$(wildcard test/*.cc) \
+	$(wildcard test/gtest/*.cc) \
 	$(vendor_gmock)/gtest/src/gtest-all.cc \
 	$(vendor_gmock)/src/gmock-all.cc \
 	$(vendor_gmock)/src/gmock_main.cc
@@ -125,7 +125,7 @@ examples: ex1
 ex1: $(out_dir)/ex/1/ex1
 
 .PHONY: gtest
-gtest: $(out_dir)/test/gtest
+gtest: $(out_dir)/test/gtest/gtest
 
 .PHONY: test-ex1
 test-ex1: ex1
@@ -133,7 +133,7 @@ test-ex1: ex1
 
 .PHONY: test-gtest
 test-gtest: gtest
-	$(run_with) $(out_dir)/test/gtest
+	$(run_with) $(out_dir)/test/gtest/gtest
 
 .PHONY: clean
 clean: | $(out_dirs)
@@ -145,7 +145,7 @@ $(out_dirs):
 $(b_lib_shared_file): $(o_files) $(build_files) | $(out_dirs)
 	$(CXX) -shared -o $@ $(LDFLAGS) $(o_files)
 
-$(out_dir)/test/%.cc.o: test/%.cc $(h_files) $(test_h_files) $(build_files) | $(out_dirs)
+$(out_dir)/test/gtest/%.cc.o: test/gtest/%.cc $(h_files) $(test_h_files) $(build_files) | $(out_dirs)
 	$(CXX) -c -o $@ $(CXXFLAGS) "-I$(vendor_gmock)/include" "-I$(vendor_gmock)/gtest/include" $<
 
 $(out_dir)/$(vendor_gmock)/gtest/%.cc.o: $(vendor_gmock)/gtest/%.cc $(build_files) | $(out_dirs)
@@ -169,5 +169,5 @@ $(out_dir)/ex/1/%.cc.o: ex/1/%.cc $(h_files) $(build_files) | $(out_dirs)
 $(out_dir)/ex/1/ex1: $(ex1_o_files) $(h_files) $(b_lib_shared_file) $(build_files) | $(out_dirs)
 	$(CXX) -o $@ $(ex1_o_files) $(b_lib_shared_file) $(LDFLAGS)
 
-$(out_dir)/test/gtest: $(gtest_o_files) $(h_files) $(b_lib_shared_file) $(build_files) | $(out_dirs)
+$(out_dir)/test/gtest/gtest: $(gtest_o_files) $(h_files) $(b_lib_shared_file) $(build_files) | $(out_dirs)
 	$(CXX) -o $@ $(gtest_o_files) $(b_lib_shared_file) $(LDFLAGS)
