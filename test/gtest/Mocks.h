@@ -2,12 +2,14 @@
 #define B_HEADER_GUARD_95037BE5_7D49_4763_B842_56AF0F404060
 
 #include <B/Assert.h>
+#include <B/Error.h>
 #include <B/QuestionAnswer.h>
 #include <B/RefCount.h>
 #include <B/UUID.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <stddef.h>
 
 using namespace testing;
 
@@ -229,6 +231,26 @@ public:
             B_OUTPTR MockQuestion **,
             B_ErrorHandler const *) {
         B_NYI();
+    }
+};
+
+class MockErrorHandler :
+        public B_ErrorHandler {
+public:
+    MockErrorHandler() :
+            B_ErrorHandler{handle_error_} {
+    }
+
+    MOCK_CONST_METHOD1(handle_error, B_ErrorHandlerResult(
+        B_Error));
+
+private:
+    static B_ErrorHandlerResult
+    handle_error_(
+            struct B_ErrorHandler const *eh,
+            struct B_Error error) {
+        return static_cast<MockErrorHandler const *>(eh)
+            ->handle_error(error);
     }
 };
 

@@ -10,8 +10,9 @@
 #include <B/File.h>
 #include <B/QuestionAnswer.h>
 
+#include <cstdio>
 #include <cstring>
-#include <fstream>
+#include <errno.h>
 
 struct FileAnswer :
         public B_AnswerClass<FileAnswer> {
@@ -21,19 +22,37 @@ struct FileAnswer :
             sum_hash(sum_hash) {
     }
 
-    static uint64_t
+    static B_FUNC
     sum_hash_from_path(
-            std::string path) {
-        std::ifstream input(path);
-        if (!input) {
-            return 0;  // FIXME(strager)
+            std::string path,
+            uint64_t *out,
+            B_ErrorHandler const *eh) {
+retry_open:;
+        FILE *f = fopen(path.c_str(), "r");
+        if (!f) {
+            switch (B_RAISE_ERRNO_ERROR(
+                    eh,
+                    errno,
+                    "fopen")) {
+            case B_ERROR_ABORT:
+            case B_ERROR_IGNORE:
+                return false;
+            case B_ERROR_RETRY:
+                goto retry_open;
+            }
         }
+
         uint64_t sum_hash = 0;
         char c;
-        while (input.get(c)) {
+        while ((c = fgetc(f)) != -1) {
             sum_hash += static_cast<uint8_t>(c);
         }
-        return sum_hash;
+        if (!feof(f)) {
+            (void) B_RAISE_ERRNO_ERROR(eh, errno, "fgetc");
+            return false;
+        }
+        *out = sum_hash;
+        return true;
     }
 
     static B_FUNC
@@ -135,8 +154,13 @@ struct FileQuestion :
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
-        uint64_t sum_hash = FileAnswer::sum_hash_from_path(
-            std::string(path));
+        uint64_t sum_hash;
+        if (!FileAnswer::sum_hash_from_path(
+                std::string(path),
+                &sum_hash,
+                eh)) {
+            return false;
+        }
         return b_new(out, eh, sum_hash);
     }
 

@@ -68,4 +68,20 @@ b_default_error_handler(void);
 }
 #endif
 
+#if defined(__cplusplus)
+inline bool
+operator==(
+        const B_Error &a,
+        const B_Error &b) {
+    return a.errno_value == b.errno_value;
+}
+
+inline bool
+operator!=(
+        const B_Error &a,
+        const B_Error &b) {
+    return !(a == b);
+}
+#endif
+
 #endif
