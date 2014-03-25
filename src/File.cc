@@ -113,7 +113,7 @@ struct FileAnswer :
 };
 
 struct FileQuestion :
-        public B_QuestionClass<FileQuestion> {
+        public B_QuestionClass<FileQuestion, B_FilePath> {
     typedef FileAnswer AnswerClass;
 
     FileQuestion() = delete;
@@ -128,81 +128,60 @@ struct FileQuestion :
     operator=(
             FileQuestion &&) = delete;
 
-    operator B_FilePath const *() const {
-        return static_cast<B_FilePath const *>(
-                static_cast<void const *>(this));
-    }
-
-    static FileQuestion const *
-    cast(
-            B_FilePath const *path) {
-        return static_cast<FileQuestion const *>(
-                static_cast<void const *>(path));
-    }
-
-    static FileQuestion *
-    cast(
-            B_FilePath *path) {
-        return static_cast<FileQuestion *>(
-                static_cast<void *>(path));
-    }
-
     static B_FUNC
     answer(
-            FileQuestion const *self,
+            B_FilePath const *path,
             B_OUTPTR FileAnswer **out,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
         uint64_t sum_hash = FileAnswer::sum_hash_from_path(
-            std::string(*self));
+            std::string(path));
         return b_new(out, eh, sum_hash);
     }
 
     static B_FUNC
     equal(
-            FileQuestion const *a,
-            FileQuestion const *b,
+            B_FilePath const *a,
+            B_FilePath const *b,
             B_OUTPTR bool *out,
             B_ErrorHandler const *eh) {
-        return b_file_path_equal(*a, *b, out, eh);
+        return b_file_path_equal(a, b, out, eh);
     }
 
     static B_FUNC
     replicate(
-            FileQuestion const *self,
-            B_OUTPTR FileQuestion **out,
+            B_FilePath const *path,
+            B_OUTPTR B_FilePath **out,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
         char *string;
-        if (!b_strdup(*self, &string, eh)) {
+        if (!b_strdup(path, &string, eh)) {
             return false;
         }
-        *out = cast(string);
+        *out = string;
         return true;
     }
 
     static B_FUNC
     deallocate(
-            B_TRANSFER FileQuestion *self,
+            B_TRANSFER B_FilePath *path,
             B_ErrorHandler const *eh) {
-        return b_deallocate(self, eh);
+        return b_deallocate(path, eh);
     }
 
     static B_FUNC
     serialize(
-            FileQuestion const *self,
+            B_FilePath const *path,
             B_OUT B_Serialized *out,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
-        size_t length = strlen(*self);
-        void *string;
-        if (!b_memdup(*self, length, &string, eh)) {
+        size_t length = strlen(path);
+        if (!b_memdup(path, length, &out->data, eh)) {
             return false;
         }
-        out->data = string;
         out->size = length;
         return true;
     }
@@ -210,27 +189,27 @@ struct FileQuestion :
     static B_FUNC
     deserialize(
             B_BORROWED B_Serialized serialized,
-            B_OUTPTR FileQuestion **out,
+            B_OUTPTR B_FilePath **out,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
         // TODO(strager): Check for zero bytes and raise.
-        char *string;
+        char *path;
         if (!b_strndup(
                 reinterpret_cast<char *>(serialized.data),
                 serialized.size,
-                &string,
+                &path,
                 eh)) {
             return false;
         }
-        *out = cast(string);
+        *out = path;
         return true;
     }
 };
 
 template<>
 B_UUID
-B_QuestionClass<FileQuestion>::uuid
+B_QuestionClass<FileQuestion, B_FilePath>::uuid
     = B_UUID_LITERAL("B6BD5D3B-DDC1-43B2-832B-2B5836BF78FC");
 
 struct B_QuestionVTable const *

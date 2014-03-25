@@ -135,41 +135,41 @@ struct B_Serialized {
 #if defined(__cplusplus)
 # include <B/Error.h>
 
-template<typename T>
+template<typename TClass, typename TObject = TClass>
 class B_QuestionClass;
 
-template<typename TBase>
+template<typename TClass>
 class B_AnswerClass :
         public B_Answer {
 public:
     static B_FUNC
     equal(
-            TBase const *,
-            TBase const *,
+            TClass const *,
+            TClass const *,
             B_OUTPTR bool *,
             B_ErrorHandler const *);
 
     static B_FUNC
     replicate(
-            TBase const *,
-            B_OUTPTR TBase **,
+            TClass const *,
+            B_OUTPTR TClass **,
             B_ErrorHandler const *);
 
     static B_FUNC
     deallocate(
-            B_TRANSFER TBase *,
+            B_TRANSFER TClass *,
             B_ErrorHandler const *);
 
     static B_FUNC
     serialize(
-            TBase const *,
+            TClass const *,
             B_OUT B_Serialized *,
             B_ErrorHandler const *);
 
     static B_FUNC
     deserialize(
             B_BORROWED B_Serialized,
-            B_OUTPTR TBase **,
+            B_OUTPTR TClass **,
             B_ErrorHandler const *);
 
     static B_AnswerVTable const *
@@ -193,9 +193,9 @@ private:
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, a);
         B_CHECK_PRECONDITION(eh, b);
-        return TBase::equal(
-            static_cast<TBase const *>(a),
-            static_cast<TBase const *>(b),
+        return TClass::equal(
+            static_cast<TClass const *>(a),
+            static_cast<TClass const *>(b),
             out,
             eh);
     }
@@ -207,9 +207,9 @@ private:
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, answer);
         B_CHECK_PRECONDITION(eh, out);
-        TBase *tmp;
-        if (!TBase::replicate(
-                static_cast<TBase const *>(answer),
+        TClass *tmp;
+        if (!TClass::replicate(
+                static_cast<TClass const *>(answer),
                 &tmp,
                 eh)) {
             return false;
@@ -223,8 +223,8 @@ private:
             B_TRANSFER B_Answer *answer,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, answer);
-        return TBase::deallocate(
-            static_cast<TBase *>(answer),
+        return TClass::deallocate(
+            static_cast<TClass *>(answer),
             eh);
     }
 
@@ -234,8 +234,8 @@ private:
             B_OUT B_TRANSFER B_Serialized *out,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, answer);
-        return TBase::serialize(
-            static_cast<TBase const *>(answer),
+        return TClass::serialize(
+            static_cast<TClass const *>(answer),
             out,
             eh);
     }
@@ -246,8 +246,8 @@ private:
             B_OUTPTR B_Answer **out,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
-        TBase *tmp;
-        if (!TBase::deserialize(serialized, &tmp, eh)) {
+        TClass *tmp;
+        if (!TClass::deserialize(serialized, &tmp, eh)) {
             return false;
         }
         *out = tmp;
@@ -255,7 +255,7 @@ private:
     }
 };
 
-template<typename TBase>
+template<typename TClass, typename TObject>
 class B_QuestionClass :
         public B_Question {
 public:
@@ -264,8 +264,8 @@ public:
     //
     // static B_FUNC
     // answer(
-    //         TBase const *,
-    //         B_OUTPTR typename TBase::AnswerClass **,
+    //         TObject const *,
+    //         B_OUTPTR typename TClass::AnswerClass **,
     //         B_ErrorHandler const *) const;
     //
     // but C++ will not let us use a dependent type in a
@@ -273,45 +273,45 @@ public:
     template<typename TAnswerClass>
     static B_FUNC
     answer(
-            TBase const *,
+            TObject const *,
             B_OUTPTR TAnswerClass **,
             B_ErrorHandler const *);
 
     static B_FUNC
     equal(
-            TBase const *,
-            TBase const *,
+            TObject const *,
+            TObject const *,
             B_OUTPTR bool *,
             B_ErrorHandler const *);
 
     static B_FUNC
     replicate(
-            TBase const *,
-            B_OUTPTR TBase **,
+            TObject const *,
+            B_OUTPTR TClass **,
             B_ErrorHandler const *);
 
     static B_FUNC
     deallocate(
-            B_TRANSFER TBase *,
+            B_TRANSFER TObject *,
             B_ErrorHandler const *);
 
     static B_FUNC
     serialize(
-            TBase const *,
+            TObject const *,
             B_OUT B_Serialized *,
             B_ErrorHandler const *);
 
     static B_FUNC
     deserialize(
             B_BORROWED B_Serialized,
-            B_OUTPTR TBase **,
+            B_OUTPTR TObject **,
             B_ErrorHandler const *);
 
     static B_QuestionVTable const *
     vtable() {
         static B_QuestionVTable vtable = {
             B_QuestionClass::uuid,
-            TBase::AnswerClass::vtable(),
+            TClass::AnswerClass::vtable(),
             answer_,
             equal_,
             replicate_,
@@ -325,6 +325,34 @@ public:
 private:
     static B_UUID uuid;
 
+    static B_Question *
+    cast_(
+            TObject *p) {
+        return static_cast<B_Question *>(
+            static_cast<void *>(p));
+    }
+
+    static B_Question const *
+    cast_(
+            TObject const *p) {
+        return static_cast<B_Question const *>(
+            static_cast<void const *>(p));
+    }
+
+    static TObject *
+    cast_(
+            B_Question *p) {
+        return static_cast<TObject *>(
+            static_cast<void *>(p));
+    }
+
+    static TObject const *
+    cast_(
+            B_Question const *p) {
+        return static_cast<TObject const *>(
+            static_cast<void const *>(p));
+    }
+
     static B_FUNC
     answer_(
             B_Question const *question,
@@ -332,11 +360,8 @@ private:
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, question);
         B_CHECK_PRECONDITION(eh, out);
-        typename TBase::AnswerClass *tmp;
-        if (!TBase::answer(
-                static_cast<TBase const *>(question),
-                &tmp,
-                eh)) {
+        typename TClass::AnswerClass *tmp;
+        if (!TClass::answer(cast_(question), &tmp, eh)) {
             return false;
         }
         *out = tmp;
@@ -351,11 +376,7 @@ private:
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, a);
         B_CHECK_PRECONDITION(eh, b);
-        return TBase::equal(
-            static_cast<TBase const *>(a),
-            static_cast<TBase const *>(b),
-            out,
-            eh);
+        return TClass::equal(cast_(a), cast_(b), out, eh);
     }
 
     static B_FUNC
@@ -365,14 +386,11 @@ private:
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, question);
         B_CHECK_PRECONDITION(eh, out);
-        TBase *tmp;
-        if (!TBase::replicate(
-                static_cast<TBase const *>(question),
-                &tmp,
-                eh)) {
+        TObject *tmp;
+        if (!TClass::replicate(cast_(question), &tmp, eh)) {
             return false;
         }
-        *out = tmp;
+        *out = cast_(tmp);
         return true;
     }
 
@@ -381,9 +399,7 @@ private:
             B_TRANSFER B_Question *question,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, question);
-        return TBase::deallocate(
-            static_cast<TBase *>(question),
-            eh);
+        return TClass::deallocate(cast_(question), eh);
     }
 
     static B_FUNC
@@ -392,10 +408,7 @@ private:
             B_OUT B_TRANSFER B_Serialized *out,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, question);
-        return TBase::serialize(
-            static_cast<TBase const *>(question),
-            out,
-            eh);
+        return TClass::serialize(cast_(question), out, eh);
     }
 
     static B_FUNC
@@ -404,11 +417,11 @@ private:
             B_OUTPTR B_Question **out,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
-        TBase *tmp;
-        if (!TBase::deserialize(serialized, &tmp, eh)) {
+        TObject *tmp;
+        if (!TClass::deserialize(serialized, &tmp, eh)) {
             return false;
         }
-        *out = tmp;
+        *out = cast_(tmp);
         return true;
     }
 };
