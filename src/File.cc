@@ -38,36 +38,39 @@ struct FileAnswer :
 
     static B_FUNC
     equal(
-            FileAnswer const &a,
-            FileAnswer const &b,
+            FileAnswer const *a,
+            FileAnswer const *b,
             B_OUTPTR bool *out,
             B_ErrorHandler const *eh) {
         (void) eh;  // TODO(strager)
-        *out = a == b;
+        *out = *a == *b;
         return true;
     }
 
-    B_FUNC
+    static B_FUNC
     replicate(
+            FileAnswer const *self,
             B_OUTPTR FileAnswer **out,
-            B_ErrorHandler const *eh) const {
-        (void) eh;  // TODO(strager)
-        *out = new FileAnswer(*this);
-        return true;
-    }
-
-    B_FUNC
-    deallocate(
             B_ErrorHandler const *eh) {
         (void) eh;  // TODO(strager)
-        delete this;
+        *out = new FileAnswer(*self);
         return true;
     }
 
-    B_FUNC
+    static B_FUNC
+    deallocate(
+            FileAnswer const *self,
+            B_ErrorHandler const *eh) {
+        (void) eh;  // TODO(strager)
+        delete self;
+        return true;
+    }
+
+    static B_FUNC
     serialize(
+            FileAnswer const *self,
             B_OUT B_Serialized *out,
-            B_ErrorHandler const *eh) const {
+            B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
         size_t size = sizeof(uint64_t);
@@ -76,7 +79,7 @@ struct FileAnswer :
         }
         // FIXME(strager): This is endianness-dependent.
         *reinterpret_cast<uint64_t *>(out->data)
-            = this->sum_hash;
+            = self->sum_hash;
         out->size = size;
         return true;
     }
@@ -144,55 +147,59 @@ struct FileQuestion :
                 static_cast<void *>(path));
     }
 
-    B_FUNC
+    static B_FUNC
     answer(
+            FileQuestion const *self,
             B_OUTPTR FileAnswer **out,
-            B_ErrorHandler const *eh) const {
+            B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
         uint64_t sum_hash = FileAnswer::sum_hash_from_path(
-            std::string(*this));
+            std::string(*self));
         return b_new(out, eh, sum_hash);
     }
 
     static B_FUNC
     equal(
-            FileQuestion const &a,
-            FileQuestion const &b,
+            FileQuestion const *a,
+            FileQuestion const *b,
             B_OUTPTR bool *out,
             B_ErrorHandler const *eh) {
-        return b_file_path_equal(a, b, out, eh);
+        return b_file_path_equal(*a, *b, out, eh);
     }
 
-    B_FUNC
+    static B_FUNC
     replicate(
+            FileQuestion const *self,
             B_OUTPTR FileQuestion **out,
-            B_ErrorHandler const *eh) const {
+            B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
         char *string;
-        if (!b_strdup(*this, &string, eh)) {
+        if (!b_strdup(*self, &string, eh)) {
             return false;
         }
         *out = cast(string);
         return true;
     }
 
-    B_FUNC
+    static B_FUNC
     deallocate(
+            B_TRANSFER FileQuestion *self,
             B_ErrorHandler const *eh) {
-        return b_deallocate(this, eh);
+        return b_deallocate(self, eh);
     }
 
-    B_FUNC
+    static B_FUNC
     serialize(
+            FileQuestion const *self,
             B_OUT B_Serialized *out,
-            B_ErrorHandler const *eh) const {
+            B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
-        size_t length = strlen(*this);
+        size_t length = strlen(*self);
         void *string;
-        if (!b_memdup(*this, length, &string, eh)) {
+        if (!b_memdup(*self, length, &string, eh)) {
             return false;
         }
         out->data = string;

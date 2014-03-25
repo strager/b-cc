@@ -91,23 +91,46 @@ public:
 
     static B_FUNC
     equal(
-            MockAnswer const &a,
-            MockAnswer const &b,
+            MockAnswer const *a,
+            MockAnswer const *b,
             B_OUTPTR bool *out,
             B_ErrorHandler const *eh) {
-        return a.equals(b, out, eh);
+        return a->equals(*b, out, eh);
     }
 
     MOCK_CONST_METHOD2(replicate, B_FUNC(
         B_OUTPTR MockAnswer **,
         B_ErrorHandler const *));
 
+    static B_FUNC
+    replicate(
+            MockAnswer const *self,
+            B_OUTPTR MockAnswer **out,
+            B_ErrorHandler const *eh) {
+        return self->replicate(out, eh);
+    }
+
     MOCK_METHOD1(deallocate, B_FUNC(
         B_ErrorHandler const *));
+
+    static B_FUNC
+    deallocate(
+            MockAnswer *self,
+            B_ErrorHandler const *eh) {
+        return self->deallocate(eh);
+    }
 
     MOCK_CONST_METHOD2(serialize, B_FUNC(
         B_OUT B_Serialized *,
         B_ErrorHandler const *));
+
+    static B_FUNC
+    serialize(
+            MockAnswer const *self,
+            B_OUT B_Serialized *out,
+            B_ErrorHandler const *eh) {
+        return self->serialize(out, eh);
+    }
 
     static B_FUNC
     deserialize(
@@ -144,6 +167,14 @@ public:
         B_OUTPTR MockAnswer **,
         B_ErrorHandler const *));
 
+    static B_FUNC
+    answer(
+            MockQuestion const *self,
+            B_OUTPTR MockAnswer **out,
+            B_ErrorHandler const *eh) {
+        return self->answer(out, eh);
+    }
+
     MOCK_CONST_METHOD3(equals, B_FUNC(
         MockQuestion const &,
         B_OUTPTR bool *,
@@ -151,23 +182,46 @@ public:
 
     static B_FUNC
     equal(
-            MockQuestion const &a,
-            MockQuestion const &b,
+            MockQuestion const *a,
+            MockQuestion const *b,
             B_OUTPTR bool *out,
             B_ErrorHandler const *eh) {
-        return a.equals(b, out, eh);
+        return a->equals(*b, out, eh);
     }
 
     MOCK_CONST_METHOD2(replicate, B_FUNC(
         B_OUTPTR MockQuestion **,
         B_ErrorHandler const *));
 
+    static B_FUNC
+    replicate(
+            MockQuestion const *self,
+            B_OUTPTR MockQuestion **out,
+            B_ErrorHandler const *eh) {
+        return self->replicate(out, eh);
+    }
+
     MOCK_METHOD1(deallocate, B_FUNC(
         B_ErrorHandler const *));
+
+    static B_FUNC
+    deallocate(
+            MockQuestion *self,
+            B_ErrorHandler const *eh) {
+        return self->deallocate(eh);
+    }
 
     MOCK_CONST_METHOD2(serialize, B_FUNC(
         B_OUT B_Serialized *,
         B_ErrorHandler const *));
+
+    static B_FUNC
+    serialize(
+            MockQuestion const *self,
+            B_OUT B_Serialized *out,
+            B_ErrorHandler const *eh) {
+        return self->serialize(out, eh);
+    }
 
     static B_FUNC
     deserialize(
