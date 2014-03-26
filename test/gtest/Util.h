@@ -2,6 +2,8 @@
 #define B_HEADER_GUARD_D40B1884_760C_46BE_8987_6313D7377327
 
 #if defined(__cplusplus)
+# include <gtest/gtest.h>
+
 # include <exception>
 # include <ftw.h>
 # include <gtest/gtest.h>

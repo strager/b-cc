@@ -28,18 +28,20 @@ vendor_gmock := vendor/gmock-1.7.0
 vendor_sqlite3 := vendor/sqlite-3.8.4.1
 
 out_dirs := \
-	$(out_dir)/ex/1 \
-	$(out_dir)/src \
-	$(out_dir)/test/gtest \
 	$(out_dir)/$(vendor_gmock)/gtest/src \
 	$(out_dir)/$(vendor_gmock)/src \
-	$(out_dir)/$(vendor_sqlite3)
+	$(out_dir)/$(vendor_sqlite3) \
+	$(out_dir)/ex/1 \
+	$(out_dir)/src \
+	$(out_dir)/src/PBX \
+	$(out_dir)/test/gtest \
+	$(out_dir)/test/gtest/PBX
 
 b_lib_shared_file := $(out_dir)/libb$(shared_extension)
 
-h_files := $(wildcard include/B/*.h)
-c_files := $(wildcard src/*.c)
-cc_files := $(wildcard src/*.cc)
+h_files := $(wildcard include/B/*.h include/B/PBX/*.h)
+c_files := $(wildcard src/*.c src/PBX/*.c)
+cc_files := $(wildcard src/*.cc src/PBX/*.cc)
 
 ifeq ($(sqlite3_static),1)
 	c_files += $(vendor_sqlite3)/sqlite3.c
@@ -56,7 +58,7 @@ ex1_o_files := \
 test_h_files := $(wildcard test/*.h)
 
 gtest_cc_files := \
-	$(wildcard test/gtest/*.cc) \
+	$(wildcard test/gtest/*.cc test/gtest/PBX/*.cc) \
 	$(vendor_gmock)/gtest/src/gtest-all.cc \
 	$(vendor_gmock)/src/gmock-all.cc \
 	$(vendor_gmock)/src/gmock_main.cc
