@@ -1,30 +1,45 @@
 env:
-    - cc=gcc-4.8 cxx=g++-4.8 apt_packages="g++-4.8 libstdc++-4.8-dev" valgrind=true
-    - cc=clang-3.3 cxx=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.8-dev" valgrind=true
-    - cc=clang-3.4 cxx=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.8-dev" valgrind=true
+    # Standard unit test + valgrind builds.
+#    - cc=gcc-4.8 cxx=g++-4.8 apt_packages="g++-4.8 libstdc++-4.8-dev" valgrind=true coverage=false debug=true release=true
+#    - cc=clang-3.3 cxx=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.8-dev" valgrind=true coverage=false debug=true release=true
+#    - cc=clang-3.4 cxx=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.8-dev" valgrind=true coverage=false debug=true release=true
+
+    # Coverage builds.
+    - cc=gcc-4.8 cxx=g++-4.8 apt_packages="g++-4.8 libstdc++-4.8-dev" valgrind=false coverage=true gcov/usr/bin/gcov-4.8 debug=true release=false
+    - cc=clang-3.4 cxx=clang++-3.4 apt_packages="clang-3.4 g++-4.8 libstdc++-4.8-dev" valgrind=false coverage=true gcov=/usr/bin/gcov-4.8 debug=true release=false
+
 before_install:
     - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
     - sudo add-apt-repository ppa:h-rayflood/llvm -y
     - sudo apt-get update -qq
+
 install:
     - sudo apt-get install $apt_packages
     - if $valgrind; then sudo apt-get install valgrind; fi
+    - if $coverage; then sudo pip install cpp-coveralls --use-mirrors; fi
+
 before_script:
     - export CC="$cc" CXX="$cxx"
     - echo "$CC" && "$CC" --version
     - echo "$CXX" && "$CXX" --version
-script:
-    - makeflags="valgrind=$($valgrind && echo 1)"
-    - make test $makeflags
-    - if $valgrind; then make test $makeflags run_with='valgrind --tool=memcheck --error-exitcode=1'; fi
-    - if $valgrind; then make test $makeflags run_with='valgrind --tool=helgrind --error-exitcode=1'; fi
 
-    # Now with optimizations!
+script:
+    - makeflags="valgrind=$($valgrind && echo 1) coverage=$($coverage && echo 1)"
+
+    - make clean $makeflags
+    - export CFLAGS='-O0'
+    - export CXXFLAGS="$CFLAGS"
+    - if $debug; then make test $makeflags; fi
+    - if $debug && $coverage; then coveralls --exclude vendor --gcov "$gcov"; fi
+    - if $debug && $valgrind; then make test $makeflags run_with='valgrind --tool=memcheck --error-exitcode=1'; fi
+    - if $debug && $valgrind; then make test $makeflags run_with='valgrind --tool=helgrind --error-exitcode=1'; fi
+
+    - make clean $makeflags
     - export CFLAGS='-O3'
     - export CXXFLAGS="$CFLAGS"
-    - make clean $makeflags
-    - make test $makeflags
-    - if $valgrind; then make test $makeflags run_with='valgrind --tool=memcheck --error-exitcode=1'; fi
-    - if $valgrind; then make test $makeflags run_with='valgrind --tool=helgrind --error-exitcode=1'; fi
+    - if $release; then make test $makeflags; fi
+    - if $release && $coverage; then coveralls --exclude vendor --gcov "$gcov"; fi
+    - if $release && $valgrind; then make test $makeflags run_with='valgrind --tool=memcheck --error-exitcode=1'; fi
+    - if $release && $valgrind; then make test $makeflags run_with='valgrind --tool=helgrind --error-exitcode=1'; fi
 
     # TODO(strager): DRD (valgrind tool) crashes on vfork (posix_spawn).

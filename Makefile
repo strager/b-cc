@@ -13,6 +13,9 @@ valgrind := 0
 # statically.  Set to non-1 to use the system sqlite3.
 sqlite3_static := 1
 
+# Set to 1 to enable gcov code coverage.
+coverage := 0
+
 build_files := Makefile configure.make
 
 out_dir := out
@@ -70,6 +73,16 @@ ifeq ($(sqlite3_static),1)
 else
 	sqlite3_user_cflags :=
 	LDFLAGS += -lsqlite3
+endif
+
+ifeq ($(coverage),1)
+	ifeq ($(cc_is_clang),1)
+		c_cc_flags += --coverage
+		LDFLAGS += --coverage
+	else
+		c_cc_flags += -fprofile-arcs -ftest-coverage
+		LDFLAGS += -fprofile-arcs
+	endif
 endif
 
 # TODO(strager): Remove need for these extensions.
