@@ -5,6 +5,7 @@
 #include <B/DependencyDelegate.h>
 #include <B/Error.h>
 #include <B/File.h>
+#include <B/Main.h>
 #include <B/Process.h>
 #include <B/QuestionAnswer.h>
 #include <B/QuestionDispatch.h>
@@ -41,10 +42,6 @@
 #if !defined(EXTRA_LDFLAGS)
 # define EXTRA_LDFLAGS
 #endif
-
-// Initialized in main.
-std::unique_ptr<B_ProcessLoop, B_ProcessLoopDeleter>
-g_process_loop_(nullptr, nullptr);
 
 static std::string::size_type
 path_extensions_index(
@@ -96,18 +93,21 @@ static B_FUNC
 run_link(
         std::string const &path,
         B_AnswerContext const *answer_context,
+        B_ProcessLoop *,
         B_ErrorHandler const *eh);
 
 static B_FUNC
 run_c_compile(
         std::string const &path,
         B_AnswerContext const *answer_context,
+        B_ProcessLoop *,
         B_ErrorHandler const *eh);
 
 static B_FUNC
 run_cc_compile(
         std::string const &path,
         B_AnswerContext const *answer_context,
+        B_ProcessLoop *,
         B_ErrorHandler const *eh);
 
 static B_FUNC
@@ -119,8 +119,13 @@ check_file(
 static B_FUNC
 dispatch_question(
         B_AnswerContext const *answer_context,
-        void *,
+        void *opaque,
         B_ErrorHandler const *eh) {
+    auto main_closure
+        = static_cast<B_MainClosure *>(opaque);
+    B_ProcessLoop *process_loop
+        = main_closure->process_loop;
+
     if (answer_context->question_vtable->uuid
             != b_file_contents_question_vtable()->uuid) {
         (void) B_RAISE_ERRNO_ERROR(
@@ -136,11 +141,23 @@ dispatch_question(
     std::string path(path_raw);
     std::string extension = path_extensions(path);
     if (extension == "") {
-        return run_link(path, answer_context, eh);
+        return run_link(
+            path,
+            answer_context,
+            process_loop,
+            eh);
     } else if (extension == ".c.o") {
-        return run_c_compile(path, answer_context, eh);
+        return run_c_compile(
+            path,
+            answer_context,
+            process_loop,
+            eh);
     } else if (extension == ".cc.o") {
-        return run_cc_compile(path, answer_context, eh);
+        return run_cc_compile(
+            path,
+            answer_context,
+            process_loop,
+            eh);
     } else {
         return check_file(path, answer_context, eh);
     }
@@ -150,6 +167,7 @@ static B_FUNC
 run_link(
         std::string const &exe_path,
         B_AnswerContext const *answer_context,
+        B_ProcessLoop *process_loop,
         B_ErrorHandler const *eh) {
     std::vector<std::string> o_paths = {
         "ex/1/main.cc.o",
@@ -160,6 +178,7 @@ run_link(
         "src/File.cc.o",
         "src/FilePath.c.o",
         "src/Log.c.o",
+        "src/Main.c.o",
         "src/Misc.c.o",
         "src/Process.c.o",
         "src/QuestionDispatch.c.o",
@@ -192,7 +211,7 @@ run_link(
         questions.data(),
         questions_vtables.data(),
         questions.size(),
-        [answer_context, exe_path, o_paths](
+        [answer_context, exe_path, o_paths, process_loop](
                 B_Answer *const *,
                 B_ErrorHandler const *eh) {
             std::vector<char const *> args = {
@@ -216,7 +235,7 @@ run_link(
             args.push_back(nullptr);
             return b_answer_context_exec(
                 answer_context,
-                g_process_loop_.get(),
+                process_loop,
                 args.data(),
                 eh);
         },
@@ -232,6 +251,7 @@ static B_FUNC
 run_c_compile(
         std::string const &o_path,
         B_AnswerContext const *answer_context,
+        B_ProcessLoop *process_loop,
         B_ErrorHandler const *eh) {
     std::string c_path
             = path_drop_extensions(o_path) + ".c";
@@ -242,7 +262,7 @@ run_c_compile(
         answer_context,
         question,
         b_file_contents_question_vtable(),
-        [answer_context, c_path, o_path](
+        [answer_context, c_path, o_path, process_loop](
                 B_Answer *,
                 B_ErrorHandler const *eh) {
             char const *command[] = {
@@ -260,7 +280,7 @@ run_c_compile(
             };
             return b_answer_context_exec(
                 answer_context,
-                g_process_loop_.get(),
+                process_loop,
                 command,
                 eh);
         },
@@ -276,6 +296,7 @@ static B_FUNC
 run_cc_compile(
         std::string const &o_path,
         B_AnswerContext const *answer_context,
+        B_ProcessLoop *process_loop,
         B_ErrorHandler const *eh) {
     std::string cc_path
             = path_drop_extensions(o_path) + ".cc";
@@ -287,7 +308,7 @@ run_cc_compile(
         answer_context,
         question,
         b_file_contents_question_vtable(),
-        [answer_context, cc_path, o_path](
+        [answer_context, cc_path, o_path, process_loop](
                 B_Answer *,
                 B_ErrorHandler const *eh) {
             char const *command[] = {
@@ -305,7 +326,7 @@ run_cc_compile(
             };
             return b_answer_context_exec(
                 answer_context,
-                g_process_loop_.get(),
+                process_loop,
                 command,
                 eh);
         },
@@ -392,45 +413,9 @@ main(
         char **) {
     B_ErrorHandler const *eh = nullptr;
 
-    B_ProcessLoop *process_loop_raw;
-    if (!b_process_loop_allocate(
-            1,
-            b_process_auto_configuration_unsafe(),
-            &process_loop_raw,
-            eh)) {
-        return 1;
-    }
-    g_process_loop_.reset(process_loop_raw);
-    process_loop_raw = nullptr;
-
-    if (!b_process_loop_run_async_unsafe(
-            g_process_loop_.get(),
-            eh)) {
-        return 1;
-    }
-
-    B_QuestionQueue *question_queue_raw;
-    if (!b_question_queue_allocate(
-            &question_queue_raw,
-            eh)) {
-        return 1;
-    }
-    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(question_queue_raw, eh);
-    question_queue_raw = nullptr;
-
-    B_Database *database_raw;
-    if (!b_database_load_sqlite(
-            "b_database.sqlite3",
-            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
-            NULL,
-            &database_raw,
-            eh)) {
-        return 1;
-    }
-    std::unique_ptr<B_Database, B_DatabaseDeleter>
-        database(database_raw, eh);
-    database_raw = nullptr;
+    // HACK(strager)
+    auto initial_question = static_cast<B_Question *>(
+        static_cast<void *>(const_cast<char *>("ex1")));
 
     B_QuestionVTableSet *question_vtable_set_raw;
     if (!b_question_vtable_set_allocate(
@@ -450,61 +435,18 @@ main(
         return 1;
     }
 
-    if (!b_database_recheck_all(
-            database.get(),
+    B_Answer *answer;
+    if (!b_main(
+            initial_question,
+            b_file_contents_question_vtable(),
+            &answer,
+            "b_database.sqlite3",
             question_vtable_set.get(),
-            eh)) {
-        return 1;
-    }
-
-    int exit_code;
-    bool exit_code_set = false;
-
-    // HACK(strager)
-    auto initial_question = static_cast<B_Question *>(
-        static_cast<void *>(const_cast<char *>("ex1")));
-    RootQueueItem_ *root_queue_item = new RootQueueItem_(
-        initial_question,
-        b_file_contents_question_vtable(),
-        [&question_queue, &exit_code, &exit_code_set](
-                B_TRANSFER B_OPT B_Answer *answer,
-                void *,
-                B_ErrorHandler const *eh) {
-            if (!b_question_queue_close(
-                    question_queue.get(),
-                    eh)) {
-                return false;
-            }
-
-            if (answer) {
-                (void) b_file_contents_question_vtable()
-                    ->answer_vtable->deallocate(answer, eh);
-            }
-
-            exit_code = answer == NULL ? 1 : 0;
-            exit_code_set = true;
-            return true;
-        });
-
-    if (!b_question_queue_enqueue(
-            question_queue.get(),
-            root_queue_item,
-            eh)) {
-        return 1;
-    }
-
-    if (!b_question_dispatch(
-            question_queue.get(),
-            database.get(),
             dispatch_question,
             nullptr,
             eh)) {
-        return 1;
+        return false;
     }
 
-    if (!exit_code_set) {
-        fprintf(stderr, "b: FATAL: Exit code not set\n");
-        return 1;
-    }
-    return exit_code;
+    return answer ? 0 : 1;
 }
