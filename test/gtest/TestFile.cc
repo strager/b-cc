@@ -4,6 +4,7 @@
 #include <B/File.h>
 #include <B/Error.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -138,4 +139,39 @@ TEST(TestFile, AnswerFilesWithDifferingContentsHaveDifferingAnswers) {
     ASSERT_TRUE(question_vtable->answer_vtable
         ->equal(answer_1, answer_2, &equal, eh));
     EXPECT_FALSE(equal);
+}
+
+TEST(TestFile, AnswerFileWithOneOfEveryByte) {
+    // This test may seem weird, but there was a bug where
+    // answering a file with 0xFF inside returned an error
+    // (as (char)-1 (EOF indictation) equals (char)0xFF on
+    // some platforms).
+
+    B_ErrorHandler const *eh = nullptr;
+
+    B_QuestionVTable const *question_vtable
+        = b_file_contents_question_vtable();
+
+    auto temp_dir = B_TemporaryDirectory::create();
+    std::string file_path = temp_dir.path() + "/file";
+
+    {
+        FILE *file = fopen(file_path.c_str(), "w");
+        ASSERT_NE(nullptr, file);
+        for (size_t i = 0; i <= UINT8_MAX; ++i) {
+            uint8_t byte = static_cast<uint8_t>(i);
+            ASSERT_EQ(
+                static_cast<size_t>(1),
+                fwrite(&byte, 1, 1, file));
+        }
+        ASSERT_EQ(0, fclose(file));
+    }
+
+    B_Answer *answer;
+    ASSERT_TRUE(question_vtable->answer(
+        static_cast<B_Question const *>(
+            static_cast<void const *>(file_path.c_str())),
+        &answer,
+        eh));
+    ASSERT_NE(nullptr, answer);
 }

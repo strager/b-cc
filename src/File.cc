@@ -43,7 +43,7 @@ retry_open:;
         }
 
         uint64_t sum_hash = 0;
-        char c;
+        int c;
         while ((c = fgetc(f)) != -1) {
             sum_hash += static_cast<uint8_t>(c);
         }
