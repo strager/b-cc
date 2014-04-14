@@ -202,6 +202,9 @@ struct FileQuestion :
             B_FilePath const *path,
             B_ByteSink *sink,
             B_ErrorHandler const *eh) {
+        // FIXME(strager): This is duplicated in
+        // PBXProjectFile.cc.
+
         B_CHECK_PRECONDITION(eh, sink);
 
         return b_serialize_data_and_size_8_be(
@@ -216,6 +219,9 @@ struct FileQuestion :
             B_ByteSource *source,
             B_OUTPTR B_FilePath **out,
             B_ErrorHandler const *eh) {
+        // FIXME(strager): This is duplicated in
+        // PBXProjectFile.cc.
+
         B_CHECK_PRECONDITION(eh, source);
         B_CHECK_PRECONDITION(eh, out);
 

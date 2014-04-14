@@ -90,18 +90,26 @@ private:
             return;
         }
         size_t fdCount = 10;
-        int rc = nftw(this->path_.c_str(), [](
-                char const *path,
-                struct stat const *,
-                int,
-                struct FTW *) {
-            return remove(path);
-        }, fdCount, FTW_DEPTH | FTW_PHYS);
+        int rc = nftw(
+            this->path_.c_str(),
+            remove_path,
+            fdCount,
+            FTW_DEPTH | FTW_PHYS);
         ASSERT_EQ(0, rc);
         this->path_ = std::string();
     }
 
     std::string path_;
+
+private:
+    static int
+    remove_path(
+            char const *path,
+            struct stat const *,
+            int,
+            struct FTW *) {
+        return remove(path);
+    }
 };
 #endif
 
