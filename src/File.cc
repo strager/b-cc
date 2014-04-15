@@ -203,10 +203,21 @@ struct FileQuestion :
         B_CHECK_PRECONDITION(eh, out);
 
         size_t length = strlen(path);
-        if (!b_memdup(path, length, &out->data, eh)) {
+        size_t size = sizeof(uint64_t) + length;
+        void *data;
+        if (!b_allocate(size, &data, eh)) {
             return false;
         }
-        out->size = length;
+        // FIXME(strager): This is endianness-dependent.
+        *reinterpret_cast<uint64_t *>(data) = length;
+        memcpy(
+            reinterpret_cast<uint8_t *>(data)
+                + sizeof(uint64_t),
+            path,
+            length);
+
+        out->data = data;
+        out->size = size;
         return true;
     }
 
@@ -217,15 +228,37 @@ struct FileQuestion :
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
+        if (serialized.size < sizeof(uint64_t)) {
+            B_RAISE_ERRNO_ERROR(eh, ENOSPC, "deserialize");
+            return false;
+        }
+
+        // FIXME(strager): This is endianness-dependent.
+        uint64_t length_raw = *reinterpret_cast<uint64_t *>(
+            serialized.data);
+        if (length_raw > SIZE_MAX) {
+            B_RAISE_ERRNO_ERROR(
+                eh,
+                EOVERFLOW,
+                "deserialize");
+            return false;
+        }
+        size_t length = (size_t) length_raw;
+        if (length > serialized.size + sizeof(uint64_t)) {
+            B_RAISE_ERRNO_ERROR(eh, ENOSPC, "deserialize");
+        }
+
         // TODO(strager): Check for zero bytes and raise.
         char *path;
         if (!b_strndup(
-                reinterpret_cast<char *>(serialized.data),
-                serialized.size,
+                reinterpret_cast<char *>(serialized.data)
+                    + sizeof(uint64_t),
+                length,
                 &path,
                 eh)) {
             return false;
         }
+
         *out = path;
         return true;
     }
