@@ -7,6 +7,8 @@
 #include <stdbool.h>
 
 struct B_AnswerContext;
+struct B_ByteSink;
+struct B_ByteSource;
 struct B_ErrorHandler;
 
 // A Question is value describing a question on the current
@@ -31,8 +33,6 @@ struct B_QuestionVTable;
 struct B_Answer;
 
 struct B_AnswerVTable;
-
-struct B_Serialized;
 
 // A function to be called when an answer is available for a
 // previously-asked question.  See AnswerContext.
@@ -78,12 +78,12 @@ struct B_QuestionVTable {
     B_FUNC
     (*serialize)(
         struct B_Question const *,
-        B_OUT B_TRANSFER struct B_Serialized *,
+        struct B_ByteSink *,
         struct B_ErrorHandler const *);
 
     B_FUNC
     (*deserialize)(
-        B_BORROWED struct B_Serialized,
+        struct B_ByteSource *,
         B_OUTPTR struct B_Question **,
         struct B_ErrorHandler const *);
 };
@@ -115,22 +115,55 @@ struct B_AnswerVTable {
     B_FUNC
     (*serialize)(
         struct B_Answer const *,
-        B_OUT B_TRANSFER struct B_Serialized *,
+        struct B_ByteSink *,
         struct B_ErrorHandler const *);
 
     B_FUNC
     (*deserialize)(
-        B_BORROWED struct B_Serialized,
+        struct B_ByteSource *,
         B_OUTPTR struct B_Answer **,
         struct B_ErrorHandler const *);
 };
 
-struct B_Serialized {
-    // Allocate data with b_allocate.  Deallocate data with
-    // b_deallocate.
-    void *data;
-    size_t size;
-};
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
+B_EXPORT_FUNC
+b_question_serialize_to_memory(
+        struct B_Question const *,
+        struct B_QuestionVTable const *,
+        B_OUTPTR uint8_t **data,
+        B_OUT size_t *data_size,
+        struct B_ErrorHandler const *);
+
+B_EXPORT_FUNC
+b_answer_serialize_to_memory(
+        struct B_Answer const *,
+        struct B_AnswerVTable const *,
+        B_OUTPTR uint8_t **data,
+        B_OUT size_t *data_size,
+        struct B_ErrorHandler const *);
+
+B_EXPORT_FUNC
+b_question_deserialize_from_memory(
+        struct B_QuestionVTable const *,
+        uint8_t const *data,
+        size_t data_size,
+        B_OUTPTR struct B_Question **,
+        struct B_ErrorHandler const *);
+
+B_EXPORT_FUNC
+b_answer_deserialize_from_memory(
+        struct B_AnswerVTable const *,
+        uint8_t const *data,
+        size_t data_size,
+        B_OUTPTR struct B_Answer **,
+        struct B_ErrorHandler const *);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #if defined(__cplusplus)
 # include <B/Error.h>
@@ -163,12 +196,12 @@ public:
     static B_FUNC
     serialize(
             TClass const *,
-            B_OUT B_Serialized *,
+            B_ByteSink *,
             B_ErrorHandler const *);
 
     static B_FUNC
     deserialize(
-            B_BORROWED B_Serialized,
+            B_ByteSource *,
             B_OUTPTR TClass **,
             B_ErrorHandler const *);
 
@@ -231,23 +264,25 @@ private:
     static B_FUNC
     serialize_(
             B_Answer const *answer,
-            B_OUT B_TRANSFER B_Serialized *out,
+            B_ByteSink *sink,
             B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, sink);
         B_CHECK_PRECONDITION(eh, answer);
         return TClass::serialize(
             static_cast<TClass const *>(answer),
-            out,
+            sink,
             eh);
     }
 
     static B_FUNC
     deserialize_(
-            B_BORROWED B_Serialized serialized,
+            B_ByteSource *source,
             B_OUTPTR B_Answer **out,
             B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, source);
         B_CHECK_PRECONDITION(eh, out);
         TClass *tmp;
-        if (!TClass::deserialize(serialized, &tmp, eh)) {
+        if (!TClass::deserialize(source, &tmp, eh)) {
             return false;
         }
         *out = tmp;
@@ -298,12 +333,12 @@ public:
     static B_FUNC
     serialize(
             TObject const *,
-            B_OUT B_Serialized *,
+            B_ByteSink *,
             B_ErrorHandler const *);
 
     static B_FUNC
     deserialize(
-            B_BORROWED B_Serialized,
+            B_ByteSource *,
             B_OUTPTR TObject **,
             B_ErrorHandler const *);
 
@@ -405,20 +440,22 @@ private:
     static B_FUNC
     serialize_(
             B_Question const *question,
-            B_OUT B_TRANSFER B_Serialized *out,
+            B_ByteSink *sink,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, question);
-        return TClass::serialize(cast_(question), out, eh);
+        B_CHECK_PRECONDITION(eh, sink);
+        return TClass::serialize(cast_(question), sink, eh);
     }
 
     static B_FUNC
     deserialize_(
-            B_BORROWED B_Serialized serialized,
+            B_ByteSource *source,
             B_OUTPTR B_Question **out,
             B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, source);
         B_CHECK_PRECONDITION(eh, out);
         TObject *tmp;
-        if (!TClass::deserialize(serialized, &tmp, eh)) {
+        if (!TClass::deserialize(source, &tmp, eh)) {
             return false;
         }
         *out = cast_(tmp);

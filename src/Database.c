@@ -5,10 +5,12 @@
 #include <B/Assert.h>
 #include <B/Config.h>
 #include <B/Database.h>
+#include <B/Deserialize.h>
 #include <B/Error.h>
 #include <B/QuestionAnswer.h>
 #include <B/QuestionVTableSet.h>
 #include <B/SQLite3.h>
+#include <B/Serialize.h>
 #include <B/Thread.h>
 #include <B/UUID.h>
 
@@ -20,6 +22,11 @@
 #if defined(B_CONFIG_PTHREAD)
 # include <pthread.h>
 #endif
+
+struct Buffer_ {
+    uint8_t *data;
+    size_t size;
+};
 
 // NOTE[insert dependency query]: These are host parameter
 // names for b_database_record_dependency's INSERT query.
@@ -96,9 +103,9 @@ record_answer_locked_(
 static B_FUNC
 insert_answer_locked_(
         struct B_Database *,
-        B_TRANSFER struct B_Serialized question_data,
+        B_TRANSFER struct Buffer_ question_data,
         struct B_UUID const question_uuid,
-        B_TRANSFER struct B_Serialized answer_data,
+        B_TRANSFER struct Buffer_ answer_data,
         struct B_ErrorHandler const *);
 
 static B_FUNC
@@ -113,9 +120,9 @@ record_dependency_locked_(
 static B_FUNC
 insert_dependency_locked_(
         struct B_Database *,
-        B_TRANSFER struct B_Serialized from_data,
+        B_TRANSFER struct Buffer_ from_data,
         struct B_UUID const from_uuid,
-        B_TRANSFER struct B_Serialized to_data,
+        B_TRANSFER struct Buffer_ to_data,
         struct B_UUID const to_uuid,
         struct B_ErrorHandler const *);
 
@@ -141,14 +148,14 @@ bind_uuid_(
         struct B_ErrorHandler const *);
 
 static B_FUNC
-bind_serialized_(
+bind_buffer_(
         sqlite3_stmt *,
         int host_parameter_name,
-        B_TRANSFER struct B_Serialized,
+        B_TRANSFER struct Buffer_,
         struct B_ErrorHandler const *);
 
 static void
-deallocate_serialized_data_(
+deallocate_buffer_data_(
         void *data);
 
 static void
@@ -569,41 +576,45 @@ record_answer_locked_(
         struct B_ErrorHandler const *eh) {
     B_ASSERT(database);
 
-    struct B_Serialized question_serialized = {
+    struct Buffer_ question_buffer = {
         .data = NULL,
         .size = 0,
     };
-    struct B_Serialized answer_serialized = {
+    struct Buffer_ answer_buffer = {
         .data = NULL,
         .size = 0,
     };
 
-    if (!question_vtable->serialize(
+    if (!b_question_serialize_to_memory(
             question,
-            &question_serialized,
+            question_vtable,
+            &question_buffer.data,
+            &question_buffer.size,
             eh)) {
         goto fail;
     }
-    if (!question_vtable->answer_vtable->serialize(
+    if (!b_answer_serialize_to_memory(
             answer,
-            &answer_serialized,
+            question_vtable->answer_vtable,
+            &answer_buffer.data,
+            &answer_buffer.size,
             eh)) {
         goto fail;
     }
 
     return insert_answer_locked_(
         database,
-        question_serialized,
+        question_buffer,
         question_vtable->uuid,
-        answer_serialized,
+        answer_buffer,
         eh);
 
 fail:
-    if (question_serialized.data) {
-        (void) b_deallocate(question_serialized.data, eh);
+    if (question_buffer.data) {
+        (void) b_deallocate(question_buffer.data, eh);
     }
-    if (answer_serialized.data) {
-        (void) b_deallocate(answer_serialized.data, eh);
+    if (answer_buffer.data) {
+        (void) b_deallocate(answer_buffer.data, eh);
     }
     return false;
 }
@@ -611,9 +622,9 @@ fail:
 static B_FUNC
 insert_answer_locked_(
         struct B_Database *database,
-        B_TRANSFER struct B_Serialized question_data,
+        B_TRANSFER struct Buffer_ question_data,
         struct B_UUID const question_uuid,
-        B_TRANSFER struct B_Serialized answer_data,
+        B_TRANSFER struct Buffer_ answer_data,
         struct B_ErrorHandler const *eh) {
     sqlite3_stmt *stmt = database->insert_answer_stmt;
 
@@ -622,11 +633,12 @@ insert_answer_locked_(
     bool need_free_question_data = true;
     bool need_free_answer_data = true;
 
-    ok = bind_serialized_(
+    ok = bind_buffer_(
         stmt,
         B_INSERT_ANSWER_QUESTION_DATA,
         question_data,
         eh);
+    // FIXME(strager): Is this correct?
     need_free_question_data = false;
     if (!ok) goto done_no_reset;
 
@@ -637,11 +649,12 @@ insert_answer_locked_(
         eh);
     if (!ok) goto done_no_reset;
 
-    ok = bind_serialized_(
+    ok = bind_buffer_(
         stmt,
         B_INSERT_ANSWER_ANSWER_DATA,
         answer_data,
         eh);
+    // FIXME(strager): Is this correct?
     need_free_answer_data = false;
     if (!ok) goto done_no_reset;
 
@@ -670,39 +683,46 @@ record_dependency_locked_(
         struct B_ErrorHandler const *eh) {
     B_ASSERT(database);
 
-    struct B_Serialized from_serialized = {
+    struct Buffer_ from_buffer = {
         .data = NULL,
         .size = 0,
     };
-    struct B_Serialized to_serialized = {
+    struct Buffer_ to_buffer = {
         .data = NULL,
         .size = 0,
     };
 
-    if (!from_vtable->serialize(
+    if (!b_question_serialize_to_memory(
             from,
-            &from_serialized,
+            from_vtable,
+            &from_buffer.data,
+            &from_buffer.size,
             eh)) {
         goto fail;
     }
-    if (!to_vtable->serialize(to, &to_serialized, eh)) {
+    if (!b_question_serialize_to_memory(
+            to,
+            to_vtable,
+            &to_buffer.data,
+            &to_buffer.size,
+            eh)) {
         goto fail;
     }
 
     return insert_dependency_locked_(
         database,
-        from_serialized,
+        from_buffer,
         from_vtable->uuid,
-        to_serialized,
+        to_buffer,
         to_vtable->uuid,
         eh);
 
 fail:
-    if (from_serialized.data) {
-        (void) b_deallocate(from_serialized.data, eh);
+    if (from_buffer.data) {
+        (void) b_deallocate(from_buffer.data, eh);
     }
-    if (to_serialized.data) {
-        (void) b_deallocate(to_serialized.data, eh);
+    if (to_buffer.data) {
+        (void) b_deallocate(to_buffer.data, eh);
     }
     return false;
 }
@@ -710,9 +730,9 @@ fail:
 static B_FUNC
 insert_dependency_locked_(
         struct B_Database *database,
-        B_TRANSFER struct B_Serialized from_data,
+        B_TRANSFER struct Buffer_ from_data,
         struct B_UUID const from_uuid,
-        B_TRANSFER struct B_Serialized to_data,
+        B_TRANSFER struct Buffer_ to_data,
         struct B_UUID const to_uuid,
         struct B_ErrorHandler const *eh) {
     sqlite3_stmt *stmt = database->insert_dependency_stmt;
@@ -729,7 +749,7 @@ insert_dependency_locked_(
         eh);
     if (!ok) goto done_no_reset;
 
-    ok = bind_serialized_(
+    ok = bind_buffer_(
         stmt,
         B_INSERT_DEPENDENCY_FROM_QUESTION_DATA,
         from_data,
@@ -744,7 +764,7 @@ insert_dependency_locked_(
         eh);
     if (!ok) goto done_no_reset;
 
-    ok = bind_serialized_(
+    ok = bind_buffer_(
         stmt,
         B_INSERT_DEPENDENCY_TO_QUESTION_DATA,
         to_data,
@@ -779,24 +799,26 @@ look_up_answer_locked_(
     bool ok;
     int rc;
 
-    bool need_free_question_serialized = true;
+    bool need_free_question_buffer = true;
 
-    struct B_Serialized question_serialized;
-    if (!question_vtable->serialize(
+    struct Buffer_ question_buffer;
+    if (!b_question_serialize_to_memory(
             question,
-            &question_serialized,
+            question_vtable,
+            &question_buffer.data,
+            &question_buffer.size,
             eh)) {
         return false;
     }
 
     sqlite3_stmt *stmt = database->select_answer_stmt;
 
-    ok = bind_serialized_(
+    ok = bind_buffer_(
         stmt,
         B_SELECT_ANSWER_QUESTION_DATA,
-        question_serialized,
+        question_buffer,
         eh);
-    need_free_question_serialized = false;
+    need_free_question_buffer = false;
     if (!ok) goto done_no_reset;
 
     ok = bind_uuid_(
@@ -835,17 +857,17 @@ retry_step:
     }
 
     // Deserialize the answer.
-    struct B_Serialized answer_serialized;
-    // NOTE(strager): answer_serialized.data is valid until
+    struct Buffer_ answer_buffer;
+    // NOTE(strager): answer_buffer.data is valid until
     // the call to b_sqlite3_step_expecting_end.
     // NOTE(strager): Calls must be performed in this order
     // (sqlite3_column_blob then sqlite3_column_bytes)
     // according to the sqlite3 documentation.
 retry_get_answer_blob:
-    answer_serialized.data = (void *) sqlite3_column_blob(
+    answer_buffer.data = (void *) sqlite3_column_blob(
         stmt,
         B_SELECT_ANSWER_ANSWER_DATA);
-    if (!answer_serialized.data &&
+    if (!answer_buffer.data &&
             sqlite3_errcode(database->handle)
                 == SQLITE_NOMEM) {
         switch (B_RAISE_SQLITE_ERROR(
@@ -861,19 +883,18 @@ retry_get_answer_blob:
             goto ignore_failure;
         }
     }
-    answer_serialized.size = sqlite3_column_bytes(
+    answer_buffer.size = sqlite3_column_bytes(
         stmt,
         B_SELECT_ANSWER_ANSWER_DATA);
-    if (!answer_serialized.data) {
+    if (!answer_buffer.data) {
         // "The return value from sqlite3_column_blob() for
         // a zero-length BLOB is a NULL pointer."
-        B_ASSERT(answer_serialized.size == 0);
-        // AnswerVTable's deserialize function will
-        // expect a non-NULL data pointer.
-        answer_serialized.data = &answer_serialized.data;
+        B_ASSERT(answer_buffer.size == 0);
     }
-    ok = question_vtable->answer_vtable->deserialize(
-        answer_serialized,
+    ok = b_answer_deserialize_from_memory(
+        question_vtable->answer_vtable,
+        answer_buffer.data,
+        answer_buffer.size,
         out_answer,
         eh);
     // Ignore errors, as our lookup is done.
@@ -885,8 +906,8 @@ done_reset:
 
 done_no_reset:
     (void) sqlite3_clear_bindings(stmt);
-    if (need_free_question_serialized) {
-        (void) b_deallocate(question_serialized.data, eh);
+    if (need_free_question_buffer) {
+        (void) b_deallocate(question_buffer.data, eh);
     }
     return ok;
 
@@ -938,23 +959,23 @@ bind_uuid_(
 }
 
 static B_FUNC
-bind_serialized_(
+bind_buffer_(
         sqlite3_stmt *stmt,
         int host_parameter_name,
-        B_TRANSFER struct B_Serialized serialized,
+        B_TRANSFER struct Buffer_ buffer,
         struct B_ErrorHandler const *eh) {
     B_ASSERT(stmt);
     return b_sqlite3_bind_blob(
         stmt,
         host_parameter_name,
-        serialized.data,
-        serialized.size,
-        deallocate_serialized_data_,
+        buffer.data,
+        buffer.size,
+        deallocate_buffer_data_,
         eh);
 }
 
 static void
-deallocate_serialized_data_(
+deallocate_buffer_data_(
         void *data) {
     (void) b_deallocate(data, NULL);
 }
@@ -978,7 +999,7 @@ question_answer_matches_locked_(
     bool result;
     struct B_QuestionVTable const *question_vtable;
     struct B_Question *question = NULL;
-    struct B_Serialized actual_answer_data = {
+    struct Buffer_ actual_answer_data = {
         .data = NULL,
         .size = 0,
     };
@@ -998,7 +1019,7 @@ question_answer_matches_locked_(
     }
     // NOTE(strager): question_data.data is valid until we
     // touch args again.
-    struct B_Serialized question_data;
+    struct Buffer_ question_data;
     if (!b_sqlite3_value_blob(
             args[1],
             (void const **) &question_data.data,
@@ -1015,8 +1036,10 @@ question_answer_matches_locked_(
     }
 
     // Deserialize question.
-    if (!question_vtable->deserialize(
-            question_data,
+    if (!b_question_deserialize_from_memory(
+            question_vtable,
+            question_data.data,
+            question_data.size,
             &question,
             eh)) {
         goto fail;
@@ -1027,9 +1050,11 @@ question_answer_matches_locked_(
     if (!question_vtable->answer(question, &answer, eh)) {
         goto fail;
     }
-    if (!question_vtable->answer_vtable->serialize(
+    if (!b_answer_serialize_to_memory(
             answer,
-            &actual_answer_data,
+            question_vtable->answer_vtable,
+            &actual_answer_data.data,
+            &actual_answer_data.size,
             eh)) {
         goto fail;
     }

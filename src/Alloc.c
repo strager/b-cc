@@ -35,6 +35,24 @@ b_deallocate(
 }
 
 B_EXPORT_FUNC
+b_reallocate(
+        size_t new_byte_count,
+        B_TRANSFER void *p,
+        B_OUTPTR void **out,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, p);
+
+    void *p2 = realloc(p, new_byte_count);
+    if (!p2) {
+        // TODO(strager): Error.
+        abort();
+    }
+
+    *out = p2;
+    return true;
+}
+
+B_EXPORT_FUNC
 b_memdup(
         void const *data,
         size_t byte_count,

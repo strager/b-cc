@@ -81,4 +81,31 @@
 # define B_CONFIG_SYSQUEUE
 #endif
 
+#if defined(__APPLE__)
+# define B_CONFIG_LIBKERN
+#endif
+
+#if defined(__BYTE_ORDER__) && \
+    defined(__ORDER_LITTLE_ENDIAN__) && \
+    defined(__ORDER_BIG_ENDIAN__)
+# if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  define B_CONFIG_LITTLE_ENDIAN
+# endif
+# if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#  define B_CONFIG_LITTLE_ENDIAN
+# endif
+#endif
+
+#if !defined(B_CONFIG_LITTLE_ENDIAN) && \
+    defined(__LITTLE_ENDIAN__)
+# define B_CONFIG_LITTLE_ENDIAN
+#endif
+#if !defined(B_CONFIG_BIG_ENDIAN) && defined(__BIG_ENDIAN__)
+# define B_CONFIG_BIG_ENDIAN
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+# define B_CONFIG_BSWAP_BUILTIN
+#endif
+
 #endif

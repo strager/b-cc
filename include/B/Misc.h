@@ -11,6 +11,9 @@
 
 struct B_ErrorHandler;
 
+#define B_MIN(x, y) ((x) < (y) ? (x) : (y))
+#define B_MAX(x, y) ((x) > (y) ? (x) : (y))
+
 #if defined(__cplusplus)
 extern "C" {
 #endif

@@ -4,6 +4,8 @@
 #if defined(__cplusplus)
 # include <exception>
 # include <ftw.h>
+# include <gtest/gtest.h>
+# include <string>
 # include <unistd.h>
 
 # define B_RETURN_OUTPTR(_type, _expr) \

@@ -7,8 +7,10 @@
 
 #include <B/Alloc.h>
 #include <B/Assert.h>
+#include <B/Deserialize.h>
 #include <B/File.h>
 #include <B/QuestionAnswer.h>
+#include <B/Serialize.h>
 
 #include <cstdio>
 #include <cstring>
@@ -88,36 +90,27 @@ retry_open:;
     static B_FUNC
     serialize(
             FileAnswer const *self,
-            B_OUT B_Serialized *out,
+            B_ByteSink *sink,
             B_ErrorHandler const *eh) {
-        B_CHECK_PRECONDITION(eh, out);
-
-        size_t size = sizeof(uint64_t);
-        if (!b_allocate(size, &out->data, eh)) {
-            return false;
-        }
-        // FIXME(strager): This is endianness-dependent.
-        *reinterpret_cast<uint64_t *>(out->data)
-            = self->sum_hash;
-        out->size = size;
-        return true;
+        B_CHECK_PRECONDITION(eh, sink);
+        return b_serialize_8_be(sink, self->sum_hash, eh);
     }
 
     static B_FUNC
     deserialize(
-            B_BORROWED B_Serialized serialized,
+            B_ByteSource *source,
             B_OUTPTR FileAnswer **out,
             B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, source);
         B_CHECK_PRECONDITION(eh, out);
-        B_CHECK_PRECONDITION(eh, serialized.data);
 
-        if (serialized.size != sizeof(uint64_t)) {
-            // TODO(strager): Report error.
+        uint64_t sum_hash;
+        if (!b_deserialize_8_be(source, &sum_hash, eh)) {
             return false;
         }
-        // FIXME(strager): This is endianness-dependent.
-        *out = new FileAnswer(*reinterpret_cast<uint64_t *>(
-            serialized.data));
+        // TODO(strager): Check for end-of-file.
+
+        *out = new FileAnswer(sum_hash);
         return true;
     }
 
@@ -198,66 +191,46 @@ struct FileQuestion :
     static B_FUNC
     serialize(
             B_FilePath const *path,
-            B_OUT B_Serialized *out,
+            B_ByteSink *sink,
             B_ErrorHandler const *eh) {
-        B_CHECK_PRECONDITION(eh, out);
+        B_CHECK_PRECONDITION(eh, sink);
 
-        size_t length = strlen(path);
-        size_t size = sizeof(uint64_t) + length;
-        void *data;
-        if (!b_allocate(size, &data, eh)) {
-            return false;
-        }
-        // FIXME(strager): This is endianness-dependent.
-        *reinterpret_cast<uint64_t *>(data) = length;
-        memcpy(
-            reinterpret_cast<uint8_t *>(data)
-                + sizeof(uint64_t),
-            path,
-            length);
-
-        out->data = data;
-        out->size = size;
-        return true;
+        return b_serialize_data_and_size_8_be(
+            sink,
+            reinterpret_cast<uint8_t const *>(path),
+            strlen(path),
+            eh);
     }
 
     static B_FUNC
     deserialize(
-            B_BORROWED B_Serialized serialized,
+            B_ByteSource *source,
             B_OUTPTR B_FilePath **out,
             B_ErrorHandler const *eh) {
+        B_CHECK_PRECONDITION(eh, source);
         B_CHECK_PRECONDITION(eh, out);
 
-        if (serialized.size < sizeof(uint64_t)) {
-            B_RAISE_ERRNO_ERROR(eh, ENOSPC, "deserialize");
-            return false;
-        }
-
-        // FIXME(strager): This is endianness-dependent.
-        uint64_t length_raw = *reinterpret_cast<uint64_t *>(
-            serialized.data);
-        if (length_raw > SIZE_MAX) {
-            B_RAISE_ERRNO_ERROR(
-                eh,
-                EOVERFLOW,
-                "deserialize");
-            return false;
-        }
-        size_t length = (size_t) length_raw;
-        if (length > serialized.size + sizeof(uint64_t)) {
-            B_RAISE_ERRNO_ERROR(eh, ENOSPC, "deserialize");
-        }
-
-        // TODO(strager): Check for zero bytes and raise.
-        char *path;
-        if (!b_strndup(
-                reinterpret_cast<char *>(serialized.data)
-                    + sizeof(uint64_t),
-                length,
-                &path,
+        uint8_t *data;
+        size_t data_size;
+        if (!b_deserialize_data_and_size_8_be(
+                source,
+                &data,
+                &data_size,
                 eh)) {
             return false;
         }
+
+        char *path;
+        if (!b_strndup(
+                reinterpret_cast<char const *>(data),
+                data_size,
+                &path,
+                eh)) {
+            (void) b_deallocate(data, eh);
+            return false;
+        }
+
+        (void) b_deallocate(data, eh);
 
         *out = path;
         return true;

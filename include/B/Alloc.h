@@ -23,6 +23,15 @@ b_deallocate(
         B_TRANSFER void *,
         struct B_ErrorHandler const *);
 
+// Ownership is *not* transferred if this function fails.
+// This matches the semantics of realloc, not reallocf.
+B_EXPORT_FUNC
+b_reallocate(
+        size_t new_byte_count,
+        B_TRANSFER void *,
+        B_OUTPTR void **,
+        struct B_ErrorHandler const *);
+
 B_EXPORT_FUNC
 b_memdup(
         void const *data,

@@ -123,20 +123,20 @@ public:
     }
 
     MOCK_CONST_METHOD2(serialize, B_FUNC(
-        B_OUT B_Serialized *,
+        B_ByteSink *,
         B_ErrorHandler const *));
 
     static B_FUNC
     serialize(
             MockAnswer const *self,
-            B_OUT B_Serialized *out,
+            B_ByteSink *sink,
             B_ErrorHandler const *eh) {
-        return self->serialize(out, eh);
+        return self->serialize(sink, eh);
     }
 
     static B_FUNC
     deserialize(
-            B_BORROWED B_Serialized,
+            B_ByteSource *,
             B_OUTPTR MockAnswer **,
             B_ErrorHandler const *) {
         B_NYI();
@@ -214,20 +214,20 @@ public:
     }
 
     MOCK_CONST_METHOD2(serialize, B_FUNC(
-        B_OUT B_Serialized *,
+        B_ByteSink *,
         B_ErrorHandler const *));
 
     static B_FUNC
     serialize(
             MockQuestion const *self,
-            B_OUT B_Serialized *out,
+            B_ByteSink *sink,
             B_ErrorHandler const *eh) {
-        return self->serialize(out, eh);
+        return self->serialize(sink, eh);
     }
 
     static B_FUNC
     deserialize(
-            B_BORROWED B_Serialized,
+            B_ByteSource *,
             B_OUTPTR MockQuestion **,
             B_ErrorHandler const *) {
         B_NYI();
