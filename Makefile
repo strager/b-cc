@@ -13,6 +13,14 @@ valgrind := 0
 # statically.  Set to non-1 to use the system sqlite3.
 sqlite3_static := 1
 
+# Set to 1 to enable tweaks for clang's static analysis
+# tools.
+clang_static_analysis := 0
+
+# Make non-empty when using the clang-static-analysis
+# target.
+scan_build :=
+
 build_files := Makefile configure.make
 
 out_dir := out
@@ -60,6 +68,32 @@ CFLAGS += $(c_cc_flags) -std=c11
 CXXFLAGS += $(c_cc_flags) -std=c++11
 LDFLAGS +=
 
+scan_build_flags := $(addprefix -enable-checker ,\
+    alpha.core.BoolAssignment \
+    alpha.core.CastSize \
+    alpha.core.CastToStruct \
+    alpha.core.FixedAddr \
+    alpha.core.PointerSub \
+    alpha.core.SizeofPtr \
+    alpha.cplusplus.NewDeleteLeaks \
+    alpha.cplusplus.VirtualCall \
+    alpha.deadcode.IdempotentOperations \
+    alpha.security.ArrayBound \
+    alpha.security.ArrayBoundV2 \
+    alpha.security.MallocOverflow \
+    alpha.security.ReturnPtrRange \
+    alpha.security.taint.TaintPropagation \
+    alpha.unix.Chroot \
+    alpha.unix.MallocWithAnnotations \
+    alpha.unix.PthreadLock \
+    alpha.unix.SimpleStream \
+    alpha.unix.Stream \
+    alpha.unix.cstring.BufferOverlap \
+    alpha.unix.cstring.NotNullTerminated \
+    alpha.unix.cstring.OutOfBounds)
+# alpha.core.PointerArithm # Noisy in gtest macros.
+# alpha.deadcode.UnreachableCode # Noisy false positives.
+
 ifeq ($(valgrind),1)
 	CFLAGS += -DB_CONFIG_VALGRIND
 	CXXFLAGS += -DB_CONFIG_VALGRIND
@@ -98,6 +132,11 @@ endif
 ifeq ($(target_elf),1)
 	CFLAGS += -fPIC
 	CXXFLAGS += -fPIC
+endif
+
+ifeq ($(target_macho)$(sqlite3_static)$(clang_static_analysis),111)
+	# We disable compilation of sqlite3.
+	LDFLAGS += -Wl,-undefined -Wl,dynamic_lookup
 endif
 
 ifeq ($(uname),Linux)
@@ -139,6 +178,15 @@ test-gtest: gtest
 clean: | $(out_dirs)
 	@rm -r $(out_dir)
 
+.PHONY: clang-static-analysis
+clang-static-analysis:
+ifeq ($(scan_build),)
+	@echo "Please set the scan_build target: $(MAKE) scan_build=path/to/scan-build" >&2
+	@echo "Download scan-build from http://clang-analyzer.llvm.org/" >&2
+	@exit 1
+endif
+	$(scan_build) $(scan_build_flags) $(MAKE) clang_static_analysis=1
+
 $(out_dirs):
 	@mkdir -p $(out_dirs)
 
@@ -155,7 +203,12 @@ $(out_dir)/$(vendor_gmock)/%.cc.o: $(vendor_gmock)/%.cc $(build_files) | $(out_d
 	$(CXX) -c -o $@ $(CXXFLAGS) "-I$(vendor_gmock)/gtest/include" "-I$(vendor_gmock)/include" "-I$(vendor_gmock)" -Wno-missing-field-initializers $<
 
 $(out_dir)/$(vendor_sqlite3)/%.c.o: $(vendor_sqlite3)/%.c $(build_files) | $(out_dirs)
+ifeq ($(clang_static_analysis),1)
+	@echo "Compilation of sqlite3 disabled" >&2
+	echo | $(CC) -c -o "$@" $(CFLAGS) -Wno-empty-translation-unit -x c -
+else
 	$(CC) -c -o $@ $(CFLAGS) -Wno-unused-variable -Wno-array-bounds $<
+endif
 
 $(out_dir)/%.c.o: %.c $(h_files) $(build_files) | $(out_dirs)
 	$(CC) -c -o $@ $(CFLAGS) $(sqlite3_user_cflags) $<
