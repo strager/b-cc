@@ -30,8 +30,8 @@ struct FileAnswer :
             uint64_t *out,
             B_ErrorHandler const *eh) {
 retry_open:;
-        FILE *f = fopen(path.c_str(), "r");
-        if (!f) {
+        FILE *file = fopen(path.c_str(), "r");
+        if (!file) {
             switch (B_RAISE_ERRNO_ERROR(
                     eh,
                     errno,
@@ -43,13 +43,22 @@ retry_open:;
                 goto retry_open;
             }
         }
+        bool ok = sum_hash_from_file(file, out, eh);
+        (void) fclose(file);
+        return ok;
+    }
 
+    static B_FUNC
+    sum_hash_from_file(
+            FILE *file,
+            uint64_t *out,
+            B_ErrorHandler const *eh) {
         uint64_t sum_hash = 0;
         int c;
-        while ((c = fgetc(f)) != -1) {
+        while ((c = fgetc(file)) != -1) {
             sum_hash += static_cast<uint8_t>(c);
         }
-        if (!feof(f)) {
+        if (!feof(file)) {
             (void) B_RAISE_ERRNO_ERROR(eh, errno, "fgetc");
             return false;
         }
