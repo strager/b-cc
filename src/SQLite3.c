@@ -47,6 +47,8 @@ b_sqlite3_value_blob(
         B_OUT B_BORROWED void const **out_data,
         B_OUT size_t *out_size,
         struct B_ErrorHandler const *eh) {
+    (void) eh;
+
     B_ASSERT(value);
     B_ASSERT(out_data);
 
@@ -74,7 +76,6 @@ b_sqlite3_value_blob(
         *out_data = (void *) sqlite3_value_blob(value);
     }
     return true;
-    (void) eh;
 }
 
 B_EXPORT_FUNC
