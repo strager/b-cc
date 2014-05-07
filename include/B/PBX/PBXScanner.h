@@ -104,6 +104,8 @@ b_pbx_scanner_offset(
 #endif
 
 #if defined(__cplusplus)
+# include <B/Assert.h>
+
 template<typename T>
 class B_PBXValueVisitorClass :
         public B_PBXValueVisitor {
@@ -121,62 +123,56 @@ public:
 
     B_FUNC
     visit_string(
-            B_PBXScanner *scanner,
+            B_PBXScanner *,
             uint8_t const *data_utf8,
             size_t data_size,
-            B_ErrorHandler const *eh) {
-        return static_cast<T *>(this)->visit_string(
-            scanner,
-            data_utf8,
-            data_size,
-            eh);
+            B_ErrorHandler const *) {
+        (void) data_utf8;
+        (void) data_size;
+        B_ASSERT_MUST_OVERRIDE(T, visit_string);
     }
 
     B_FUNC
     visit_array_begin(
-            B_PBXScanner *scanner,
+            B_PBXScanner *,
             B_OUT bool *recurse,
-            B_ErrorHandler const *eh) {
-        return static_cast<T *>(this)
-            ->visit_array_begin(scanner, recurse, eh);
+            B_ErrorHandler const *) {
+        (void) recurse;
+        B_ASSERT_MUST_OVERRIDE(T, visit_array_begin);
     }
 
     B_FUNC
     visit_array_end(
-            B_PBXScanner *scanner,
-            B_ErrorHandler const *eh) {
-        return static_cast<T *>(this)
-            ->visit_array_end(scanner, eh);
+            B_PBXScanner *,
+            B_ErrorHandler const *) {
+        B_ASSERT_MUST_OVERRIDE(T, visit_array_end);
     }
 
     B_FUNC
     visit_dict_begin(
-            B_PBXScanner *scanner,
+            B_PBXScanner *,
             B_OUT bool *recurse,
-            B_ErrorHandler const *eh) {
-        return static_cast<T *>(this)
-            ->visit_dict_begin(scanner, recurse, eh);
+            B_ErrorHandler const *) {
+        (void) recurse;
+        B_ASSERT_MUST_OVERRIDE(T, visit_dict_begin);
     }
 
     B_FUNC
     visit_dict_key(
-            B_PBXScanner *scanner,
+            B_PBXScanner *,
             uint8_t const *data_utf8,
             size_t data_size,
-            B_ErrorHandler const *eh) {
-        return static_cast<T *>(this)->visit_dict_key(
-            scanner,
-            data_utf8,
-            data_size,
-            eh);
+            B_ErrorHandler const *) {
+        (void) data_utf8;
+        (void) data_size;
+        B_ASSERT_MUST_OVERRIDE(T, visit_dict_key);
     }
 
     B_FUNC
     visit_dict_end(
-            B_PBXScanner *scanner,
-            B_ErrorHandler const *eh) {
-        return static_cast<T *>(this)
-            ->visit_dict_end(scanner, eh);
+            B_PBXScanner *,
+            B_ErrorHandler const *) {
+        B_ASSERT_MUST_OVERRIDE(T, visit_dict_end);
     }
 
 private:
