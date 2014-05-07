@@ -146,7 +146,6 @@ scan_value_(
     case '"':
         return scan_quoted_string_(scanner, visitor, eh);
 
-    case '/':
     case ' ':
     case '\t':
     case '\n':
@@ -154,6 +153,10 @@ scan_value_(
         B_BUG();
         return false;
 
+    case '/':
+        // '/' starts a comment, but also can start a string
+        // literal.
+        // FALL THROUGH
     default:
         // Assume anything else begins an unquoted string.
         B_ASSERT(!is_whitespace_(scanner, NULL));
@@ -227,6 +230,7 @@ scan_dict_(
     }
 
     // Skip '}'.
+    B_ASSERT(scanner->data[scanner->offset] == '}');
     scanner->offset += 1;
     return true;
 }
@@ -318,6 +322,9 @@ scan_array_(
         }
     }
 
+    // Skip ')'.
+    B_ASSERT(scanner->data[scanner->offset] == ')');
+    scanner->offset += 1;
     return true;
 }
 
@@ -464,22 +471,23 @@ skip_silence_(
         }
 
         if (scanner->offset + 1 >= scanner->data_size) {
-            unexpected_(scanner, eh);
-            return false;
+            // Not a comment.
+            break;
         }
 
-        switch (scanner->data[scanner->offset + 1]) {
-        case '/':
+        uint8_t next_byte
+            = scanner->data[scanner->offset + 1];
+        if (next_byte == '/') {
+            // // (C++-style) comment.
             skip_line_comment_(scanner);
-            continue;
-        case '*':
+        } else if (next_byte == '*') {
+            // /* */ (C89-style) comment.
             if (!skip_block_comment_(scanner, eh)) {
                 return false;
             }
-            continue;
-        default:
-            unexpected_(scanner, eh);
-            return false;
+        } else {
+            // Not a comment.
+            break;
         }
     }
 

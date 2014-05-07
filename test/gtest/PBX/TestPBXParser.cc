@@ -136,3 +136,49 @@ TEST(TestPBXParser, ParseStringWithObjects) {
         EXPECT_EQ(383U, objects[1].value_range.end);
     }
 }
+
+TEST(TestPBXParser, ParseStringWithArrays) {
+    B_ErrorHandler const *eh = nullptr;
+    B_PBXHeader header;
+    std::vector<Object_> objects;
+    ASSERT_TRUE(parse_pbx_(
+        "// !$*UTF8*$!\n"
+        "{\n"
+        "\tarchiveVersion = 1;\n"
+        "\tclasses = {\n"
+        "\t};\n"
+        "\tobjectVersion = 46;\n"
+        "\tobjects = {\n"
+        "/* Begin PBXCopyFilesBuildPhase section */\n"
+        "\t\tCCAD436818E286AA00EEE595 /* CopyFiles */ = {\n"
+        "\t\t\tisa = PBXCopyFilesBuildPhase;\n"
+        "\t\t\tbuildActionMask = 2147483647;\n"
+        "\t\t\tdstPath = /usr/share/man/man1/;\n"
+        "\t\t\tdstSubfolderSpec = 0;\n"
+        "\t\t\tfiles = (\n"
+        "\t\t\t\tCCAD437018E286AA00EEE595 /* tool_name.1 in CopyFiles */,\n"
+        "\t\t\t);\n"
+        "\t\t\trunOnlyForDeploymentPostprocessing = 1;\n"
+        "\t\t};\n"
+        "/* End PBXCopyFilesBuildPhase section */\n"
+        "\t};\n"
+        "\trootObject = CCAD436818E286AA00EEE595 /* Project object */;\n"
+        "}\n",
+        &header,
+        objects,
+        eh));
+    EXPECT_EQ(1U, header.archive_version);
+    EXPECT_EQ(46U, header.object_version);
+    EXPECT_EQ(
+        "CCAD436818E286AA00EEE595",
+        object_id_string_(&header.root_object_id));
+
+    EXPECT_EQ(1U, objects.size());
+    if (objects.size() == 1) {
+        EXPECT_EQ(
+            "CCAD436818E286AA00EEE595",
+            object_id_string_(&objects[0].id));
+        EXPECT_EQ(176U, objects[0].value_range.start);
+        EXPECT_EQ(430U, objects[0].value_range.end);
+    }
+}
