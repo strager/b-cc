@@ -15,6 +15,12 @@ public:
         size_t data_size,
         B_ErrorHandler const *));
 
+    MOCK_METHOD4(visit_quoted_string, B_FUNC(
+        B_PBXScanner *,
+        uint8_t const *data_utf8,
+        size_t data_size,
+        B_ErrorHandler const *));
+
     MOCK_METHOD3(visit_array_begin, B_FUNC(
         B_PBXScanner *,
         B_OUT bool *recurse,
@@ -68,7 +74,7 @@ offset_(
 TEST(TestPBXScanner, ScanEmptyDictWithRecurse) {
     B_ErrorHandler const *eh = nullptr;
 
-    MockValueVisitor visitor;
+    StrictMock<MockValueVisitor> visitor;
     {
         InSequence sequence;
         EXPECT_CALL(visitor, visit_dict_begin(
@@ -93,7 +99,7 @@ TEST(TestPBXScanner, ScanEmptyDictWithRecurse) {
 TEST(TestPBXScanner, ScanEmptyDictWithRecurseWithSilence) {
     B_ErrorHandler const *eh = nullptr;
 
-    MockValueVisitor visitor;
+    StrictMock<MockValueVisitor> visitor;
     {
         InSequence sequence;
         EXPECT_CALL(visitor, visit_dict_begin(
@@ -129,7 +135,7 @@ utf8_string_(
 TEST(TestPBXScanner, ScanStringWithLeadingSlash) {
     B_ErrorHandler const *eh = nullptr;
 
-    MockValueVisitor visitor;
+    StrictMock<MockValueVisitor> visitor;
     EXPECT_CALL(
             visitor,
             visit_string(ResultOf(offset_, 0), _, _, _))
@@ -147,7 +153,7 @@ TEST(TestPBXScanner, ScanStringWithLeadingSlash) {
 TEST(TestPBXScanner, ScanEmptyArrayWithRecurse) {
     B_ErrorHandler const *eh = nullptr;
 
-    MockValueVisitor visitor;
+    StrictMock<MockValueVisitor> visitor;
     {
         InSequence sequence;
         EXPECT_CALL(visitor, visit_array_begin(
@@ -168,3 +174,65 @@ TEST(TestPBXScanner, ScanEmptyArrayWithRecurse) {
         &visitor,
         eh));
 }
+
+TEST(TestPBXScanner, ScanQuotedStringWithSpace) {
+    B_ErrorHandler const *eh = nullptr;
+
+    StrictMock<MockValueVisitor> visitor;
+    EXPECT_CALL(visitor, visit_quoted_string(
+            ResultOf(offset_, 0),
+            _,
+            _,
+            _))
+        .With(Args<1, 2>(ResultOf(
+            utf8_string_,
+            "\"hello world\"")))
+        .WillOnce(Return(true));
+
+    ASSERT_TRUE(pbx_scan_value_(
+        "\"hello world\"",
+        &visitor,
+        eh));
+}
+
+TEST(TestPBXScanner, ScanQuotedEmptyString) {
+    B_ErrorHandler const *eh = nullptr;
+
+    StrictMock<MockValueVisitor> visitor;
+    EXPECT_CALL(visitor, visit_quoted_string(
+            ResultOf(offset_, 0),
+            _,
+            _,
+            _))
+        .With(Args<1, 2>(ResultOf(
+            utf8_string_,
+            "\"\"")))
+        .WillOnce(Return(true));
+
+    ASSERT_TRUE(pbx_scan_value_(
+        "\"\"",
+        &visitor,
+        eh));
+}
+
+#if 0
+TEST(TestPBXScanner, ScanUnterminatedQuoteString) {
+    B_ErrorHandler const *eh = nullptr;
+
+    StrictMock<MockValueVisitor> visitor;
+    ASSERT_FALSE(pbx_scan_value_(
+        "\"",
+        &visitor,
+        eh));
+}
+
+TEST(TestPBXScanner, ScanUnterminatedQuoteStringEscape) {
+    B_ErrorHandler const *eh = nullptr;
+
+    StrictMock<MockValueVisitor> visitor;
+    ASSERT_FALSE(pbx_scan_value_(
+        "\"\\",
+        &visitor,
+        eh));
+}
+#endif

@@ -87,6 +87,17 @@ public:
     }
 
     B_FUNC
+    visit_quoted_string(
+            B_PBXScanner *,
+            uint8_t const *,
+            size_t,
+            B_ErrorHandler const *) {
+        // TODO(strager)
+        B_NYI();
+        return false;
+    }
+
+    B_FUNC
     visit_array_begin(
             B_PBXScanner *,
             B_OUT bool *,

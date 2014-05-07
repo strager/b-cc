@@ -46,6 +46,12 @@ scan_quoted_string_(
         struct B_ErrorHandler const *);
 
 static B_FUNC
+quoted_string_end_(
+        struct B_PBXScanner const *,
+        size_t *end_offset,
+        struct B_ErrorHandler const *);
+
+static B_FUNC
 scan_unquoted_string_(
         struct B_PBXScanner *,
         struct B_PBXValueVisitor *,
@@ -334,9 +340,75 @@ scan_quoted_string_(
         struct B_PBXValueVisitor *visitor,
         struct B_ErrorHandler const *eh) {
     B_ASSERT(scanner);
-    (void) visitor;
-    (void) eh;
-    B_NYI();
+
+    size_t start_offset = scanner->offset;
+    size_t end_offset;
+    if (!quoted_string_end_(scanner, &end_offset, eh)) {
+        return false;
+    }
+    B_ASSERT(scanner->offset == start_offset);
+
+    if (visitor) {
+        scanner->token_start_offset = start_offset;
+        if (!visitor->visit_quoted_string(
+                visitor,
+                scanner,
+                &scanner->data[start_offset],
+                end_offset - start_offset,
+                eh)) {
+            return false;
+        }
+    }
+
+    scanner->offset = end_offset;
+    return true;
+}
+
+static B_FUNC
+quoted_string_end_(
+        struct B_PBXScanner const *scanner,
+        size_t *end_offset,
+        struct B_ErrorHandler const *eh) {
+    B_ASSERT(scanner);
+    B_ASSERT(end_offset);
+
+    struct B_PBXScanner tmp_scanner = *scanner;
+    B_ASSERT(tmp_scanner.data[tmp_scanner.offset] == '"');
+    tmp_scanner.offset += 1;
+
+    while (true) {
+        if (eof_(&tmp_scanner)) {
+            // FIXME(strager): Wrong scanner?
+            unexpected_(&tmp_scanner, eh);
+            return false;
+        }
+
+        uint8_t data = tmp_scanner.data[tmp_scanner.offset];
+        if (data == '\\') {
+            // Skip slash.
+            tmp_scanner.offset += 1;
+
+            // Skip escaped character.
+            // FIXME(strager): Do we need to handle octal
+            // digits and such?
+            if (eof_(&tmp_scanner)) {
+                // FIXME(strager): Wrong scanner?
+                unexpected_(&tmp_scanner, eh);
+                return false;
+            }
+            tmp_scanner.offset += 1;
+            continue;
+        } else if (data == '"') {
+            break;
+        }
+
+        tmp_scanner.offset += 1;
+    }
+
+    B_ASSERT(tmp_scanner.data[tmp_scanner.offset] == '"');
+    tmp_scanner.offset += 1;
+    *end_offset = tmp_scanner.offset;
+    return true;
 }
 
 static B_FUNC

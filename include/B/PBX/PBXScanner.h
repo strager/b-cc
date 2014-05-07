@@ -46,6 +46,14 @@ struct B_PBXValueVisitor {
             struct B_ErrorHandler const *);
 
     B_FUNC
+    (*visit_quoted_string)(
+            struct B_PBXValueVisitor *,
+            struct B_PBXScanner *,
+            uint8_t const *data_utf8,
+            size_t data_size,
+            struct B_ErrorHandler const *);
+
+    B_FUNC
     (*visit_array_begin)(
             struct B_PBXValueVisitor *,
             struct B_PBXScanner *,
@@ -99,6 +107,14 @@ b_pbx_scanner_offset(
         B_OUT size_t *,
         struct B_ErrorHandler const *);
 
+B_EXPORT_FUNC
+b_pbx_parse_quoted_string(
+        uint8_t const *data,
+        size_t data_size,
+        B_OUTPTR uint8_t const **out_data,
+        B_OUT size_t *out_data_size,
+        struct B_ErrorHandler const *);
+
 #if defined(__cplusplus)
 }
 #endif
@@ -113,6 +129,7 @@ public:
     B_PBXValueVisitorClass() :
             B_PBXValueVisitor{
                 visit_string_,
+                visit_quoted_string_,
                 visit_array_begin_,
                 visit_array_end_,
                 visit_dict_begin_,
@@ -130,6 +147,17 @@ public:
         (void) data_utf8;
         (void) data_size;
         B_ASSERT_MUST_OVERRIDE(T, visit_string);
+    }
+
+    B_FUNC
+    visit_quoted_string(
+            B_PBXScanner *,
+            uint8_t const *data_utf8,
+            size_t data_size,
+            B_ErrorHandler const *) {
+        (void) data_utf8;
+        (void) data_size;
+        B_ASSERT_MUST_OVERRIDE(T, visit_quoted_string);
     }
 
     B_FUNC
@@ -188,6 +216,21 @@ private:
             data_utf8,
             data_size,
             eh);
+    }
+
+    static B_FUNC
+    visit_quoted_string_(
+            B_PBXValueVisitor *visitor,
+            B_PBXScanner *scanner,
+            uint8_t const *data_utf8,
+            size_t data_size,
+            B_ErrorHandler const *eh) {
+        return static_cast<T *>(visitor)
+            ->visit_quoted_string(
+                scanner,
+                data_utf8,
+                data_size,
+                eh);
     }
 
     static B_FUNC
