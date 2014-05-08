@@ -448,7 +448,7 @@ main(
             dispatch_question,
             nullptr,
             eh)) {
-        return false;
+        return 1;
     }
 
     return answer ? 0 : 1;

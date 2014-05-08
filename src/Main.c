@@ -179,7 +179,7 @@ done:
             process_force_kill_timeout_picoseconds,
             eh);
     }
-    return false;
+    return ok;
 
 fail:
     ok = false;
