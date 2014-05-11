@@ -225,6 +225,10 @@ scan_dict_(
         }
     }
 
+    // Skip '}'.
+    B_ASSERT(scanner->data[scanner->offset] == '}');
+    scanner->offset += 1;
+
     if (visitor) {
         scanner->token_start_offset = scanner->offset;
         if (!visitor->visit_dict_end(
@@ -235,9 +239,6 @@ scan_dict_(
         }
     }
 
-    // Skip '}'.
-    B_ASSERT(scanner->data[scanner->offset] == '}');
-    scanner->offset += 1;
     return true;
 }
 
@@ -318,6 +319,10 @@ scan_array_(
         }
     }
 
+    // Skip ')'.
+    B_ASSERT(scanner->data[scanner->offset] == ')');
+    scanner->offset += 1;
+
     if (visitor) {
         scanner->token_start_offset = scanner->offset;
         if (!visitor->visit_array_end(
@@ -328,9 +333,6 @@ scan_array_(
         }
     }
 
-    // Skip ')'.
-    B_ASSERT(scanner->data[scanner->offset] == ')');
-    scanner->offset += 1;
     return true;
 }
 

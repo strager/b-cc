@@ -271,7 +271,7 @@ public:
                     this->object_id,
                     B_PBXValueRange{
                         this->object_value_start,
-                        cur_offset + 1,  // Skip '{'.
+                        cur_offset,
                     },
                     this->callback_opaque,
                     eh)) {

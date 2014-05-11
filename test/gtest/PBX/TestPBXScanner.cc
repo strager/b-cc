@@ -85,7 +85,7 @@ TEST(TestPBXScanner, ScanEmptyDictWithRecurse) {
                 SetArgPointee<1>(true), // recurse
                 Return(true)));
         EXPECT_CALL(visitor, visit_dict_end(
-                ResultOf(offset_, 1),
+                ResultOf(offset_, 2),
                 _))
             .WillOnce(Return(true));
     }
@@ -110,7 +110,7 @@ TEST(TestPBXScanner, ScanEmptyDictWithRecurseWithSilence) {
                 SetArgPointee<1>(true), // recurse
                 Return(true)));
         EXPECT_CALL(visitor, visit_dict_end(
-                ResultOf(offset_, 12),
+                ResultOf(offset_, 13),
                 _))
             .WillOnce(Return(true));
     }
@@ -164,7 +164,7 @@ TEST(TestPBXScanner, ScanEmptyArrayWithRecurse) {
                 SetArgPointee<1>(true), // recurse
                 Return(true)));
         EXPECT_CALL(visitor, visit_array_end(
-                ResultOf(offset_, 1),
+                ResultOf(offset_, 2),
                 _))
             .WillOnce(Return(true));
     }

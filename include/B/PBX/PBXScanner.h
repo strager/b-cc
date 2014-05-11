@@ -36,6 +36,9 @@ struct B_PBXScanner;
 // If *recurse is set to false, the child values are never
 // visited, but visit_dict_end or visit_array_end *is*
 // called.
+//
+// When visit_dict_end and visit_array_end are called, the
+// offset lies just after the closing '}' or ')'.
 struct B_PBXValueVisitor {
     B_FUNC
     (*visit_string)(
