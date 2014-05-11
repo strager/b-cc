@@ -36,15 +36,15 @@ struct B_PBXHeader {
 // for the value of the object in the PBX plist.  For
 // example, given an incomplete PBX file:
 //
-//     {objects={ABCD={...};};}  <-- ASCII data
-//     012345678901234567890123  <-- Offset mod 10
+//     {objects={ABCD={isa=Foobar;};};}  <-- ASCII data
+//     01234567890123456789012345678901  <-- Offset mod 10
 //
 // calling b_pbx_parse will yield:
 //
 //     (struct B_PBXObjectID) { "ABCD" }
 //     (struct B_PBXValueRange) {
-//         .start = 9,
-//         .end = 20,
+//         .start = 15,
+//         .end = 28,
 //     }
 //
 // Note that:
