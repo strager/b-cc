@@ -3,6 +3,7 @@
 #include <B/Alloc.h>
 #include <B/Assert.h>
 #include <B/Deserialize.h>
+#include <B/Misc.h>
 #include <B/PBX/PBXParser.h>
 #include <B/PBX/PBXProjectFile.h>
 #include <B/QuestionAnswer.h>
@@ -10,11 +11,8 @@
 
 #include <cstring>
 #include <errno.h>
-#include <fcntl.h>
 #include <map>
 #include <string>
-#include <sys/mman.h>
-#include <unistd.h>
 
 static bool
 operator==(
@@ -230,8 +228,8 @@ public:
         B_CHECK_PRECONDITION(eh, out);
 
         bool ok;
-        int fd = -1;
-        void *data = MAP_FAILED;
+        void *data = NULL;
+        size_t data_size;
 
         B_PBXHeader header;
         std::map<PBXObjectID_, B_PBXValueRange> objects;
@@ -244,38 +242,17 @@ public:
                 object_id.size);
         };
 
-        off_t file_size;
-        fd = open(path, O_RDONLY);
-        if (fd == -1) {
-            B_RAISE_ERRNO_ERROR(eh, errno, "open");
-            goto fail;
-        }
-
-        file_size = lseek(fd, 0, SEEK_END);
-        if (file_size == -1) {
-            B_RAISE_ERRNO_ERROR(eh, errno, "lseek");
-            goto fail;
-        }
-        if (lseek(fd, 0, SEEK_SET) == -1) {
-            B_RAISE_ERRNO_ERROR(eh, errno, "lseek");
-            goto fail;
-        }
-
-        data = mmap(
-            nullptr,
-            file_size,
-            PROT_READ,
-            MAP_FILE | MAP_PRIVATE,
-            fd,
-            0);
-        if (data == MAP_FAILED) {
-            B_RAISE_ERRNO_ERROR(eh, errno, "mmap");
+        if (!b_map_file_by_path(
+                path,
+                &data,
+                &data_size,
+                eh)) {
             goto fail;
         }
 
         if (!b_pbx_parse(
                 reinterpret_cast<uint8_t const *>(data),
-                file_size,
+                data_size,
                 &header,
                 [&objects, read_object_id](
                         B_PBXObjectID object_id,
@@ -302,21 +279,8 @@ public:
 
         ok = true;
 done:
-        if (data != MAP_FAILED) {
-            if (munmap(data, file_size) == -1) {
-                (void) B_RAISE_ERRNO_ERROR(
-                    eh,
-                    errno,
-                    "munmap");
-            }
-        }
-        if (fd != -1) {
-            if (close(fd) == -1) {
-                (void) B_RAISE_ERRNO_ERROR(
-                    eh,
-                    errno,
-                    "close");
-            }
+        if (data != NULL) {
+            (void) b_unmap_file(data, data_size, eh);
         }
         return ok;
 
