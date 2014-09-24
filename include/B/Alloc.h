@@ -92,28 +92,23 @@ struct B_Allocator {
     B_Allocator() {
     }
 
-    B_Allocator(
-            B_Allocator const &) {
+    B_Allocator(B_Allocator const &) {
     }
 
     template<class TOther>
-    B_Allocator(
-            B_Allocator<TOther> const &) {
+    B_Allocator(B_Allocator<TOther> const &) {
     }
 
     template<class TOther>
-    B_Allocator(
-            B_Allocator<const TOther> &&) {
+    B_Allocator(B_Allocator<const TOther> &&) {
     }
 
     B_Allocator &
-    operator=(
-            B_Allocator const &) {
+    operator=(B_Allocator const &) {
     }
 
     B_Allocator &
-    operator=(
-            B_Allocator &&) {
+    operator=(B_Allocator &&) {
     }
 
 # if defined(B_CONFIG_ALLOCATOR_TYPEDEFS_REQUIRED)
@@ -164,29 +159,24 @@ struct B_Allocator {
 # if defined(B_CONFIG_ALLOCATOR_CONSTRUCT_REQUIRED)
     template<class TOther, class ...TArgs>
     void
-    construct(
-            TOther *p,
-            TArgs &&...args) {
+    construct(TOther *p, TArgs &&...args) {
         ::new((void *) p) TOther(std::forward<TArgs>(args)...);
     }
 
     template<class TOther>
     void
-    destroy(
-            TOther *p) {
+    destroy(TOther *p) {
         p->~TOther();
     }
 # endif
 
     bool
-    operator==(
-            B_Allocator const &) {
+    operator==(B_Allocator const &) {
         return true;
     }
 
     bool
-    operator!=(
-            B_Allocator const &other) {
+    operator!=(B_Allocator const &other) {
         return !(*this == other);
     }
 };
@@ -215,9 +205,7 @@ b_new(
 
 template<typename T, class ...TArgs>
 B_FUNC
-b_delete(
-        T *p,
-        struct B_ErrorHandler const *eh) {
+b_delete(T *p, struct B_ErrorHandler const *eh) {
     (void) eh;  // TODO(strager)
 
     B_Allocator<T> allocator;

@@ -43,8 +43,7 @@ s_log_lock_ = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 static char const *
-log_level_name_(
-        enum B_LogLevel log_level) {
+log_level_name_(enum B_LogLevel log_level) {
     switch (log_level) {
     case B_DEBUG: return "Debug";
     }

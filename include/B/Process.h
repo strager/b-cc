@@ -222,8 +222,7 @@ struct B_ProcessLoopDeleter :
     using B_Deleter::B_Deleter;
 
     void
-    operator()(
-            B_ProcessLoop *loop) {
+    operator()(B_ProcessLoop *loop) {
         (void) b_process_loop_deallocate(
             loop,
             0,  // process_force_kill_timeout_picoseconds

@@ -109,8 +109,7 @@ struct B_DatabaseDeleter :
     using B_Deleter::B_Deleter;
 
     void
-    operator()(
-            B_Database *database) {
+    operator()(B_Database *database) {
         (void) b_database_close(
             database,
             this->error_handler);

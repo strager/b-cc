@@ -283,29 +283,25 @@ private:
     static B_UUID uuid;
 
     static B_Question *
-    cast_(
-            TObject *p) {
+    cast_(TObject *p) {
         return static_cast<B_Question *>(
             static_cast<void *>(p));
     }
 
     static B_Question const *
-    cast_(
-            TObject const *p) {
+    cast_(TObject const *p) {
         return static_cast<B_Question const *>(
             static_cast<void const *>(p));
     }
 
     static TObject *
-    cast_(
-            B_Question *p) {
+    cast_(B_Question *p) {
         return static_cast<TObject *>(
             static_cast<void *>(p));
     }
 
     static TObject const *
-    cast_(
-            B_Question const *p) {
+    cast_(B_Question const *p) {
         return static_cast<TObject const *>(
             static_cast<void const *>(p));
     }

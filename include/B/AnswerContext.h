@@ -194,9 +194,7 @@ struct B_NeedCallbacks {
     }
 
     static B_FUNC
-    cancelled(
-            void *opaque,
-            B_ErrorHandler const *eh) {
+    cancelled(void *opaque, B_ErrorHandler const *eh) {
         auto *self = static_cast<B_NeedCallbacks *>(
                 opaque);
         if (!self) {

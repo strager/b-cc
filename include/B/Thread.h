@@ -52,16 +52,13 @@ public:
     B_PthreadMutexHolder(
             B_PthreadMutexHolder const &) = delete;
     B_PthreadMutexHolder &
-    operator=(
-            B_PthreadMutexHolder const &) = delete;
+    operator=(B_PthreadMutexHolder const &) = delete;
 
     // Non-move-assignable.
     B_PthreadMutexHolder &
-    operator=(
-            B_PthreadMutexHolder &&) = delete;
+    operator=(B_PthreadMutexHolder &&) = delete;
 
-    B_PthreadMutexHolder(
-            pthread_mutex_t *mutex) :
+    B_PthreadMutexHolder(pthread_mutex_t *mutex) :
             mutex(mutex) {
         B_ASSERT(mutex);
 
@@ -69,8 +66,7 @@ public:
         B_ASSERT(rc == 0);
     }
 
-    B_PthreadMutexHolder(
-            B_PthreadMutexHolder &&other) :
+    B_PthreadMutexHolder(B_PthreadMutexHolder &&other) :
             B_PthreadMutexHolder(other.release()) {
     }
 

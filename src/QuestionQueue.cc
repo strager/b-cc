@@ -30,8 +30,7 @@ struct B_QuestionQueue {
     }
 
     void
-    deallocate(
-            B_ErrorHandler const *eh) {
+    deallocate(B_ErrorHandler const *eh) {
         for (auto queue_item : this->queue_items) {
             if (!b_question_queue_item_object_deallocate(
                     queue_item,
@@ -44,8 +43,7 @@ struct B_QuestionQueue {
 
 #if defined(B_CONFIG_PTHREAD)
     void
-    enqueue(
-            B_QuestionQueueItemObject *queue_item) {
+    enqueue(B_QuestionQueueItemObject *queue_item) {
         B_ASSERT(queue_item);
 
         {

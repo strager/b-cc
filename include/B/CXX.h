@@ -10,25 +10,20 @@ struct B_ErrorHandler;
 struct B_Deleter {
     B_ErrorHandler const *error_handler;
 
-    B_Deleter(
-            B_Deleter const &) = delete;
+    B_Deleter(B_Deleter const &) = delete;
     B_Deleter &
-    operator=(
-            B_Deleter const &) = delete;
+    operator=(B_Deleter const &) = delete;
 
-    B_Deleter(
-            B_ErrorHandler const *error_handler) :
+    B_Deleter(B_ErrorHandler const *error_handler) :
             error_handler(error_handler) {
     }
 
-    B_Deleter(
-            B_Deleter &&other) :
+    B_Deleter(B_Deleter &&other) :
             error_handler(other.error_handler) {
     }
 
     B_Deleter &
-    operator=(
-            B_Deleter &&other) {
+    operator=(B_Deleter &&other) {
         if (this == &other) {
             return *this;
         }

@@ -19,8 +19,7 @@
 struct FileAnswer :
         public B_AnswerClass<FileAnswer> {
     explicit
-    FileAnswer(
-            uint64_t sum_hash) :
+    FileAnswer(uint64_t sum_hash) :
             sum_hash(sum_hash) {
     }
 
@@ -124,8 +123,7 @@ retry_open:;
     }
 
     bool
-    operator==(
-            FileAnswer const &other) const {
+    operator==(FileAnswer const &other) const {
         return other.sum_hash == this->sum_hash;
     }
 
@@ -138,16 +136,12 @@ struct FileQuestion :
     typedef FileAnswer AnswerClass;
 
     FileQuestion() = delete;
-    FileQuestion(
-            FileQuestion const &) = delete;
-    FileQuestion(
-            FileQuestion &&) = delete;
+    FileQuestion(FileQuestion const &) = delete;
+    FileQuestion(FileQuestion &&) = delete;
     FileQuestion &
-    operator=(
-            FileQuestion const &) = delete;
+    operator=(FileQuestion const &) = delete;
     FileQuestion &
-    operator=(
-            FileQuestion &&) = delete;
+    operator=(FileQuestion &&) = delete;
 
     static B_FUNC
     answer(

@@ -61,16 +61,12 @@ b_uuid_equal(
 
 #if defined(__cplusplus)
 inline bool
-operator==(
-        const B_UUID &a,
-        const B_UUID &b) {
+operator==(const B_UUID &a, const B_UUID &b) {
     return b_uuid_equal(a, b);
 }
 
 inline bool
-operator!=(
-        const B_UUID &a,
-        const B_UUID &b) {
+operator!=(const B_UUID &a, const B_UUID &b) {
     return !(a == b);
 }
 #endif
