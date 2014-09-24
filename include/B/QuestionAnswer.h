@@ -175,36 +175,6 @@ template<typename TClass>
 class B_AnswerClass :
         public B_Answer {
 public:
-    static B_FUNC
-    equal(
-            TClass const *,
-            TClass const *,
-            B_OUTPTR bool *,
-            B_ErrorHandler const *);
-
-    static B_FUNC
-    replicate(
-            TClass const *,
-            B_OUTPTR TClass **,
-            B_ErrorHandler const *);
-
-    static B_FUNC
-    deallocate(
-            B_TRANSFER TClass *,
-            B_ErrorHandler const *);
-
-    static B_FUNC
-    serialize(
-            TClass const *,
-            B_ByteSink *,
-            B_ErrorHandler const *);
-
-    static B_FUNC
-    deserialize(
-            B_ByteSource *,
-            B_OUTPTR TClass **,
-            B_ErrorHandler const *);
-
     static B_AnswerVTable const *
     vtable() {
         static B_AnswerVTable vtable = {
@@ -294,54 +264,6 @@ template<typename TClass, typename TObject>
 class B_QuestionClass :
         public B_Question {
 public:
-    // HACK(strager): We would like to write the following
-    // signature:
-    //
-    // static B_FUNC
-    // answer(
-    //         TObject const *,
-    //         B_OUTPTR typename TClass::AnswerClass **,
-    //         B_ErrorHandler const *) const;
-    //
-    // but C++ will not let us use a dependent type in a
-    // function signature.
-    template<typename TAnswerClass>
-    static B_FUNC
-    answer(
-            TObject const *,
-            B_OUTPTR TAnswerClass **,
-            B_ErrorHandler const *);
-
-    static B_FUNC
-    equal(
-            TObject const *,
-            TObject const *,
-            B_OUTPTR bool *,
-            B_ErrorHandler const *);
-
-    static B_FUNC
-    replicate(
-            TObject const *,
-            B_OUTPTR TClass **,
-            B_ErrorHandler const *);
-
-    static B_FUNC
-    deallocate(
-            B_TRANSFER TObject *,
-            B_ErrorHandler const *);
-
-    static B_FUNC
-    serialize(
-            TObject const *,
-            B_ByteSink *,
-            B_ErrorHandler const *);
-
-    static B_FUNC
-    deserialize(
-            B_ByteSource *,
-            B_OUTPTR TObject **,
-            B_ErrorHandler const *);
-
     static B_QuestionVTable const *
     vtable() {
         static B_QuestionVTable vtable = {
