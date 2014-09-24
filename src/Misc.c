@@ -40,15 +40,10 @@ b_epoll_ctl_fd(
 
 retry:;
     int rc = epoll_ctl(
-        epoll_fd,
-        operation,
-        fd,
-        &event);
+        epoll_fd, operation, fd, &event);
     if (rc == -1) {
         switch (B_RAISE_ERRNO_ERROR(
-                eh,
-                errno,
-                "epoll_ctl")) {
+                eh, errno, "epoll_ctl")) {
         case B_ERROR_ABORT:
         case B_ERROR_IGNORE:
             return false;
@@ -155,9 +150,7 @@ b_map_file_by_path(
         "SSIZE_MAX must be <= SIZE_MAX");
     if (file_size > SSIZE_MAX) {
         B_RAISE_ERRNO_ERROR(
-            eh,
-            ENOMEM,
-            "b_map_file_by_path");
+            eh, ENOMEM, "b_map_file_by_path");
         goto fail;
     }
 
@@ -165,12 +158,7 @@ b_map_file_by_path(
     B_ASSERT(file_size != 0);
 
     data = mmap(
-        NULL,
-        file_size,
-        PROT_READ,
-        MAP_PRIVATE,
-        fd,
-        0);
+        NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (data == MAP_FAILED) {
         B_RAISE_ERRNO_ERROR(eh, errno, "mmap");
         goto fail;

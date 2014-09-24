@@ -111,8 +111,7 @@ struct B_DatabaseDeleter :
     void
     operator()(B_Database *database) {
         (void) b_database_close(
-            database,
-            this->error_handler);
+            database, this->error_handler);
     }
 };
 #endif

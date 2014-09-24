@@ -104,9 +104,7 @@ dispatch_one_(
     struct B_AnswerContext *answer_context = NULL;
 
     if (!b_question_queue_dequeue(
-            question_queue,
-            &queue_item,
-            eh)) {
+            question_queue, &queue_item, eh)) {
         goto fail;
     }
     if (!queue_item) {
@@ -126,12 +124,9 @@ dispatch_one_(
             &answer,
             eh) && answer) {
         bool ok = queue_item->answer_callback(
-            answer,
-            queue_item,
-            eh);
+            answer, queue_item, eh);
         (void) b_question_queue_item_object_deallocate(
-            queue_item,
-            eh);
+            queue_item, eh);
         return ok;
     }
 
@@ -140,9 +135,7 @@ dispatch_one_(
     // B_AnswerContext have the same lifetime, they can be
     // merged into one allocation.
     if (!b_allocate(
-            sizeof(*closure),
-            (void **) &closure,
-            eh)) {
+            sizeof(*closure), (void **) &closure, eh)) {
         goto fail;
     }
     if (!b_allocate(
@@ -165,10 +158,7 @@ dispatch_one_(
         .dependency_delegate = dependency_delegate,
     };
 
-    if (!callback(
-            answer_context,
-            callback_opaque,
-            eh)) {
+    if (!callback(answer_context, callback_opaque, eh)) {
         goto fail;
     }
 
@@ -177,20 +167,15 @@ dispatch_one_(
 
 fail:
     if (answer_context) {
-        (void) b_deallocate(
-                answer_context,
-                eh);
+        (void) b_deallocate(answer_context, eh);
     }
     if (queue_item) {
         // FIXME(strager): Should we re-enqueue instead?
         (void) b_question_queue_item_object_deallocate(
-                queue_item,
-                eh);
+            queue_item, eh);
     }
     if (closure) {
-        (void) b_deallocate(
-                closure,
-                eh);
+        (void) b_deallocate(closure, eh);
     }
     return false;
 }
@@ -215,16 +200,13 @@ answer_callback_(
     }
 
     if (!closure->queue_item->answer_callback(
-            answer,
-            closure->queue_item,
-            eh)) {
+            answer, closure->queue_item, eh)) {
         return false;
     }
 
     (void) b_deallocate(closure->answer_context, eh);
     (void) b_question_queue_item_object_deallocate(
-        closure->queue_item,
-        eh);
+        closure->queue_item, eh);
     (void) b_deallocate(closure, eh);
     return true;
 }

@@ -15,9 +15,7 @@ retry:;
     int rc = pthread_mutex_lock(mutex);
     if (rc != 0) {
         switch (B_RAISE_ERRNO_ERROR(
-                eh,
-                rc,
-                "pthread_mutex_lock")) {
+                eh, rc, "pthread_mutex_lock")) {
         case B_ERROR_ABORT:
         case B_ERROR_IGNORE:
             return false;
@@ -38,9 +36,7 @@ retry:;
     int rc = pthread_mutex_unlock(mutex);
     if (rc != 0) {
         switch (B_RAISE_ERRNO_ERROR(
-                eh,
-                rc,
-                "pthread_mutex_unlock")) {
+                eh, rc, "pthread_mutex_unlock")) {
         case B_ERROR_ABORT:
         case B_ERROR_IGNORE:
             return false;

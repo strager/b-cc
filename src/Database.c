@@ -188,16 +188,12 @@ b_database_load_sqlite(
     if (sqlite3_libversion_number()
             < B_REQUIRED_SQLITE_VERSION_NUMBER_) {
         (void) B_RAISE_ERRNO_ERROR(
-            eh,
-            ENOTSUP,
-            "sqlite3_libversion_number");
+            eh, ENOTSUP, "sqlite3_libversion_number");
         return false;
     }
     if (sqlite3_compileoption_used("SQLITE_OMIT_CTE")) {
         (void) B_RAISE_ERRNO_ERROR(
-            eh,
-            ENOTSUP,
-            "SQLITE_OMIT_CTE");
+            eh, ENOTSUP, "SQLITE_OMIT_CTE");
         return false;
     }
 
@@ -205,9 +201,7 @@ b_database_load_sqlite(
 
     struct B_Database *database;
     if (!b_allocate(
-            sizeof(*database),
-            (void **) &database,
-            eh)) {
+            sizeof(*database), (void **) &database, eh)) {
         return false;
     }
     *database = (struct B_Database) {
@@ -243,9 +237,7 @@ retry_open:
             database->handle = NULL;
         }
         switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                rc,
-                "sqlite3_open_v2")) {
+                eh, rc, "sqlite3_open_v2")) {
         case B_ERROR_RETRY:
             goto retry_open;
         case B_ERROR_ABORT:
@@ -320,12 +312,7 @@ b_database_record_dependency(
     if (!B_MUTEX_LOCK(database->lock, eh)) return false;
     {
         ok = record_dependency_locked_(
-            database,
-            from,
-            from_vtable,
-            to,
-            to_vtable,
-            eh);
+            database, from, from_vtable, to, to_vtable, eh);
     }
     B_MUTEX_MUST_UNLOCK(database->lock, eh);
     return ok;
@@ -395,9 +382,7 @@ b_database_recheck_all(
     if (!B_MUTEX_LOCK(database->lock, eh)) return false;
     {
         ok = recheck_all_locked_(
-            database,
-            question_vtables,
-            eh);
+            database, question_vtables, eh);
     }
     B_MUTEX_MUST_UNLOCK(database->lock, eh);
     return ok;
@@ -431,9 +416,7 @@ retry_create_function:
         NULL);
     if (rc != SQLITE_OK) {
         switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                rc,
-                "sqlite3_create_function_v2")) {
+                eh, rc, "sqlite3_create_function_v2")) {
         case B_ERROR_RETRY:
             goto retry_create_function;
         case B_ERROR_ABORT:
@@ -455,16 +438,10 @@ retry_create_function:
         "    answer_data BLOB NOT NULL);\n";
 retry_create_table:
     rc = sqlite3_exec(
-        handle,
-        create_table_query,
-        NULL,
-        NULL,
-        NULL);
+        handle, create_table_query, NULL, NULL, NULL);
     if (rc != SQLITE_OK) {
         switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                rc,
-                "sqlite_exec")) {
+                eh, rc, "sqlite_exec")) {
         case B_ERROR_RETRY:
             goto retry_create_table;
         case B_ERROR_ABORT:
@@ -839,9 +816,7 @@ retry_step:
     } else if (rc != SQLITE_ROW) {
         B_ASSERT(rc != SQLITE_OK);
         switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                rc,
-                "sqlite3_step")) {
+                eh, rc, "sqlite3_step")) {
         case B_ERROR_RETRY:
             // NOTE(strager): sqlite3_reset will not reset
             // bound host parameters.
@@ -871,9 +846,7 @@ retry_get_answer_blob:
             sqlite3_errcode(database->handle)
                 == SQLITE_NOMEM) {
         switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                SQLITE_NOMEM,
-                "sqlite3_column_blob")) {
+                eh, SQLITE_NOMEM, "sqlite3_column_blob")) {
         case B_ERROR_RETRY:
             goto retry_get_answer_blob;
         case B_ERROR_ABORT:
@@ -884,8 +857,7 @@ retry_get_answer_blob:
         }
     }
     answer_buffer.size = sqlite3_column_bytes(
-        stmt,
-        B_SELECT_ANSWER_ANSWER_DATA);
+        stmt, B_SELECT_ANSWER_ANSWER_DATA);
     if (!answer_buffer.data) {
         // "The return value from sqlite3_column_blob() for
         // a zero-length BLOB is a NULL pointer."
@@ -929,8 +901,7 @@ recheck_all_locked_(
     database->udf.question_vtable_set = question_vtable_set;
 
     bool ok = b_sqlite3_step_expecting_end(
-        database->recheck_all_answers_stmt,
-        eh);
+        database->recheck_all_answers_stmt, eh);
     // TODO(strager): Error reporting.
     (void) sqlite3_reset(
         database->recheck_all_answers_stmt);
@@ -1067,10 +1038,7 @@ question_answer_matches_locked_(
     void const *answer_data;
     size_t answer_data_size;
     if (!b_sqlite3_value_blob(
-            args[2],
-            &answer_data,
-            &answer_data_size,
-            eh)) {
+            args[2], &answer_data, &answer_data_size, eh)) {
         goto fail;
     }
     question_data.data = NULL;

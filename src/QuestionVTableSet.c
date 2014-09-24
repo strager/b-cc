@@ -99,8 +99,6 @@ b_question_vtable_set_look_up(
     }
 
     (void) B_RAISE_ERRNO_ERROR(
-        eh,
-        ENOENT,
-        "b_question_vtable_set_look_up");
+        eh, ENOENT, "b_question_vtable_set_look_up");
     return false;
 }

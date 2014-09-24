@@ -61,9 +61,7 @@ b_log_format_impl(
 
     // Log level.
     (void) fprintf(
-        B_LOG_FILE,
-        "[%s ",
-        log_level_name_(log_level));
+        B_LOG_FILE, "[%s ", log_level_name_(log_level));
 
     // Current time:
     // Year-Month-Day Hour:Minute:Second.Microsecond
@@ -73,8 +71,7 @@ b_log_format_impl(
         if (gettimeofday(&now_tv, NULL) == 0) {
             struct tm now_tm;
             (void) localtime_r(
-                &(time_t) {now_tv.tv_sec},
-                &now_tm);
+                &(time_t) {now_tv.tv_sec}, &now_tm);
             size_t rc = strftime(
                 buffer,
                 sizeof(buffer),
@@ -101,18 +98,13 @@ b_log_format_impl(
     // FIXME(strager): Not portable (e.g. fails on
     // pthread-win32).
     (void) fprintf(
-        B_LOG_FILE,
-        "(%p) ",
-        (void *) pthread_self());
+        B_LOG_FILE, "(%p) ", (void *) pthread_self());
 #endif
 
     // File name, line number.
     // FIXME(strager): %zu is non-portable.
     (void) fprintf(
-        B_LOG_FILE,
-        "%s:%zu]: ",
-        file_name,
-        line_number);
+        B_LOG_FILE, "%s:%zu]: ", file_name, line_number);
 
     // Message.
     va_list args;

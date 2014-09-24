@@ -32,9 +32,7 @@ retry_open:;
         FILE *file = fopen(path.c_str(), "r");
         if (!file) {
             switch (B_RAISE_ERRNO_ERROR(
-                    eh,
-                    errno,
-                    "fopen")) {
+                    eh, errno, "fopen")) {
             case B_ERROR_ABORT:
             case B_ERROR_IGNORE:
                 return false;
@@ -152,9 +150,7 @@ struct FileQuestion :
 
         uint64_t sum_hash;
         if (!FileAnswer::sum_hash_from_path(
-                std::string(path),
-                &sum_hash,
-                eh)) {
+                std::string(path), &sum_hash, eh)) {
             return false;
         }
         return b_new(out, eh, sum_hash);
@@ -222,10 +218,7 @@ struct FileQuestion :
         uint8_t *data;
         size_t data_size;
         if (!b_deserialize_data_and_size_8_be(
-                source,
-                &data,
-                &data_size,
-                eh)) {
+                source, &data, &data_size, eh)) {
             return false;
         }
 

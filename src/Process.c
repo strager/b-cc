@@ -323,9 +323,7 @@ b_process_loop_allocate(
         break;
     default:
         (void) B_RAISE_ERRNO_ERROR(
-            eh,
-            EINVAL,
-            "configuration");
+            eh, EINVAL, "configuration");
         return false;
     }
 
@@ -362,9 +360,7 @@ retry_epoll_create:
     epoll = epoll_create1(0);
     if (epoll == -1) {
         switch (B_RAISE_ERRNO_ERROR(
-                eh,
-                errno,
-                "epoll_create")) {
+                eh, errno, "epoll_create")) {
         case B_ERROR_ABORT:
         case B_ERROR_IGNORE:
             goto fail;
@@ -399,14 +395,10 @@ retry_signalfd:
         sigemptyset(&sigmask);
         sigaddset(&sigmask, SIGCHLD);
         epoll_sigchld = signalfd(
-            -1,
-            &sigmask,
-            SFD_NONBLOCK);
+            -1, &sigmask, SFD_NONBLOCK);
         if (epoll_interrupt == -1) {
             switch (B_RAISE_ERRNO_ERROR(
-                    eh,
-                    errno,
-                    "signalfd")) {
+                    eh, errno, "signalfd")) {
             case B_ERROR_ABORT:
             case B_ERROR_IGNORE:
                 goto fail;
@@ -448,9 +440,7 @@ retry_mutex_init:
     rc = pthread_mutex_init(&loop->lock, NULL);
     if (rc != 0) {
         switch (B_RAISE_ERRNO_ERROR(
-                eh,
-                rc,
-                "pthread_mutex_init")) {
+                eh, rc, "pthread_mutex_init")) {
         case B_ERROR_ABORT:
         case B_ERROR_IGNORE:
             goto fail;
@@ -528,17 +518,15 @@ b_process_loop_deallocate(
         loop->epoll_sigchld = -1;
 #endif
 
-        B_ASSERT(loop->loop_state
-            == B_PROCESS_LOOP_NOT_RUNNING);
+        B_ASSERT(
+            loop->loop_state == B_PROCESS_LOOP_NOT_RUNNING);
     }
     B_MUTEX_MUST_UNLOCK(loop->lock, eh);
 
     rc = pthread_mutex_destroy(&loop->lock);
     if (rc != 0) {
         (void) B_RAISE_ERRNO_ERROR(
-            eh,
-            rc,
-            "pthread_mutex_destroy");
+            eh, rc, "pthread_mutex_destroy");
         ok = false;
     }
 
@@ -579,8 +567,7 @@ b_process_loop_run_async_unsafe(
     {
         while (!closure.running && !closure.errored) {
             rc = pthread_cond_wait(
-                &closure.cond,
-                &closure.lock);
+                &closure.cond, &closure.lock);
             B_ASSERT(rc == 0);
         }
         B_ASSERT(closure.running != closure.errored);
@@ -612,7 +599,8 @@ b_process_loop_run_async_unsafe(
 #if defined(B_CONFIG_VALGRIND)
     // Helgrind does not like stack-allocated mutexes.
     if (RUNNING_ON_VALGRIND) {
-        ANNOTATE_NEW_MEMORY(&closure.lock, sizeof(closure.lock));
+        ANNOTATE_NEW_MEMORY(
+            &closure.lock, sizeof(closure.lock));
     }
 #endif
 
@@ -715,15 +703,9 @@ b_process_loop_exec(
 #endif
     bool ok = exec_now
         ? process_loop_exec_now_locked_(
-                loop,
-                proc,
-                args,
-                eh)
+            loop, proc, args, eh)
         : process_loop_exec_later_locked_(
-                loop,
-                proc,
-                args,
-                eh);
+            loop, proc, args, eh);
     if (!ok) {
         B_ERROR_WHILE_LOCKED();
         (void) b_deallocate(proc, eh);
@@ -750,34 +732,24 @@ create_async_thread_(
     rc = pthread_attr_init(&thread_attr);
     if (rc != 0) {
         (void) B_RAISE_ERRNO_ERROR(
-                eh,
-                rc,
-                "pthread_attr_init");
+            eh, rc, "pthread_attr_init");
         return false;
     }
 
     rc = pthread_attr_setdetachstate(
-            &thread_attr,
-            PTHREAD_CREATE_DETACHED);
+        &thread_attr, PTHREAD_CREATE_DETACHED);
     if (rc != 0) {
         (void) B_RAISE_ERRNO_ERROR(
-                eh,
-                rc,
-                "pthread_attr_setdetachstate");
+            eh, rc, "pthread_attr_setdetachstate");
         return false;
     }
 
     pthread_t thread;
     rc = pthread_create(
-            &thread,
-            &thread_attr,
-            run_async_thread_,
-            closure);
+        &thread, &thread_attr, run_async_thread_, closure);
     if (rc != 0) {
         (void) B_RAISE_ERRNO_ERROR(
-                eh,
-                rc,
-                "pthread_create");
+            eh, rc, "pthread_create");
         return false;
     }
     (void) thread;
@@ -839,16 +811,13 @@ run_sync_locked_(
         == B_PROCESS_LOOP_NOT_RUNNING);
     while (!should_stop_loop_locked_(loop)) {
         if (!set_process_loop_state_locked_(
-                loop,
-                B_PROCESS_LOOP_BUSY,
-                eh)) {
+                loop, B_PROCESS_LOOP_BUSY, eh)) {
             B_ERROR_WHILE_LOCKED();
             goto fail_locked;
         }
 
         if (!process_loop_fill_process_list_locked_(
-                loop,
-                eh)) {
+                loop, eh)) {
             // Ignore.
         }
 
@@ -863,9 +832,7 @@ run_sync_locked_(
         }
 
         if (!set_process_loop_state_locked_(
-                loop,
-                B_PROCESS_LOOP_POLLING,
-                eh)) {
+                loop, B_PROCESS_LOOP_POLLING, eh)) {
             B_ERROR_WHILE_LOCKED();
             goto fail_locked;
         }
@@ -900,19 +867,12 @@ run_sync_locked_(
         {  // Unlocked block.
 #if defined(B_CONFIG_KQUEUE)
             rc = kevent(
-                queue,
-                NULL,
-                0,
-                events,
-                events_count,
-                NULL);
+                queue, NULL, 0, events, events_count, NULL);
             if (rc == -1) {
                 // NOTE(strager): We don't want to report an
                 // error while holding the lock.
                 error_result = B_RAISE_ERRNO_ERROR(
-                    eh,
-                    errno,
-                    "kevent");
+                    eh, errno, "kevent");
                 ok = false;
             } else {
                 ok = true;
@@ -922,17 +882,12 @@ run_sync_locked_(
             }
 #elif defined(B_CONFIG_EPOLL)
             rc = epoll_wait(
-                epoll,
-                events,
-                events_count,
-                -1);
+                epoll, events, events_count, -1);
             if (rc == -1) {
                 // NOTE(strager): We don't want to report an
                 // error while holding the lock.
                 error_result = B_RAISE_ERRNO_ERROR(
-                    eh,
-                    errno,
-                    "epoll_pwait");
+                    eh, errno, "epoll_pwait");
                 ok = false;
             } else {
                 ok = true;
@@ -969,9 +924,7 @@ run_sync_locked_(
 
         // Handle events.
         if (!set_process_loop_state_locked_(
-                loop,
-                B_PROCESS_LOOP_BUSY,
-                eh)) {
+                loop, B_PROCESS_LOOP_BUSY, eh)) {
             B_ERROR_WHILE_LOCKED();
             goto fail_locked;
         }
@@ -994,9 +947,7 @@ run_sync_locked_(
     }
     B_ASSERT(should_stop_loop_locked_(loop));
     if (!set_process_loop_state_locked_(
-            loop,
-            B_PROCESS_LOOP_NOT_RUNNING,
-            eh)) {
+            loop, B_PROCESS_LOOP_NOT_RUNNING, eh)) {
         B_ERROR_WHILE_LOCKED();
         // Fall through.
     }
@@ -1007,9 +958,7 @@ run_sync_locked_(
 fail_locked:
     B_LOG(B_DEBUG, "Stopped loop %p due to failure", loop);
     if (!set_process_loop_state_locked_(
-            loop,
-            B_PROCESS_LOOP_NOT_RUNNING,
-            eh)) {
+            loop, B_PROCESS_LOOP_NOT_RUNNING, eh)) {
         B_ERROR_WHILE_LOCKED();
     }
     // Leave loop->loop_request untouched.
@@ -1039,9 +988,7 @@ retry:;
         envp);
     if (rc != 0) {
         switch (B_RAISE_ERRNO_ERROR(
-                eh,
-                errno,
-                "posix_spawnp")) {
+                eh, errno, "posix_spawnp")) {
         case B_ERROR_IGNORE:
         case B_ERROR_ABORT:
             return false;
@@ -1180,10 +1127,7 @@ process_loop_fill_process_list_locked_(
             char const *const *args = proc->args;
             proc->args = NULL;
             ok = process_loop_exec_now_locked_(
-                loop,
-                proc,
-                args,
-                eh) && ok;
+                loop, proc, args, eh) && ok;
             if (!b_deallocate((void *) args, eh)) {
                 // FIXME(strager)
                 B_BUG();
@@ -1237,9 +1181,7 @@ retry:
     if (rc == -1) {
         B_ERROR_WHILE_LOCKED();
         switch (B_RAISE_ERRNO_ERROR(
-                eh,
-                errno,
-                "eventfd_write")) {
+                eh, errno, "eventfd_write")) {
         case B_ERROR_ABORT:
         case B_ERROR_IGNORE:
             return false;
@@ -1291,8 +1233,7 @@ process_loop_wait_for_stop_locked_(
 
     while (loop->loop_state != B_PROCESS_LOOP_NOT_RUNNING) {
         int rc = pthread_cond_wait(
-            &loop->loop_state_cond,
-            &loop->lock);
+            &loop->loop_state_cond, &loop->lock);
         if (rc != 0) {
             B_ERROR_WHILE_LOCKED();
             // TODO(strager): Support retry.
@@ -1319,9 +1260,7 @@ retry:;
     if (rc != 0) {
         B_ERROR_WHILE_LOCKED();
         switch (B_RAISE_ERRNO_ERROR(
-                eh,
-                rc,
-                "pthread_cond_signal")) {
+                eh, rc, "pthread_cond_signal")) {
         case B_ERROR_ABORT:
             return false;
         case B_ERROR_IGNORE:
@@ -1393,10 +1332,7 @@ handle_event_locked_(
         B_ASSERT(proc);
         B_ASSERT(proc->pid == (pid_t) event->ident);
         return process_exited_locked_(
-            loop,
-            proc,
-            wait_status,
-            eh);
+            loop, proc, wait_status, eh);
 
     default:
         B_BUG();
@@ -1418,7 +1354,8 @@ handle_event_locked_(
         B_LOG(B_DEBUG, "Loop %p interrupted", loop);
 retry_eventfd_read:;
         eventfd_t value;
-        int rc = eventfd_read(loop->epoll_interrupt, &value);
+        int rc = eventfd_read(
+            loop->epoll_interrupt, &value);
         if (rc == -1) {
             switch (B_RAISE_ERRNO_ERROR(eh, errno, eh)) {
             case B_ERROR_ABORT:
@@ -1479,10 +1416,7 @@ check_processes_locked_(
     struct ProcessInfo_ *proc;
     struct ProcessInfo_ *proc_tmp;
     LIST_FOREACH_SAFE(
-            proc,
-            &loop->processes,
-            link,
-            proc_tmp) {
+            proc, &loop->processes, link, proc_tmp) {
         if (process_is_queued_locked_(proc)) {
             continue;
         }
@@ -1491,14 +1425,10 @@ check_processes_locked_(
 retry:;
         int wait_status;
         pid_t rc = waitpid(
-            proc->pid,
-            &wait_status,
-            WNOHANG);
+            proc->pid, &wait_status, WNOHANG);
         if (rc == -1) {
             switch (B_RAISE_ERRNO_ERROR(
-                    eh,
-                    errno,
-                    "waitpid")) {
+                    eh, errno, "waitpid")) {
             case B_ERROR_ABORT:
                 // Skip this pid.
                 ok = false;
@@ -1526,10 +1456,7 @@ retry:;
         // if this causes the next proc to be removed or
         // deallocated?
         ok = process_exited_locked_(
-            loop,
-            proc,
-            wait_status,
-            eh) && ok;
+            loop, proc, wait_status, eh) && ok;
 
         if (should_stop_loop_locked_(loop)) {
             break;
@@ -1593,9 +1520,7 @@ process_exited_locked_(
     B_MUTEX_MUST_UNLOCK(loop->lock, eh);
     {
         ok = exit_callback(
-            exit_status,
-            callback_opaque,
-            eh);
+            exit_status, callback_opaque, eh);
     }
     ok = B_MUTEX_LOCK(loop->lock, eh) && ok;
 

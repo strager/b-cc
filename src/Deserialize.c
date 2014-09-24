@@ -95,9 +95,7 @@ b_deserialize_2_be(
     }
     if (size != sizeof(x)) {
         B_RAISE_ERRNO_ERROR(
-            eh,
-            ENOSPC,
-            "b_deserialize_2_be");
+            eh, ENOSPC, "b_deserialize_2_be");
         return false;
     }
     *out = B_16_FROM_BE(x);
@@ -118,9 +116,7 @@ b_deserialize_4_be(
     }
     if (size != sizeof(x)) {
         B_RAISE_ERRNO_ERROR(
-            eh,
-            ENOSPC,
-            "b_deserialize_4_be");
+            eh, ENOSPC, "b_deserialize_4_be");
         return false;
     }
     *out = B_32_FROM_BE(x);
@@ -141,9 +137,7 @@ b_deserialize_8_be(
     }
     if (size != sizeof(x)) {
         B_RAISE_ERRNO_ERROR(
-            eh,
-            ENOSPC,
-            "b_deserialize_8_be");
+            eh, ENOSPC, "b_deserialize_8_be");
         return false;
     }
     *out = B_64_FROM_BE(x);
@@ -165,9 +159,7 @@ b_deserialize_data_and_size_8_be(
     }
     if (size_64 > SIZE_MAX) {
         B_RAISE_ERRNO_ERROR(
-            eh,
-            ENOMEM,
-            "b_deserialize_data_and_size_8_be");
+            eh, ENOMEM, "b_deserialize_data_and_size_8_be");
         return false;
     }
     size_t size = (size_t) size_64;

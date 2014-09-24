@@ -136,10 +136,7 @@ b_serialize_2_be(
     B_CHECK_PRECONDITION(eh, sink);
     uint16_t y = B_16_TO_BE(x);
     return sink->write_bytes(
-        sink,
-        (uint8_t *) &y,
-        sizeof(y),
-        eh);
+        sink, (uint8_t *) &y, sizeof(y), eh);
 }
 
 B_EXPORT_FUNC
@@ -150,10 +147,7 @@ b_serialize_4_be(
     B_CHECK_PRECONDITION(eh, sink);
     uint32_t y = B_32_TO_BE(x);
     return sink->write_bytes(
-        sink,
-        (uint8_t *) &y,
-        sizeof(y),
-        eh);
+        sink, (uint8_t *) &y, sizeof(y), eh);
 }
 
 B_EXPORT_FUNC
@@ -164,10 +158,7 @@ b_serialize_8_be(
     B_CHECK_PRECONDITION(eh, sink);
     uint64_t y = B_64_TO_BE(x);
     return sink->write_bytes(
-        sink,
-        (uint8_t *) &y,
-        sizeof(y),
-        eh);
+        sink, (uint8_t *) &y, sizeof(y), eh);
 }
 
 B_EXPORT_FUNC

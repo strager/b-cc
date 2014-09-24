@@ -18,9 +18,7 @@ b_question_serialize_to_memory(
     struct B_ByteSinkInMemory storage;
     struct B_ByteSink *sink;
     if (!b_byte_sink_in_memory_initialize(
-            &storage,
-            &sink,
-            eh)) {
+            &storage, &sink, eh)) {
         return false;
     }
     if (!question_vtable->serialize(question, sink, eh)) {
@@ -28,10 +26,7 @@ b_question_serialize_to_memory(
         return false;
     }
     if (!b_byte_sink_in_memory_finalize(
-            &storage,
-            data,
-            data_size,
-            eh)) {
+            &storage, data, data_size, eh)) {
         return false;
     }
     return true;
@@ -52,9 +47,7 @@ b_answer_serialize_to_memory(
     struct B_ByteSinkInMemory storage;
     struct B_ByteSink *sink;
     if (!b_byte_sink_in_memory_initialize(
-            &storage,
-            &sink,
-            eh)) {
+            &storage, &sink, eh)) {
         return false;
     }
     if (!answer_vtable->serialize(answer, sink, eh)) {
@@ -62,10 +55,7 @@ b_answer_serialize_to_memory(
         return false;
     }
     return b_byte_sink_in_memory_finalize(
-        &storage,
-        data,
-        data_size,
-        eh);
+        &storage, data, data_size, eh);
 }
 
 B_EXPORT_FUNC
@@ -82,17 +72,11 @@ b_question_deserialize_from_memory(
     struct B_ByteSourceInMemory storage;
     struct B_ByteSource *source;
     if (!b_byte_source_in_memory_initialize(
-            &storage,
-            data,
-            data_size,
-            &source,
-            eh)) {
+            &storage, data, data_size, &source, eh)) {
         return false;
     }
     return question_vtable->deserialize(
-        source,
-        out_question,
-        eh);
+        source, out_question, eh);
 }
 
 B_EXPORT_FUNC
@@ -109,15 +93,9 @@ b_answer_deserialize_from_memory(
     struct B_ByteSourceInMemory storage;
     struct B_ByteSource *source;
     if (!b_byte_source_in_memory_initialize(
-            &storage,
-            data,
-            data_size,
-            &source,
-            eh)) {
+            &storage, data, data_size, &source, eh)) {
         return false;
     }
     return answer_vtable->deserialize(
-        source,
-        out_answer,
-        eh);
+        source, out_answer, eh);
 }

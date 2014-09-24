@@ -56,8 +56,7 @@ root_queue_item_answer_(
     root_queue_item->answer = answer;
 
     if (!b_question_queue_close(
-            root_queue_item->queue,
-            eh)) {
+            root_queue_item->queue, eh)) {
         return false;
     }
 
@@ -107,8 +106,7 @@ b_main(
         goto fail;
     }
     if (!b_process_loop_run_async_unsafe(
-            process_loop,
-            eh)) {
+            process_loop, eh)) {
         goto fail;
     }
 
@@ -125,16 +123,13 @@ b_main(
     }
 
     if (!b_question_queue_allocate(
-            &question_queue,
-            eh)) {
+            &question_queue, eh)) {
         goto fail;
     }
     root_queue_item.queue = question_queue;
 
     if (!b_question_queue_enqueue(
-            question_queue,
-            &root_queue_item.super,
-            eh)) {
+            question_queue, &root_queue_item.super, eh)) {
         goto fail;
     }
 
@@ -169,8 +164,7 @@ done:
     }
     if (question_queue) {
         (void) b_question_queue_deallocate(
-            question_queue,
-            eh);
+            question_queue, eh);
     }
     if (process_loop) {
         uint64_t process_force_kill_timeout_picoseconds = 0;

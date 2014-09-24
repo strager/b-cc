@@ -192,12 +192,10 @@ b_new(
     B_Allocator<T> allocator;
     typedef typename B_Allocator<T>::Traits Traits;
     typename Traits::pointer p
-            = Traits::allocate(allocator, 1);
+        = Traits::allocate(allocator, 1);
 
     Traits::construct(
-            allocator,
-            p,
-            std::forward<TArgs>(args)...);
+        allocator, p, std::forward<TArgs>(args)...);
 
     *out = p;
     return true;  // TODO(strager)

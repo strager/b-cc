@@ -163,9 +163,7 @@ b_answer_context_need(
         // callback.
         struct B_Answer *dummy_question_answer;
         return completed_callback(
-                &dummy_question_answer,
-                callback_opaque,
-                eh);
+            &dummy_question_answer, callback_opaque, eh);
     }
 
     // TODO(strager): As an optimization, if all questions
@@ -251,9 +249,7 @@ need_one_(
         }
     }
     if (!question_vtable->replicate(
-            question,
-            &question_replica,
-            eh)) {
+            question, &question_replica, eh)) {
         goto fail;
     }
     if (!b_allocate(
@@ -284,13 +280,11 @@ need_one_(
 fail:
     if (question_replica) {
         (void) question_vtable->deallocate(
-                question_replica,
-                eh);
+            question_replica, eh);
     }
     if (queue_item) {
         (void) b_question_queue_item_object_deallocate(
-                &queue_item->super,
-                eh);
+            &queue_item->super, eh);
     }
     if (release_need_closure) {
         (void) need_closure_release_(need_closure, eh);
@@ -306,16 +300,12 @@ b_answer_context_success(
 
     struct B_Answer *answer;
     if (!answer_context->question_vtable->answer(
-            answer_context->question,
-            &answer,
-            eh)) {
+            answer_context->question, &answer, eh)) {
         return false;
     }
 
     return b_answer_context_success_answer(
-        answer_context,
-        answer,
-        eh);
+        answer_context, answer, eh);
 }
 
 B_EXPORT_FUNC
@@ -327,9 +317,7 @@ b_answer_context_success_answer(
     B_CHECK_PRECONDITION(eh, answer);
 
     return answer_context->answer_callback(
-            answer,
-            answer_context->answer_callback_opaque,
-            eh);
+        answer, answer_context->answer_callback_opaque, eh);
 }
 
 B_EXPORT_FUNC
@@ -343,9 +331,7 @@ b_answer_context_error(
     struct B_Answer *answer = NULL;
 
     return answer_context->answer_callback(
-            answer,
-            answer_context->answer_callback_opaque,
-            eh);
+        answer, answer_context->answer_callback_opaque, eh);
 }
 
 B_EXPORT_FUNC
@@ -376,14 +362,12 @@ need_queue_item_deallocate_(
     // FIXME(strager): This disagrees with the comment in
     // AnswerContext.h.
     if (!queue_item->question_vtable->deallocate(
-            queue_item->question,
-            eh)) {
+            queue_item->question, eh)) {
         return false;
     }
 
     (void) need_closure_release_(
-        need_queue_item->closure,
-        eh);
+        need_queue_item->closure, eh);
     (void) b_deallocate(need_queue_item, eh);
     return true;
 }
@@ -517,9 +501,9 @@ need_closure_complete_(
 
     need_closure->callback_called = true;
     return need_closure->completed_callback(
-            need_closure_questions_answers_(need_closure),
-            need_closure->callback_opaque,
-            eh);
+        need_closure_questions_answers_(need_closure),
+        need_closure->callback_opaque,
+        eh);
 }
 
 static B_FUNC
@@ -550,8 +534,7 @@ need_closure_cancel_(
 
     need_closure->callback_called = true;
     if (!need_closure->cancelled_callback(
-            need_closure->callback_opaque,
-            eh)) {
+            need_closure->callback_opaque, eh)) {
         // An error occured, but we don't want to deadlock
         // the queue, so keep going.
     }

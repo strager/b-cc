@@ -234,14 +234,14 @@ b_answer_context_need(
     }
 
     return b_answer_context_need(
-            answer_context,
-            questions,
-            questions_vtables,
-            questions_count,
-            B_NeedCallbacks::completed,
-            B_NeedCallbacks::cancelled,
-            callbacks,
-            eh);
+        answer_context,
+        questions,
+        questions_vtables,
+        questions_count,
+        B_NeedCallbacks::completed,
+        B_NeedCallbacks::cancelled,
+        callbacks,
+        eh);
 }
 
 template<
@@ -257,21 +257,21 @@ b_answer_context_need_one(
         B_ErrorHandler const *eh) {
     B_Question const *const *questions = &question;
     B_QuestionVTable const *const *questions_vtables
-            = &question_vtable;
+        = &question_vtable;
     size_t questions_count = 1;
 
     return b_answer_context_need(
-            answer_context,
-            questions,
-            questions_vtables,
-            questions_count,
-            [completed_callback](
-                    B_TRANSFER B_Answer *const *answers,
-                    B_ErrorHandler const *eh) {
-                return completed_callback(answers[0], eh);
-            },
-            cancelled_callback,
-            eh);
+        answer_context,
+        questions,
+        questions_vtables,
+        questions_count,
+        [completed_callback](
+                B_TRANSFER B_Answer *const *answers,
+                B_ErrorHandler const *eh) {
+            return completed_callback(answers[0], eh);
+        },
+        cancelled_callback,
+        eh);
 }
 
 #endif

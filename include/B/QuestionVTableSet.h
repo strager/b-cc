@@ -55,8 +55,7 @@ struct B_QuestionVTableSetDeleter :
     void
     operator()(B_QuestionVTableSet *vtables) {
         (void) b_question_vtable_set_deallocate(
-            vtables,
-            this->error_handler);
+            vtables, this->error_handler);
     }
 };
 #endif

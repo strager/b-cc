@@ -79,10 +79,7 @@ b_strdup(
     B_CHECK_PRECONDITION(eh, string);
     B_CHECK_PRECONDITION(eh, out);
     return b_memdup(
-        string,
-        strlen(string) + 1,
-        (void **) out,
-        eh);
+        string, strlen(string) + 1, (void **) out, eh);
 }
 
 B_EXPORT_FUNC

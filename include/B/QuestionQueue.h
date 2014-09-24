@@ -103,8 +103,7 @@ struct B_QuestionQueueDeleter :
     void
     operator()(B_QuestionQueue *queue) {
         (void) b_question_queue_deallocate(
-            queue,
-            this->error_handler);
+            queue, this->error_handler);
     }
 };
 
@@ -115,8 +114,7 @@ struct B_QuestionQueueItemDeleter :
     void
     operator()(B_QuestionQueueItemObject *queue_item) {
         (void) b_question_queue_item_object_deallocate(
-            queue_item,
-            this->error_handler);
+            queue_item, this->error_handler);
     }
 };
 #endif

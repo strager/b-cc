@@ -33,8 +33,7 @@ struct B_QuestionQueue {
     deallocate(B_ErrorHandler const *eh) {
         for (auto queue_item : this->queue_items) {
             if (!b_question_queue_item_object_deallocate(
-                    queue_item,
-                    eh)) {
+                    queue_item, eh)) {
                 // Continue deallocation.
             }
         }
@@ -62,8 +61,7 @@ struct B_QuestionQueue {
 
             while (queue_items.empty() && !this->closed) {
                 int rc = pthread_cond_wait(
-                        &this->cond,
-                        &this->lock);
+                        &this->cond, &this->lock);
                 B_ASSERT(rc == 0);
             }
             if (this->closed) {

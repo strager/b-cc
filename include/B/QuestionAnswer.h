@@ -227,8 +227,7 @@ private:
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, answer);
         return TClass::deallocate(
-            static_cast<TClass *>(answer),
-            eh);
+            static_cast<TClass *>(answer), eh);
     }
 
     static B_FUNC
@@ -239,9 +238,7 @@ private:
         B_CHECK_PRECONDITION(eh, sink);
         B_CHECK_PRECONDITION(eh, answer);
         return TClass::serialize(
-            static_cast<TClass const *>(answer),
-            sink,
-            eh);
+            static_cast<TClass const *>(answer), sink, eh);
     }
 
     static B_FUNC

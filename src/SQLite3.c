@@ -28,9 +28,7 @@ retry:;
         destructor);
     if (rc != SQLITE_OK) {
         switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                rc,
-                "sqlite3_bind_blob")) {
+                eh, rc, "sqlite3_bind_blob")) {
         case B_ERROR_RETRY:
             goto retry;
         case B_ERROR_ABORT:
@@ -88,9 +86,7 @@ retry:;
         B_ASSERT(rc != SQLITE_OK);
         B_ASSERT(rc != SQLITE_ROW);
         switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                rc,
-                "sqlite3_step")) {
+                eh, rc, "sqlite3_step")) {
         case B_ERROR_RETRY:
             // TODO(strager): Error reporting.
             goto retry;
@@ -113,16 +109,10 @@ b_sqlite3_prepare(
 retry:;
     sqlite3_stmt *stmt;
     int rc = sqlite3_prepare_v2(
-        handle,
-        query,
-        query_size,
-        &stmt,
-        NULL);
+        handle, query, query_size, &stmt, NULL);
     if (rc != SQLITE_OK) {
         switch (B_RAISE_SQLITE_ERROR(
-                eh,
-                rc,
-                "sqlite3_prepare_v2")) {
+                eh, rc, "sqlite3_prepare_v2")) {
         case B_ERROR_RETRY:
             goto retry;
         case B_ERROR_ABORT:
