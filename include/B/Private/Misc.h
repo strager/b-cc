@@ -3,12 +3,6 @@
 
 #include <B/Base.h>
 #include <B/Config.h>
-#include <B/FilePath.h>
-
-#if defined(B_CONFIG_EPOLL)
-# include <stdint.h>
-# include <sys/epoll.h>
-#endif
 
 struct B_ErrorHandler;
 
@@ -17,17 +11,6 @@ struct B_ErrorHandler;
 
 #if defined(__cplusplus)
 extern "C" {
-#endif
-
-#if defined(B_CONFIG_EPOLL)
-// epoll_ctl, setting the data to fd.
-B_EXPORT_FUNC
-b_epoll_ctl_fd(
-        int epoll_fd,
-        int operation,
-        int fd,
-        uint32_t events,
-        struct B_ErrorHandler const *);
 #endif
 
 // Duplicates args such that a call to b_deallocate on the
@@ -39,22 +22,6 @@ b_dup_args(
         B_OUTPTR char const *const **,
         struct B_ErrorHandler const *);
 
-// Maps a file into memory, a la MapViewOfFile or mmap.
-B_EXPORT_FUNC
-b_map_file_by_path(
-        B_FilePath const *path,
-        B_OUTPTR void **data,
-        B_OUT size_t *data_size,
-        struct B_ErrorHandler const *);
-
-// Unmaps a file from memory, a la UnmapViewOfFile or
-// munmap.  The given pointer and size must exactly match
-// the results of b_map_file_by_path.
-B_EXPORT_FUNC
-b_unmap_file(
-        void *data,
-        size_t data_size,
-        struct B_ErrorHandler const *);
 
 #if defined(__cplusplus)
 }

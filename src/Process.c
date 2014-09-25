@@ -40,7 +40,7 @@
 #include <B/Process.h>
 
 #if defined(B_CONFIG_EPOLL)
-# include <B/Private/Misc.h>
+# include <B/Private/OS.h>
 #endif
 
 #include <errno.h>
