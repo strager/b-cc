@@ -233,15 +233,14 @@ struct FileQuestion :
     }
 };
 
-template<>
-B_UUID
-B_QuestionClass<FileQuestion, B_FilePath>::uuid
-    = B_UUID_LITERAL("B6BD5D3B-DDC1-43B2-832B-2B5836BF78FC");
+B_QUESTION_ANSWER_CLASS_DEFINE_VTABLE(
+    FileQuestion,
+    B_UUID_LITERAL("B6BD5D3B-DDC1-43B2-832B-2B5836BF78FC"))
 
 struct B_QuestionVTable const *
 b_file_contents_question_vtable(
         void) {
-    return FileQuestion::vtable();
+    return &FileQuestion::vtable;
 }
 
 struct B_QuestionVTable const *

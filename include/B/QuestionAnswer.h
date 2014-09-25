@@ -175,17 +175,7 @@ template<typename TClass>
 class B_AnswerClass :
         public B_Answer {
 public:
-    static B_AnswerVTable const *
-    vtable() {
-        static B_AnswerVTable vtable = {
-            equal_,
-            replicate_,
-            deallocate_,
-            serialize_,
-            deserialize_,
-        };
-        return &vtable;
-    }
+    static B_AnswerVTable const vtable;
 
 private:
     static B_FUNC
@@ -261,20 +251,10 @@ template<typename TClass, typename TObject>
 class B_QuestionClass :
         public B_Question {
 public:
-    static B_QuestionVTable const *
-    vtable() {
-        static B_QuestionVTable vtable = {
-            B_QuestionClass::uuid,
-            TClass::AnswerClass::vtable(),
-            answer_,
-            equal_,
-            replicate_,
-            deallocate_,
-            serialize_,
-            deserialize_,
-        };
-        return &vtable;
-    }
+    typedef TClass Class;
+    typedef TObject Object;
+
+    static B_QuestionVTable const vtable;
 
 private:
     static B_UUID uuid;
@@ -377,6 +357,42 @@ private:
         return true;
     }
 };
+
+#define B_QUESTION_ANSWER_CLASS_DEFINE_VTABLE( \
+        question_class_name_, \
+        question_class_uuid_) \
+    B_ANSWER_CLASS_DEFINE_VTABLE_( \
+        B_AnswerClass<question_class_name_::AnswerClass>); \
+    B_QUESTION_CLASS_DEFINE_VTABLE_( \
+        (question_class_uuid_), \
+        B_QuestionClass< \
+                question_class_name_, \
+                question_class_name_::Object>);
+
+#define B_QUESTION_CLASS_DEFINE_VTABLE_(uuid_, ...) \
+    template<> \
+    B_QuestionVTable const \
+    __VA_ARGS__::vtable = { \
+        (uuid_), \
+        &__VA_ARGS__::Class::AnswerClass::vtable, \
+        __VA_ARGS__::answer_, \
+        __VA_ARGS__::equal_, \
+        __VA_ARGS__::replicate_, \
+        __VA_ARGS__::deallocate_, \
+        __VA_ARGS__::serialize_, \
+        __VA_ARGS__::deserialize_, \
+    }
+
+#define B_ANSWER_CLASS_DEFINE_VTABLE_(...) \
+    template<> \
+    B_AnswerVTable const \
+    __VA_ARGS__::vtable = { \
+        __VA_ARGS__::equal_, \
+        __VA_ARGS__::replicate_, \
+        __VA_ARGS__::deallocate_, \
+        __VA_ARGS__::serialize_, \
+        __VA_ARGS__::deserialize_, \
+    }
 #endif
 
 #endif

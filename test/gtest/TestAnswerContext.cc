@@ -33,7 +33,7 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
             b_question_queue_allocate(&_, eh)), eh);
 
     answer_context.question = &question;
-    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.question_vtable = &MockQuestion::vtable;
     answer_context.answer_callback = [](
             B_Answer *,
             void *,
@@ -47,7 +47,7 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
     ASSERT_TRUE(b_answer_context_need_one(
         &answer_context,
         &needed_question,
-        MockQuestion::vtable(),
+        &MockQuestion::vtable,
         [](
                 B_TRANSFER B_Answer *,
                 B_ErrorHandler const *) {
@@ -70,7 +70,7 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
 
     EXPECT_EQ(&needed_question, first_queue_item->question);
     EXPECT_EQ(
-        MockQuestion::vtable(),
+        &MockQuestion::vtable,
         first_queue_item->question_vtable);
 
     QueueItemUniquePtr second_queue_item(B_RETURN_OUTPTR(
@@ -103,7 +103,7 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
             b_question_queue_allocate(&_, eh)), eh);
 
     answer_context.question = &question;
-    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.question_vtable = &MockQuestion::vtable;
     answer_context.answer_callback = [](
             B_Answer *,
             void *,
@@ -118,7 +118,7 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
     ASSERT_TRUE(b_answer_context_need_one(
         &answer_context,
         &needed_question,
-        MockQuestion::vtable(),
+        &MockQuestion::vtable,
         [&](
                 B_TRANSFER B_Answer *cur_answer,
                 B_ErrorHandler const *cur_eh) {
@@ -144,7 +144,7 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
 
     EXPECT_EQ(&needed_question, queue_item->question);
     EXPECT_EQ(
-        MockQuestion::vtable(),
+        &MockQuestion::vtable,
         queue_item->question_vtable);
     ASSERT_NE(nullptr, queue_item->answer_callback);
     EXPECT_EQ(0U, need_callback_called);
@@ -182,7 +182,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
             b_question_queue_allocate(&_, eh)), eh);
 
     answer_context.question = &question;
-    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.question_vtable = &MockQuestion::vtable;
     answer_context.answer_callback = [](
             B_Answer *,
             void *,
@@ -197,7 +197,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
     ASSERT_TRUE(b_answer_context_need_one(
         &answer_context,
         &needed_question_1,
-        MockQuestion::vtable(),
+        &MockQuestion::vtable,
         [&](
                 B_TRANSFER B_Answer *cur_answer,
                 B_ErrorHandler const *cur_eh) {
@@ -217,7 +217,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
     ASSERT_TRUE(b_answer_context_need_one(
         &answer_context,
         &needed_question_2,
-        MockQuestion::vtable(),
+        &MockQuestion::vtable,
         [&](
                 B_TRANSFER B_Answer *cur_answer,
                 B_ErrorHandler const *cur_eh) {
@@ -243,7 +243,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
         ASSERT_NE(nullptr, queue_item_1);
 
         EXPECT_EQ(
-            MockQuestion::vtable(),
+            &MockQuestion::vtable,
             queue_item_1->question_vtable);
         ASSERT_NE(nullptr, queue_item_1->answer_callback);
 
@@ -281,7 +281,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
         ASSERT_NE(nullptr, queue_item_2);
 
         EXPECT_EQ(
-            MockQuestion::vtable(),
+            &MockQuestion::vtable,
             queue_item_2->question_vtable);
         ASSERT_NE(nullptr, queue_item_2->answer_callback);
 
@@ -335,7 +335,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
             b_question_queue_allocate(&_, eh)), eh);
 
     answer_context.question = &question;
-    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.question_vtable = &MockQuestion::vtable;
     answer_context.answer_callback = [](
             B_Answer *,
             void *,
@@ -351,8 +351,8 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
         &needed_question_2,
     };
     B_QuestionVTable const *needed_question_vtables[2] = {
-        MockQuestion::vtable(),
-        MockQuestion::vtable(),
+        &MockQuestion::vtable,
+        &MockQuestion::vtable,
     };
 
     size_t need_callback_called = 0;
@@ -387,7 +387,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
         ASSERT_NE(nullptr, queue_item_1);
 
         EXPECT_EQ(
-            MockQuestion::vtable(),
+            &MockQuestion::vtable,
             queue_item_1->question_vtable);
         ASSERT_NE(nullptr, queue_item_1->answer_callback);
 
@@ -420,7 +420,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
         ASSERT_NE(nullptr, queue_item_2);
 
         EXPECT_EQ(
-            MockQuestion::vtable(),
+            &MockQuestion::vtable,
             queue_item_2->question_vtable);
         ASSERT_NE(nullptr, queue_item_2->answer_callback);
 
@@ -463,7 +463,7 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
             b_question_queue_allocate(&_, eh)), eh);
 
     answer_context.question = &question;
-    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.question_vtable = &MockQuestion::vtable;
     answer_context.answer_callback = [](
             B_Answer *,
             void *,
@@ -478,7 +478,7 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
     ASSERT_TRUE(b_answer_context_need_one(
         &answer_context,
         &needed_question,
-        MockQuestion::vtable(),
+        &MockQuestion::vtable,
         [](
                 B_TRANSFER B_Answer *,
                 B_ErrorHandler const *) {
@@ -503,7 +503,7 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
 
     EXPECT_EQ(&needed_question, queue_item->question);
     EXPECT_EQ(
-        MockQuestion::vtable(),
+        &MockQuestion::vtable,
         queue_item->question_vtable);
     ASSERT_NE(nullptr, queue_item->answer_callback);
     EXPECT_EQ(0U, need_callback_called);
@@ -542,7 +542,7 @@ TEST(TestAnswerContext, SuccessAnswerCallsContextCallback) {
         return true;
     };
     answer_context.question = &question;
-    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.question_vtable = &MockQuestion::vtable;
     answer_context.answer_callback = [](
             B_Answer *answer,
             void *opaque,
@@ -595,7 +595,7 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
         return true;
     };
     answer_context.question = &question;
-    answer_context.question_vtable = MockQuestion::vtable();
+    answer_context.question_vtable = &MockQuestion::vtable;
     answer_context.answer_callback = [](
             B_Answer *answer,
             void *opaque,

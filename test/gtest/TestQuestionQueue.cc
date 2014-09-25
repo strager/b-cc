@@ -61,7 +61,7 @@ TEST(TestQuestionQueue, EnqueueOneItem) {
     // Must be alive while queue is destructed.
     StrictMock<MockQuestion> question;
     StrictMock<MockQuestionQueueItemObject>
-        queue_item(&question, MockQuestion::vtable());
+        queue_item(&question, &MockQuestion::vtable);
     EXPECT_CALL(queue_item, deallocate(_))
         .WillOnce(Return(true));
 
