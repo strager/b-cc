@@ -78,18 +78,14 @@ retry_open:;
             FileAnswer const *self,
             B_OUTPTR FileAnswer **out,
             B_ErrorHandler const *eh) {
-        (void) eh;  // TODO(strager)
-        *out = new FileAnswer(*self);
-        return true;
+        return b_new(out, eh, *self);
     }
 
     static B_FUNC
     deallocate(
-            FileAnswer const *self,
+            FileAnswer *self,
             B_ErrorHandler const *eh) {
-        (void) eh;  // TODO(strager)
-        delete self;
-        return true;
+        return b_delete(self, eh);
     }
 
     static B_FUNC
@@ -115,8 +111,7 @@ retry_open:;
         }
         // TODO(strager): Check for end-of-file.
 
-        *out = new FileAnswer(sum_hash);
-        return true;
+        return b_new(out, eh, sum_hash);
     }
 
     bool
