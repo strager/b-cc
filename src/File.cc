@@ -13,7 +13,6 @@
 #include <B/Serialize.h>
 
 #include <cstdio>
-#include <cstring>
 #include <errno.h>
 
 struct FileAnswer :
@@ -25,11 +24,11 @@ struct FileAnswer :
 
     static B_FUNC
     sum_hash_from_path(
-            std::string path,
+            B_FilePath const *path,
             uint64_t *out,
             B_ErrorHandler const *eh) {
 retry_open:;
-        FILE *file = fopen(path.c_str(), "r");
+        FILE *file = fopen(path, "r");
         if (!file) {
             switch (B_RAISE_ERRNO_ERROR(
                     eh, errno, "fopen")) {
@@ -150,7 +149,7 @@ struct FileQuestion :
 
         uint64_t sum_hash;
         if (!FileAnswer::sum_hash_from_path(
-                std::string(path), &sum_hash, eh)) {
+                path, &sum_hash, eh)) {
             return false;
         }
         return b_new(out, eh, sum_hash);
