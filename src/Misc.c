@@ -11,7 +11,7 @@
 #include <B/Assert.h>
 #include <B/Config.h>
 #include <B/Error.h>
-#include <B/Misc.h>
+#include <B/Private/Misc.h>
 
 #include <errno.h>
 #include <fcntl.h>

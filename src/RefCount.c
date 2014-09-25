@@ -1,5 +1,5 @@
 #include <B/Error.h>
-#include <B/RefCount.h>
+#include <B/Private/RefCount.h>
 
 #include <errno.h>
 

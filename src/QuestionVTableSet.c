@@ -1,9 +1,9 @@
 #include <B/Alloc.h>
 #include <B/Error.h>
 #include <B/Macro.h>
+#include <B/Private/Queue.h>
 #include <B/QuestionAnswer.h>
 #include <B/QuestionVTableSet.h>
-#include <B/Queue.h>
 #include <B/UUID.h>
 
 #include <errno.h>

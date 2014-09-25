@@ -34,13 +34,13 @@
 #include <B/Error.h>
 #include <B/Log.h>
 #include <B/Macro.h>
-#include <B/Misc.h>
+#include <B/Private/Misc.h>
+#include <B/Private/Queue.h>
+#include <B/Private/Thread.h>
 #include <B/Process.h>
-#include <B/Queue.h>
-#include <B/Thread.h>
 
 #if defined(B_CONFIG_EPOLL)
-# include <B/Misc.h>
+# include <B/Private/Misc.h>
 #endif
 
 #include <errno.h>

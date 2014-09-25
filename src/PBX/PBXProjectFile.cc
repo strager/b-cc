@@ -3,9 +3,9 @@
 #include <B/Alloc.h>
 #include <B/Assert.h>
 #include <B/Deserialize.h>
-#include <B/Misc.h>
 #include <B/PBX/PBXParser.h>
 #include <B/PBX/PBXProjectFile.h>
+#include <B/Private/Misc.h>
 #include <B/QuestionAnswer.h>
 #include <B/Serialize.h>
 

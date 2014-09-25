@@ -1,6 +1,6 @@
 #include <B/Assert.h>
 #include <B/Error.h>
-#include <B/SQLite3.h>
+#include <B/Private/SQLite3.h>
 
 #include <limits.h>
 #include <sqlite3.h>

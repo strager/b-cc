@@ -3,8 +3,8 @@
 
 #include <B/Assert.h>
 #include <B/Error.h>
+#include <B/Private/RefCount.h>
 #include <B/QuestionAnswer.h>
-#include <B/RefCount.h>
 #include <B/UUID.h>
 
 #include <gmock/gmock.h>

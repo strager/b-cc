@@ -5,7 +5,7 @@
 #include <B/QuestionQueue.h>
 
 #if defined(B_CONFIG_PTHREAD)
-# include <B/Thread.h>
+# include <B/Private/Thread.h>
 #endif
 
 #include <deque>

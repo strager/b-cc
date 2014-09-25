@@ -39,7 +39,10 @@ out_dirs := \
 
 b_lib_shared_file := $(out_dir)/libb$(shared_extension)
 
-h_files := $(wildcard include/B/*.h include/B/PBX/*.h)
+h_files := $(wildcard \
+	include/B/*.h \
+	include/B/PBX/*.h \
+	include/B/Private/*.h)
 c_files := $(wildcard src/*.c src/PBX/*.c)
 cc_files := $(wildcard src/*.cc src/PBX/*.cc)
 

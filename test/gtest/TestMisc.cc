@@ -1,5 +1,5 @@
 #include <B/Alloc.h>
-#include <B/Misc.h>
+#include <B/Private/Misc.h>
 
 #include <gtest/gtest.h>
 

@@ -1,7 +1,7 @@
 #include <B/Assert.h>
 #include <B/Config.h>
+#include <B/Private/Thread.h>
 #include <B/Process.h>
-#include <B/Thread.h>
 
 #include <gtest/gtest.h>
 #include <list>

@@ -4,9 +4,9 @@
 #include <B/DependencyDelegate.h>
 #include <B/Errno.h>
 #include <B/Error.h>
+#include <B/Private/RefCount.h>
 #include <B/Process.h>
 #include <B/QuestionQueue.h>
-#include <B/RefCount.h>
 
 #include <stdbool.h>
 #include <stdlib.h>

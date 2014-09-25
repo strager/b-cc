@@ -7,11 +7,11 @@
 #include <B/Database.h>
 #include <B/Deserialize.h>
 #include <B/Error.h>
+#include <B/Private/SQLite3.h>
+#include <B/Private/Thread.h>
 #include <B/QuestionAnswer.h>
 #include <B/QuestionVTableSet.h>
-#include <B/SQLite3.h>
 #include <B/Serialize.h>
-#include <B/Thread.h>
 #include <B/UUID.h>
 
 #include <errno.h>

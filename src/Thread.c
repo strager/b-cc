@@ -1,6 +1,6 @@
 #include <B/Config.h>
 #include <B/Error.h>
-#include <B/Thread.h>
+#include <B/Private/Thread.h>
 
 #if defined(B_CONFIG_PTHREAD)
 # include <pthread.h>

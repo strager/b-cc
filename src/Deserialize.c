@@ -3,7 +3,7 @@
 #include <B/ByteOrder.h>
 #include <B/Deserialize.h>
 #include <B/Error.h>
-#include <B/Misc.h>
+#include <B/Private/Misc.h>
 
 #include <errno.h>
 #include <string.h>
