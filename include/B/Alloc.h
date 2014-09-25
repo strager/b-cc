@@ -213,7 +213,6 @@ b_delete(T *p, struct B_ErrorHandler const *eh) {
 
     return true;  // TODO(strager)
 }
-
 #endif
 
 #endif

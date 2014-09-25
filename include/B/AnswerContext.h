@@ -273,7 +273,6 @@ b_answer_context_need_one(
         cancelled_callback,
         eh);
 }
-
 #endif
 
 #endif
