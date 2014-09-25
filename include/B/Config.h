@@ -113,4 +113,6 @@
 # define B_CONFIG_BSWAP_BUILTIN
 #endif
 
+#define B_CONFIG_POSIX_FD
+
 #endif

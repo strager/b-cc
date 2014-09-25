@@ -35,13 +35,10 @@
 #include <B/Log.h>
 #include <B/Macro.h>
 #include <B/Private/Misc.h>
+#include <B/Private/OS.h>
 #include <B/Private/Queue.h>
 #include <B/Private/Thread.h>
 #include <B/Process.h>
-
-#if defined(B_CONFIG_EPOLL)
-# include <B/Private/OS.h>
-#endif
 
 #include <errno.h>
 
@@ -344,41 +341,15 @@ b_process_loop_allocate(
     }
 
 #if defined(B_CONFIG_KQUEUE)
-retry_kqueue:
-    queue = kqueue();
-    if (queue == -1) {
-        switch (B_RAISE_ERRNO_ERROR(eh, errno, "kqueue")) {
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            goto fail;
-        case B_ERROR_RETRY:
-            goto retry_kqueue;
-        }
+    if (!b_kqueue(&queue, eh)) {
+        goto fail;
     }
 #elif defined(B_CONFIG_EPOLL)
-retry_epoll_create:
-    epoll = epoll_create1(0);
-    if (epoll == -1) {
-        switch (B_RAISE_ERRNO_ERROR(
-                eh, errno, "epoll_create")) {
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            goto fail;
-        case B_ERROR_RETRY:
-            goto retry_epoll_create;
-        }
+    if (!b_epoll_create1(0, &epoll, eh)) {
+        goto fail;
     }
-
-retry_eventfd:
-    epoll_interrupt = eventfd(0, 0);
-    if (epoll_interrupt == -1) {
-        switch (B_RAISE_ERRNO_ERROR(eh, errno, "eventfd")) {
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            goto fail;
-        case B_ERROR_RETRY:
-            goto retry_eventfd;
-        }
+    if (!b_eventfd(0, 0, &epoll_interrupt, eh)) {
+        goto fail;
     }
     if (!b_epoll_ctl_fd(
             epoll,
@@ -388,23 +359,16 @@ retry_eventfd:
             eh)) {
         goto fail;
     }
-
-retry_signalfd:
     {
         sigset_t sigmask;
         sigemptyset(&sigmask);
         sigaddset(&sigmask, SIGCHLD);
-        epoll_sigchld = signalfd(
-            -1, &sigmask, SFD_NONBLOCK);
-        if (epoll_interrupt == -1) {
-            switch (B_RAISE_ERRNO_ERROR(
-                    eh, errno, "signalfd")) {
-            case B_ERROR_ABORT:
-            case B_ERROR_IGNORE:
-                goto fail;
-            case B_ERROR_RETRY:
-                goto retry_signalfd;
-            }
+        if (!b_signalfd_create(
+                &sigmask,
+                SFD_NONBLOCK,
+                &epoll_sigchld,
+                eh)) {
+            goto fail;
         }
     }
     if (!b_epoll_ctl_fd(
@@ -1143,17 +1107,16 @@ process_loop_interrupt_locked_(
         struct B_ErrorHandler const *eh) {
     B_ASSERT(loop);
 
-    int rc;
-
     // No need to interrupt if the process isn't running or
     // should be stopped anyway.
     if (loop->loop_state == B_PROCESS_LOOP_NOT_RUNNING) {
         return true;
     }
 
+#if defined(B_CONFIG_KQUEUE)
+    int rc;
 retry:
     B_LOG(B_DEBUG, "Interrupting loop %p", loop);
-#if defined(B_CONFIG_KQUEUE)
     // Signal the running process loop with an EVFILT_USER.
     // NOTE(strager): Combining the two kevent calls does
     // not work; we must add the event *then* trigger it in
@@ -1177,17 +1140,9 @@ retry:
     }, 1, NULL, 0, NULL);
     if (rc == -1) goto kevent_failed;
 #else
-    rc = eventfd_write(loop->epoll_interrupt, 1);
-    if (rc == -1) {
-        B_ERROR_WHILE_LOCKED();
-        switch (B_RAISE_ERRNO_ERROR(
-                eh, errno, "eventfd_write")) {
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            return false;
-        case B_ERROR_RETRY:
-            goto retry;
-        }
+    B_LOG(B_DEBUG, "Interrupting loop %p", loop);
+    if (!b_eventfd_write(loop->epoll_interrupt, 1, eh)) {
+        return false;
     }
 #endif
     return true;
@@ -1352,19 +1307,10 @@ handle_event_locked_(
     if (event->data.fd == loop->epoll_interrupt) {
         // Interrupt event.
         B_LOG(B_DEBUG, "Loop %p interrupted", loop);
-retry_eventfd_read:;
         eventfd_t value;
-        int rc = eventfd_read(
-            loop->epoll_interrupt, &value);
-        if (rc == -1) {
-            switch (B_RAISE_ERRNO_ERROR(eh, errno, eh)) {
-            case B_ERROR_ABORT:
-            case B_ERROR_IGNORE:
-                return false;
-                return false;
-            case B_ERROR_RETRY:
-                goto retry_eventfd_read;
-            }
+        if (!b_eventfd_read(
+                loop->epoll_interrupt, &value, eh)) {
+            return false;
         }
         return true;
     } else if (event->data.fd == loop->epoll_sigchld) {

@@ -22,6 +22,51 @@
 
 #if defined(B_CONFIG_EPOLL)
 # include <sys/epoll.h>
+# include <sys/eventfd.h>
+# include <sys/signalfd.h>
+#endif
+
+#define B_CATCH_ERROR_IF_(condition_, function_name_) \
+    do { \
+        if ((condition_)) { \
+            switch (B_RAISE_ERRNO_ERROR( \
+                    eh, errno, function_name_)) { \
+            case B_ERROR_ABORT: \
+            case B_ERROR_IGNORE: \
+                return false; \
+            case B_ERROR_RETRY: \
+                goto retry; \
+            } \
+        } \
+    } while (0)
+
+#if defined(B_CONFIG_KQUEUE)
+B_EXPORT_FUNC
+b_kqueue(
+        B_OUT int *fd,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, fd);
+retry:;
+    int rc = kqueue();
+    B_CATCH_ERROR_IF_(rc == -1, "kqueue");
+    *fd = rc;
+    return true;
+}
+#endif
+
+#if defined(B_CONFIG_EPOLL)
+B_EXPORT_FUNC
+b_epoll_create1(
+        int flags,
+        B_OUT int *fd,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, fd);
+retry:;
+    int rc = epoll_create1(flags);
+    B_CATCH_ERROR_IF_(rc == -1, "epoll_create1");
+    *fd = rc;
+    return true;
+}
 
 // epoll_ctl, setting the data to fd.
 B_EXPORT_FUNC
@@ -40,16 +85,59 @@ b_epoll_ctl_fd(
 retry:;
     int rc = epoll_ctl(
         epoll_fd, operation, fd, &event);
-    if (rc == -1) {
-        switch (B_RAISE_ERRNO_ERROR(
-                eh, errno, "epoll_ctl")) {
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            return false;
-        case B_ERROR_RETRY:
-            goto retry;
-        }
-    }
+    B_CATCH_ERROR_IF_(rc == -1, "epoll_ctl");
+    return true;
+}
+
+B_EXPORT_FUNC
+b_eventfd(
+        unsigned int initial_value,
+        int flags,
+        B_OUT int *fd,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, fd);
+retry:;
+    int rc = eventfd(initial_value, flags);
+    B_CATCH_ERROR_IF_(rc == -1, "eventfd");
+    *fd = rc;
+    return true;
+}
+
+B_EXPORT_FUNC
+b_eventfd_read(
+        int fd,
+        B_OUT eventfd_t *value,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, value);
+retry:;
+    int rc = eventfd_read(fd, value);
+    B_CATCH_ERROR_IF_(rc == -1, "eventfd_read");
+    return true;
+}
+
+B_EXPORT_FUNC
+b_eventfd_write(
+        int fd,
+        eventfd_t value,
+        struct B_ErrorHandler const *eh) {
+retry:;
+    int rc = eventfd_write(fd, value);
+    B_CATCH_ERROR_IF_(rc == -1, "eventfd_write");
+    return true;
+}
+
+B_EXPORT_FUNC
+b_signalfd_create(
+        const sigset_t *mask,
+        int flags,
+        B_OUT int *fd,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, mask);
+    B_CHECK_PRECONDITION(eh, fd);
+retry:;
+    int rc = signalfd(-1, mask, flags);
+    B_CATCH_ERROR_IF_(rc == -1, "eventfd");
+    *fd = rc;
     return true;
 }
 #endif
@@ -60,6 +148,8 @@ b_map_file_by_path(
         B_OUTPTR void **out_data,
         B_OUT size_t *out_data_size,
         struct B_ErrorHandler const *eh) {
+    // TODO(strager): B_CHECK_PRECONDITION
+
     int fd = -1;
     void *data = MAP_FAILED;
 
@@ -134,6 +224,8 @@ b_unmap_file(
         void *data,
         size_t data_size,
         struct B_ErrorHandler const *eh) {
+    // TODO(strager): B_CHECK_PRECONDITION
+
     // TODO(strager): In debug mode, keep track of mappings
     // to ensure munmap isn't called on random pages.
     if (munmap(data, data_size) == -1) {
