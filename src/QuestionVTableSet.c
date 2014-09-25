@@ -10,12 +10,12 @@
 
 struct VTableEntry_ {
     struct B_QuestionVTable const *B_CONST_STRUCT_MEMBER vtable;
-    SLIST_ENTRY(VTableEntry_) link;
+    B_SLIST_ENTRY(VTableEntry_) link;
 };
 
 struct B_QuestionVTableSet {
     // FIXME(strager)
-    SLIST_HEAD(foo, VTableEntry_) vtables;
+    B_SLIST_HEAD(foo, VTableEntry_) vtables;
 };
 
 B_EXPORT_FUNC
@@ -29,7 +29,7 @@ b_question_vtable_set_allocate(
         return false;
     }
     *set = (struct B_QuestionVTableSet) {
-        .vtables = LIST_HEAD_INITIALIZER(&set->vtables),
+        .vtables = B_LIST_HEAD_INITIALIZER(&set->vtables),
     };
 
     *out = set;
@@ -44,7 +44,7 @@ b_question_vtable_set_deallocate(
     bool ok = true;
     struct VTableEntry_ *vtable_entry;
     struct VTableEntry_ *vtable_entry_tmp;
-    SLIST_FOREACH_SAFE(
+    B_SLIST_FOREACH_SAFE(
             vtable_entry,
             &set->vtables,
             link,
@@ -74,7 +74,7 @@ b_question_vtable_set_add(
         .vtable = vtable,
         // .link
     };
-    SLIST_INSERT_HEAD(&set->vtables, vtable_entry, link);
+    B_SLIST_INSERT_HEAD(&set->vtables, vtable_entry, link);
 
     return true;
 }
@@ -89,7 +89,7 @@ b_question_vtable_set_look_up(
     B_CHECK_PRECONDITION(eh, out);
 
     struct VTableEntry_ *vtable_entry;
-    SLIST_FOREACH(vtable_entry, &set->vtables, link) {
+    B_SLIST_FOREACH(vtable_entry, &set->vtables, link) {
         struct B_QuestionVTable const *vtable
             = vtable_entry->vtable;
         if (b_uuid_equal(vtable->uuid, uuid)) {

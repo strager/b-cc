@@ -130,7 +130,7 @@ struct B_ProcessLoop {
     enum LoopRequest_ loop_request;
 
     // FIXME(strager)
-    LIST_HEAD(foo, ProcessInfo_) processes;
+    B_LIST_HEAD(foo, ProcessInfo_) processes;
 };
 
 struct ProcessInfo_ {
@@ -145,7 +145,7 @@ struct ProcessInfo_ {
     B_OPT char const *const *args;
 
     // Locked by owning ProcessLoop::lock.
-    LIST_ENTRY(ProcessInfo_) link;
+    B_LIST_ENTRY(ProcessInfo_) link;
 };
 
 // See NOTE[loop_run_async synchronization].
@@ -397,7 +397,7 @@ b_process_loop_allocate(
         .loop_state_cond = PTHREAD_COND_INITIALIZER,
         .loop_request = B_PROCESS_LOOP_CONTINUE,
         .processes
-            = LIST_HEAD_INITIALIZER(&loop->processes),
+            = B_LIST_HEAD_INITIALIZER(&loop->processes),
     };
 
 retry_mutex_init:
@@ -676,7 +676,7 @@ b_process_loop_exec(
         goto done;
     }
 
-    LIST_INSERT_HEAD(&loop->processes, proc, link);
+    B_LIST_INSERT_HEAD(&loop->processes, proc, link);
 
 done:
     B_MUTEX_MUST_UNLOCK(loop->lock, eh);
@@ -1083,7 +1083,7 @@ process_loop_fill_process_list_locked_(
     B_ASSERT(loop);
     bool ok = true;
     struct ProcessInfo_ *proc;
-    LIST_FOREACH(proc, &loop->processes, link) {
+    B_LIST_FOREACH(proc, &loop->processes, link) {
         if (!process_loop_can_exec_one_more_locked_(loop)) {
             break;
         }
@@ -1253,7 +1253,7 @@ running_process_count_locked_(
     B_ASSERT(loop);
     size_t count = 0;
     struct ProcessInfo_ *proc;
-    LIST_FOREACH(proc, &loop->processes, link) {
+    B_LIST_FOREACH(proc, &loop->processes, link) {
         if (!process_is_queued_locked_(proc)) {
             count += 1;
         }
@@ -1361,7 +1361,7 @@ check_processes_locked_(
     bool ok = true;
     struct ProcessInfo_ *proc;
     struct ProcessInfo_ *proc_tmp;
-    LIST_FOREACH_SAFE(
+    B_LIST_FOREACH_SAFE(
             proc, &loop->processes, link, proc_tmp) {
         if (process_is_queued_locked_(proc)) {
             continue;
@@ -1455,7 +1455,7 @@ process_exited_locked_(
     B_ProcessExitCallback *exit_callback
         = proc->exit_callback;
     void *callback_opaque = proc->callback_opaque;
-    LIST_REMOVE(proc, link);
+    B_LIST_REMOVE(proc, link);
     if (!b_deallocate(proc, eh)) {
         B_ERROR_WHILE_LOCKED();
         // Fall through.

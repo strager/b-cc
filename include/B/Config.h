@@ -9,11 +9,6 @@
 # define B_CONFIG_GNU_ATTRIBUTES
 #endif
 
-#if defined(__linux__)
-// HACK(strager)
-# define B_CONFIG_GLIBC
-#endif
-
 #if defined(__cplusplus)
 // Test for libc++/libstdc++ bug where an allocator *must*
 // define rebind for std::allocator_traits<T>::rebind to
