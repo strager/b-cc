@@ -33,18 +33,13 @@ out_dirs := \
 	$(out_dir)/$(vendor_sqlite3) \
 	$(out_dir)/ex/1 \
 	$(out_dir)/src \
-	$(out_dir)/src/PBX \
-	$(out_dir)/test/gtest \
-	$(out_dir)/test/gtest/PBX
+	$(out_dir)/test/gtest
 
 b_lib_shared_file := $(out_dir)/libb$(shared_extension)
 
-h_files := $(wildcard \
-	include/B/*.h \
-	include/B/PBX/*.h \
-	include/B/Private/*.h)
-c_files := $(wildcard src/*.c src/PBX/*.c)
-cc_files := $(wildcard src/*.cc src/PBX/*.cc)
+h_files := $(wildcard include/B/*.h include/B/Private/*.h)
+c_files := $(wildcard src/*.c)
+cc_files := $(wildcard src/*.cc)
 
 ifeq ($(sqlite3_static),1)
 	c_files += $(vendor_sqlite3)/sqlite3.c
@@ -61,7 +56,7 @@ ex1_o_files := \
 test_h_files := $(wildcard test/*.h)
 
 gtest_cc_files := \
-	$(wildcard test/gtest/*.cc test/gtest/PBX/*.cc) \
+	$(wildcard test/gtest/*.cc) \
 	$(vendor_gmock)/gtest/src/gtest-all.cc \
 	$(vendor_gmock)/src/gmock-all.cc \
 	$(vendor_gmock)/src/gmock_main.cc
