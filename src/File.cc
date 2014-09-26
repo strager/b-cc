@@ -13,6 +13,7 @@
 #include <B/Serialize.h>
 
 #include <cstdio>
+#include <cstring>
 #include <errno.h>
 
 struct FileAnswer :
