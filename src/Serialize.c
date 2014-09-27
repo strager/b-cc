@@ -1,6 +1,5 @@
 #include <B/Alloc.h>
 #include <B/Assert.h>
-#include <B/ByteOrder.h>
 #include <B/Error.h>
 #include <B/Serialize.h>
 
@@ -134,9 +133,12 @@ b_serialize_2_be(
         uint16_t x,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, sink);
-    uint16_t y = B_16_TO_BE(x);
+    uint8_t bytes[sizeof(uint16_t)] = {
+        (uint8_t) (x >> 8),
+        (uint8_t) (x >> 0),
+    };
     return sink->write_bytes(
-        sink, (uint8_t *) &y, sizeof(y), eh);
+        sink, bytes, sizeof(bytes), eh);
 }
 
 B_EXPORT_FUNC
@@ -145,9 +147,14 @@ b_serialize_4_be(
         uint32_t x,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, sink);
-    uint32_t y = B_32_TO_BE(x);
+    uint8_t bytes[sizeof(uint32_t)] = {
+        (uint8_t) (x >> 24),
+        (uint8_t) (x >> 16),
+        (uint8_t) (x >> 8),
+        (uint8_t) (x >> 0),
+    };
     return sink->write_bytes(
-        sink, (uint8_t *) &y, sizeof(y), eh);
+        sink, bytes, sizeof(bytes), eh);
 }
 
 B_EXPORT_FUNC
@@ -156,9 +163,18 @@ b_serialize_8_be(
         uint64_t x,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, sink);
-    uint64_t y = B_64_TO_BE(x);
+    uint8_t bytes[sizeof(uint64_t)] = {
+        (uint8_t) (x >> 56),
+        (uint8_t) (x >> 48),
+        (uint8_t) (x >> 40),
+        (uint8_t) (x >> 32),
+        (uint8_t) (x >> 24),
+        (uint8_t) (x >> 16),
+        (uint8_t) (x >> 8),
+        (uint8_t) (x >> 0),
+    };
     return sink->write_bytes(
-        sink, (uint8_t *) &y, sizeof(y), eh);
+        sink, bytes, sizeof(bytes), eh);
 }
 
 B_EXPORT_FUNC

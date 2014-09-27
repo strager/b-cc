@@ -1,6 +1,5 @@
 #include <B/Alloc.h>
 #include <B/Assert.h>
-#include <B/ByteOrder.h>
 #include <B/Deserialize.h>
 #include <B/Error.h>
 #include <B/Private/Misc.h>
@@ -78,9 +77,6 @@ b_deserialize_1(
     return true;
 }
 
-// Deserializes the first two bytes of the ByteSource
-// and returns it as a big endian integer.  If bytes are not
-// available, raises ENOSPC and returns false.
 B_EXPORT_FUNC
 b_deserialize_2_be(
         struct B_ByteSource *d,
@@ -88,17 +84,19 @@ b_deserialize_2_be(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, d);
     B_CHECK_PRECONDITION(eh, out);
-    uint16_t x;
-    size_t size = sizeof(x);
-    if (!d->read_bytes(d, (uint8_t *) &x, &size, eh)) {
+    uint8_t bytes[sizeof(uint16_t)];
+    size_t size = sizeof(bytes);
+    if (!d->read_bytes(d, bytes, &size, eh)) {
         return false;
     }
-    if (size != sizeof(x)) {
+    if (size != sizeof(bytes)) {
         B_RAISE_ERRNO_ERROR(
             eh, ENOSPC, "b_deserialize_2_be");
         return false;
     }
-    *out = B_16_FROM_BE(x);
+    *out
+        = ((uint16_t) bytes[0] << 8)
+        | ((uint16_t) bytes[1] << 0);
     return true;
 }
 
@@ -109,17 +107,21 @@ b_deserialize_4_be(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, d);
     B_CHECK_PRECONDITION(eh, out);
-    uint32_t x;
-    size_t size = sizeof(x);
-    if (!d->read_bytes(d, (uint8_t *) &x, &size, eh)) {
+    uint8_t bytes[sizeof(uint32_t)];
+    size_t size = sizeof(bytes);
+    if (!d->read_bytes(d, bytes, &size, eh)) {
         return false;
     }
-    if (size != sizeof(x)) {
+    if (size != sizeof(bytes)) {
         B_RAISE_ERRNO_ERROR(
             eh, ENOSPC, "b_deserialize_4_be");
         return false;
     }
-    *out = B_32_FROM_BE(x);
+    *out
+        = ((uint32_t) bytes[0] << 24)
+        | ((uint32_t) bytes[1] << 16)
+        | ((uint32_t) bytes[2] << 8)
+        | ((uint32_t) bytes[3] << 0);
     return true;
 }
 
@@ -130,17 +132,25 @@ b_deserialize_8_be(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, d);
     B_CHECK_PRECONDITION(eh, out);
-    uint64_t x;
-    size_t size = sizeof(x);
-    if (!d->read_bytes(d, (uint8_t *) &x, &size, eh)) {
+    uint8_t bytes[sizeof(uint64_t)];
+    size_t size = sizeof(bytes);
+    if (!d->read_bytes(d, bytes, &size, eh)) {
         return false;
     }
-    if (size != sizeof(x)) {
+    if (size != sizeof(bytes)) {
         B_RAISE_ERRNO_ERROR(
             eh, ENOSPC, "b_deserialize_8_be");
         return false;
     }
-    *out = B_64_FROM_BE(x);
+    *out
+        = ((uint64_t) bytes[0] << 56)
+        | ((uint64_t) bytes[1] << 48)
+        | ((uint64_t) bytes[2] << 40)
+        | ((uint64_t) bytes[3] << 32)
+        | ((uint64_t) bytes[4] << 24)
+        | ((uint64_t) bytes[5] << 16)
+        | ((uint64_t) bytes[6] << 8)
+        | ((uint64_t) bytes[7] << 0);
     return true;
 }
 
