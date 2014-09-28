@@ -53,7 +53,16 @@
 
 #define B_FLAGS(_)
 
-#define B_ABSTRACT
+#if (defined(__GNUC__) || defined(__clang__)) \
+    && !defined(__cplusplus)
+# define B_ALLOW_EMPTY_STRUCT __extension__
+#else
+# define B_ALLOW_EMPTY_STRUCT
+#endif
+
+// Attached to a C struct.  The C struct is meant to be
+// embedded in another struct as if it was a superclass.
+#define B_ABSTRACT B_ALLOW_EMPTY_STRUCT
 
 #if defined(B_CONFIG_SAL)
 # define B_OUT _Out_

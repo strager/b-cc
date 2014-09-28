@@ -106,16 +106,6 @@ else
 	LDFLAGS += -lsqlite3
 endif
 
-# TODO(strager): Remove need for these extensions.
-ifeq ($(cc_is_clang),1)
-	# Suppress: empty struct is a GNU extension
-	CFLAGS += -Wno-gnu
-endif
-ifeq ($(cc_is_gcc),1)
-	# Suppress: struct has no members
-	CFLAGS += -Wno-pedantic
-endif
-
 # On Darwin, libc++ is best.  On Linux, libc++ is uncommon,
 # so assume libstdc++.
 ifeq ($(cc_is_clang),1)
