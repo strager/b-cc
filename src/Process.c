@@ -413,7 +413,7 @@ retry_mutex_init:
         }
     }
 
-    B_LOG(B_DEBUG, "Created loop %p", loop);
+    B_LOG(B_DEBUG, "Created loop %p", (void *) loop);
 
     *out = loop;
     return true;
@@ -451,7 +451,7 @@ b_process_loop_deallocate(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, loop);
 
-    B_LOG(B_DEBUG, "Loop %p deallocating", loop);
+    B_LOG(B_DEBUG, "Loop %p deallocating", (void *) loop);
 
     // TODO(strager): Error reporting.
     int rc;
@@ -606,7 +606,7 @@ b_process_loop_stop(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, loop);
 
-    B_LOG(B_DEBUG, "Stopping loop %p", loop);
+    B_LOG(B_DEBUG, "Stopping loop %p", (void *) loop);
 
     if (!B_MUTEX_LOCK(loop->lock, eh)) return false;
 
@@ -769,7 +769,7 @@ run_sync_locked_(
         struct B_ErrorHandler const *eh) {
     int rc;
 
-    B_LOG(B_DEBUG, "Running loop %p", loop);
+    B_LOG(B_DEBUG, "Running loop %p", (void *) loop);
 
     B_ASSERT(loop->loop_state
         == B_PROCESS_LOOP_NOT_RUNNING);
@@ -916,11 +916,14 @@ run_sync_locked_(
         // Fall through.
     }
     loop->loop_request = B_PROCESS_LOOP_CONTINUE;
-    B_LOG(B_DEBUG, "Stopped loop %p", loop);
+    B_LOG(B_DEBUG, "Stopped loop %p", (void *) loop);
     return true;
 
 fail_locked:
-    B_LOG(B_DEBUG, "Stopped loop %p due to failure", loop);
+    B_LOG(
+        B_DEBUG,
+        "Stopped loop %p due to failure",
+        (void *) loop);
     if (!set_process_loop_state_locked_(
             loop, B_PROCESS_LOOP_NOT_RUNNING, eh)) {
         B_ERROR_WHILE_LOCKED();
@@ -977,7 +980,7 @@ process_loop_exec_now_locked_(
     B_ASSERT(!proc->args);
     B_ASSERT(proc->pid == B_INVALID_PID);
 
-    B_LOG(B_DEBUG, "Executing proc %p now", proc);
+    B_LOG(B_DEBUG, "Executing proc %p now", (void *) proc);
 
     {
         // Log the command being run.
@@ -1056,7 +1059,8 @@ process_loop_exec_later_locked_(
     B_ASSERT(!proc->args);
     B_ASSERT(proc->pid == B_INVALID_PID);
 
-    B_LOG(B_DEBUG, "Executing proc %p later", proc);
+    B_LOG(
+        B_DEBUG, "Executing proc %p later", (void *) proc);
 
     if (!b_dup_args(args, &proc->args, eh)) {
         B_ERROR_WHILE_LOCKED();
@@ -1116,7 +1120,7 @@ process_loop_interrupt_locked_(
 #if defined(B_CONFIG_KQUEUE)
     int rc;
 retry:
-    B_LOG(B_DEBUG, "Interrupting loop %p", loop);
+    B_LOG(B_DEBUG, "Interrupting loop %p", (void *) loop);
     // Signal the running process loop with an EVFILT_USER.
     // NOTE(strager): Combining the two kevent calls does
     // not work; we must add the event *then* trigger it in
@@ -1140,7 +1144,7 @@ retry:
     }, 1, NULL, 0, NULL);
     if (rc == -1) goto kevent_failed;
 #else
-    B_LOG(B_DEBUG, "Interrupting loop %p", loop);
+    B_LOG(B_DEBUG, "Interrupting loop %p", (void *) loop);
     if (!b_eventfd_write(loop->epoll_interrupt, 1, eh)) {
         return false;
     }
@@ -1275,7 +1279,8 @@ handle_event_locked_(
         // Interrupt event.
         B_ASSERT(event->ident
             == B_PROCESS_LOOP_KQUEUE_USER_IDENT);
-        B_LOG(B_DEBUG, "Loop %p interrupted", loop);
+        B_LOG(
+            B_DEBUG, "Loop %p interrupted", (void *) loop);
         return true;
 
     case EVFILT_PROC:
@@ -1306,7 +1311,8 @@ handle_event_locked_(
 
     if (event->data.fd == loop->epoll_interrupt) {
         // Interrupt event.
-        B_LOG(B_DEBUG, "Loop %p interrupted", loop);
+        B_LOG(
+            B_DEBUG, "Loop %p interrupted", (void *) loop);
         eventfd_t value;
         if (!b_eventfd_read(
                 loop->epoll_interrupt, &value, eh)) {
@@ -1344,7 +1350,10 @@ retry_read:;
         B_ASSERT(siginfo.ssi_signo == SIGCHLD);
 
 ignore_read:
-        B_LOG(B_DEBUG, "Loop %p received SIGCHLD", loop);
+        B_LOG(
+            B_DEBUG,
+            "Loop %p received SIGCHLD",
+            (void *) loop);
         ok = check_processes_locked_(loop, eh) && ok;
 
         return ok;
@@ -1427,8 +1436,8 @@ process_exited_locked_(
         B_LOG(
             B_DEBUG,
             "Loop %p proc %p pid=%d terminated with status %d",
-            loop,
-            proc,
+            (void *) loop,
+            (void *) proc,
             proc->pid,
             exit_status);
     } else if (WIFSIGNALED(wait_status)) {
@@ -1437,8 +1446,8 @@ process_exited_locked_(
         B_LOG(
             B_DEBUG,
             "Loop %p proc %p pid=%d terminated with signal %d",
-            loop,
-            proc,
+            (void *) loop,
+            (void *) proc,
             proc->pid,
             exit_status);
     } else if (WIFSTOPPED(wait_status)) {
