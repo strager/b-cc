@@ -2,7 +2,10 @@
 // the build.  The following block changes the failure into
 // a mere warning.
 #if defined(__GNUC__) && !defined(__clang__)
-# pragma GCC diagnostic warning "-Wmaybe-uninitialized"
+# if __GNUC__ == 4 && __GNUC_MINOR__ == 8 \
+    && __GNUC_PATCHLEVEL__ == 2
+#  pragma GCC diagnostic warning "-Wmaybe-uninitialized"
+# endif
 #endif
 
 #include <B/Alloc.h>
