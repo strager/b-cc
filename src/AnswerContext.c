@@ -56,7 +56,8 @@ struct NeedClosure_ {
     // Must be last.  Access using
     // need_closure_question_vtable_ and
     // need_closure_question_answer_.
-    //B_BORRWED struct B_QuestionVTable questions_vtables[questions_count];
+    B_BORROWED struct B_QuestionVTable const *questions_vtables_[];
+    //B_BORROWED struct B_QuestionVTable const *questions_vtables[questions_count];
     //struct B_Answer *questions_answers[questions_count];
 };
 
@@ -555,20 +556,16 @@ static struct B_QuestionVTable const **
 need_closure_questions_vtables_(
         struct NeedClosure_ *need_closure) {
     B_ASSERT(need_closure);
-    return (struct B_QuestionVTable const **)
-        ((char *) need_closure + sizeof(*need_closure));
+    return need_closure->questions_vtables_;
 }
 
 static struct B_Answer **
 need_closure_questions_answers_(
         struct NeedClosure_ *need_closure) {
     B_ASSERT(need_closure);
-    size_t question_vtables_size
-        = sizeof(struct B_QuestionVTable *)
-        * need_closure->questions_count;
     return (struct B_Answer **)
-        ((char *) need_closure + sizeof(*need_closure)
-            + question_vtables_size);
+        (&need_closure->questions_vtables_[
+            need_closure->questions_count]);
 }
 
 static B_FUNC
