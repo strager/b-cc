@@ -10,6 +10,7 @@
 #include <B/Assert.h>
 #include <B/Config.h>
 #include <B/Error.h>
+#include <B/Macro.h>
 #include <B/Private/OS.h>
 
 #include <errno.h>
@@ -207,7 +208,9 @@ b_map_file_by_path(
 
 fail:
     if (data != MAP_FAILED) {
+B_BEGIN_IGNORE_CONDITIONAL_UNINITIALIZED
         if (munmap(data, file_size) == -1) {
+B_END_IGNORE_CONDITIONAL_UNINITIALIZED
             (void) B_RAISE_ERRNO_ERROR(eh, errno, "munmap");
         }
     }

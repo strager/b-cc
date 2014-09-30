@@ -72,6 +72,14 @@ if (HAVE_W_ERROR)
     append_compiler_flags(-Werror)
 endif ()
 
+check_c_compiler_flag(
+    -Wconditional-uninitialized
+    HAVE_W_CONDITIONAL_UNINITIALIZED
+)
+if (HAVE_W_CONDITIONAL_UNINITIALIZED)
+    append_compiler_flags(-Wconditional-uninitialized)
+endif ()
+
 # TODO(strager): Use configured header file.
 check_include_file(valgrind/valgrind.h HAVE_VALGRIND_H)
 if (HAVE_VALGRIND_H)
@@ -217,6 +225,19 @@ foo() {
     endif ()
 
     check_c_compiler_flag(
+        -Wno-conditional-uninitialized
+        HAVE_W_NO_CONDITIONAL_UNINITIALIZED
+    )
+    if (HAVE_W_NO_CONDITIONAL_UNINITIALIZED)
+        set_property(
+            TARGET b_sqlite3
+            APPEND_STRING
+            PROPERTY COMPILE_FLAGS
+            " -Wno-conditional-uninitialized"
+        )
+    endif ()
+
+    check_c_compiler_flag(
         -Wno-unused-const-variable
         HAVE_W_NO_UNUSED_CONST_VARIABLE
     )
@@ -226,6 +247,11 @@ foo() {
             APPEND_STRING
             PROPERTY COMPILE_FLAGS
             " -Wno-unused-const-variable"
+        )
+
+        check_c_compiler_flag(
+            -Wno-unused-const-variable
+            HAVE_W_NO_UNUSED_CONST_VARIABLE
         )
     endif ()
 endif ()

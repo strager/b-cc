@@ -838,6 +838,7 @@ run_sync_locked_(
                 error_result = B_RAISE_ERRNO_ERROR(
                     eh, errno, "kevent");
                 ok = false;
+                events_received = 0;
             } else {
                 ok = true;
                 B_ASSERT(rc >= 0);
@@ -853,6 +854,7 @@ run_sync_locked_(
                 error_result = B_RAISE_ERRNO_ERROR(
                     eh, errno, "epoll_pwait");
                 ok = false;
+                events_received = 0;
             } else {
                 ok = true;
                 B_ASSERT(rc >= 0);
@@ -866,7 +868,9 @@ run_sync_locked_(
         }
 
         if (!ok) {
+B_BEGIN_IGNORE_CONDITIONAL_UNINITIALIZED
             switch (error_result) {
+B_END_IGNORE_CONDITIONAL_UNINITIALIZED
             case B_ERROR_ABORT:
                 goto fail_locked;
             case B_ERROR_RETRY:

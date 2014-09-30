@@ -7,6 +7,7 @@
 #include <B/Database.h>
 #include <B/Deserialize.h>
 #include <B/Error.h>
+#include <B/Macro.h>
 #include <B/Private/SQLite3.h>
 #include <B/Private/Thread.h>
 #include <B/QuestionAnswer.h>
@@ -1057,7 +1058,9 @@ done:
     }
     if (question) {
         B_ASSERT(question_vtable);
+B_BEGIN_IGNORE_CONDITIONAL_UNINITIALIZED
         (void) question_vtable->deallocate(question, eh);
+B_END_IGNORE_CONDITIONAL_UNINITIALIZED
     }
 
     sqlite3_result_int(context, result ? 1 : 0);
