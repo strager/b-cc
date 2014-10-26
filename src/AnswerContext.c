@@ -34,6 +34,14 @@
         } \
     } while (0)
 
+struct NeedClosure_;
+
+struct NeedQueueItem_ {
+    struct B_QuestionQueueItemObject super;
+    B_BORROWED struct NeedClosure_ *B_CONST_STRUCT_MEMBER closure;
+    struct B_Answer *answer;
+};
+
 struct NeedClosure_ {
     B_REF_COUNTED_OBJECT;
 
@@ -53,18 +61,8 @@ struct NeedClosure_ {
     // Immutable after callback_called == true.
     size_t answered_questions_count;
 
-    // Must be last.  Access using
-    // need_closure_question_vtable_ and
-    // need_closure_question_answer_.
-    B_BORROWED struct B_QuestionVTable const *questions_vtables_[];
-    //B_BORROWED struct B_QuestionVTable const *questions_vtables[questions_count];
-    //struct B_Answer *questions_answers[questions_count];
-};
-
-struct NeedQueueItem_ {
-    struct B_QuestionQueueItemObject super;
-    B_BORROWED struct NeedClosure_ *B_CONST_STRUCT_MEMBER closure;
-    size_t question_index;
+    // Variadic; must be last.
+    B_BORROWED struct NeedQueueItem_ queue_items[];
 };
 
 B_STATIC_ASSERT(
@@ -74,10 +72,7 @@ B_STATIC_ASSERT(
 static B_FUNC
 need_one_(
         struct B_AnswerContext const *,
-        struct B_Question const *,
-        struct B_QuestionVTable const *,
-        size_t question_index,
-        struct NeedClosure_ *,
+        struct NeedQueueItem_ *,
         struct B_ErrorHandler const *);
 
 static B_FUNC
@@ -88,6 +83,7 @@ need_queue_item_deallocate_(
 static B_FUNC
 need_closure_allocate_(
         struct B_AnswerContext const *,
+        struct B_Question const *const *questions,
         struct B_QuestionVTable const *const *questions_vtables,
         size_t questions_count,
         B_NeedCompletedCallback *completed_callback,
@@ -110,14 +106,6 @@ static B_FUNC
 need_closure_cancel_(
         struct NeedClosure_ *,
         struct B_ErrorHandler const *);
-
-static struct B_QuestionVTable const **
-need_closure_questions_vtables_(
-        struct NeedClosure_ *);
-
-static struct B_Answer **
-need_closure_questions_answers_(
-        struct NeedClosure_ *);
 
 static B_FUNC
 need_answer_callback_(
@@ -176,6 +164,7 @@ b_answer_context_need(
 
     if (!need_closure_allocate_(
             answer_context,
+            questions,
             questions_vtables,
             questions_count,
             completed_callback,
@@ -195,10 +184,7 @@ b_answer_context_need(
     for (size_t i = 0; i < questions_count; ++i) {
         if (!need_one_(
                 answer_context,
-                questions[i],
-                questions_vtables[i],
-                i,
-                need_closure,
+                &need_closure->queue_items[i],
                 eh)) {
             goto fail;
         }
@@ -224,72 +210,39 @@ fail:
 static B_FUNC
 need_one_(
         struct B_AnswerContext const *answer_context,
-        struct B_Question const *question,
-        struct B_QuestionVTable const *question_vtable,
-        size_t question_index,
-        struct NeedClosure_ *need_closure,
+        struct NeedQueueItem_ *queue_item,
         struct B_ErrorHandler const *eh) {
-    struct B_Question *question_replica = NULL;
-    struct NeedQueueItem_ *queue_item = NULL;
-    bool release_need_closure = false;
-
-    if (!B_RETAIN(need_closure, eh)) {
-        goto fail;
-    }
-    release_need_closure = true;
-
     if (answer_context->dependency_delegate) {
-        if (!answer_context->dependency_delegate->dependency(
-                answer_context->dependency_delegate,
-                answer_context->question,
-                answer_context->question_vtable,
-                question,
-                question_vtable,
-                eh)) {
+        if (!answer_context->dependency_delegate
+                ->dependency(
+                    answer_context->dependency_delegate,
+                    answer_context->question,
+                    answer_context->question_vtable,
+                    queue_item->super.question,
+                    queue_item->super.question_vtable,
+                    eh)) {
             goto fail;
         }
     }
-    if (!question_vtable->replicate(
-            question, &question_replica, eh)) {
+
+    // When we enqueue the NeedQueueItem, we must retain the
+    // NeedClosure (since the NeedQueueItem is embedded in
+    // the NeedClosure).
+    if (!B_RETAIN(queue_item->closure, eh)) {
         goto fail;
     }
-    if (!b_allocate(
-            sizeof(*queue_item),
-            (void **) &queue_item,
-            eh)) {
-        goto fail;
-    }
-    *queue_item = (struct NeedQueueItem_) {
-        .super = {
-            .deallocate = need_queue_item_deallocate_,
-            .question = question_replica,
-            .question_vtable = question_vtable,
-            .answer_callback = need_answer_callback_,
-        },
-        .closure = need_closure,
-        .question_index = question_index,
-    };
-    release_need_closure = false;
     if (!b_question_queue_enqueue(
             answer_context->question_queue,
             &queue_item->super,
             eh)) {
+        (void) need_closure_release_(
+            queue_item->closure, eh);
         goto fail;
     }
+
     return true;
 
-fail:
-    if (question_replica) {
-        (void) question_vtable->deallocate(
-            question_replica, eh);
-    }
-    if (queue_item) {
-        (void) b_question_queue_item_object_deallocate(
-            &queue_item->super, eh);
-    }
-    if (release_need_closure) {
-        (void) need_closure_release_(need_closure, eh);
-    }
+fail:;
     return false;
 }
 
@@ -369,13 +322,13 @@ need_queue_item_deallocate_(
 
     (void) need_closure_release_(
         need_queue_item->closure, eh);
-    (void) b_deallocate(need_queue_item, eh);
     return true;
 }
 
 static B_FUNC
 need_closure_allocate_(
         struct B_AnswerContext const *answer_context,
+        struct B_Question const *const *questions,
         struct B_QuestionVTable const *const *questions_vtables,
         size_t questions_count,
         B_NeedCompletedCallback *completed_callback,
@@ -384,11 +337,10 @@ need_closure_allocate_(
         B_OUTPTR struct NeedClosure_ **out,
         struct B_ErrorHandler const *eh) {
     struct NeedClosure_ *need_closure = NULL;
+    size_t replicas_made = 0;
 
     size_t need_closure_size = sizeof(struct NeedClosure_)
-        + (sizeof(struct B_QuestionVTable *)
-            * questions_count)
-        + (sizeof(struct B_Answer *) * questions_count);
+        + (sizeof(struct NeedQueueItem_) * questions_count);
     if (!b_allocate(
             need_closure_size,
             (void **) &need_closure,
@@ -404,13 +356,29 @@ need_closure_allocate_(
         .callback_called = false,
         .answered_questions_count = 0,
     };
-    struct B_QuestionVTable const **out_questions_vtables
-        = need_closure_questions_vtables_(need_closure);
-    struct B_Answer **out_questions_answers
-        = need_closure_questions_answers_(need_closure);
-    for (size_t i = 0; i < questions_count; ++i) {
-        out_questions_vtables[i] = questions_vtables[i];
-        out_questions_answers[i] = NULL;
+    for (
+            ;
+            replicas_made < questions_count;
+            ++replicas_made) {
+        size_t i = replicas_made;
+        struct B_Question *question_replica;
+        if (!questions_vtables[i]->replicate(
+                questions[i], &question_replica, eh)) {
+            goto fail;
+        }
+        need_closure->queue_items[i]
+            = (struct NeedQueueItem_) {
+                .super = {
+                    .deallocate
+                        = need_queue_item_deallocate_,
+                    .question = question_replica,
+                    .question_vtable = questions_vtables[i],
+                    .answer_callback
+                        = need_answer_callback_,
+                },
+                .closure = need_closure,
+                .answer = NULL,
+            };
     }
     if (!B_REF_COUNTED_OBJECT_INIT(need_closure, eh)) {
         goto fail;
@@ -421,6 +389,12 @@ need_closure_allocate_(
 
 fail:
     if (need_closure) {
+        for (size_t i = 0; i < replicas_made; ++i) {
+            // Deallocate the replicas we've made.
+            (void) questions_vtables[i]->deallocate(
+                need_closure->queue_items[i].super.question,
+                eh);
+        }
         (void) b_deallocate(need_closure, eh);
     }
     return false;
@@ -449,13 +423,13 @@ need_closure_release_(
             size_t i = 0;
             i < need_closure->questions_count;
             ++i) {
-        struct B_Answer *answer
-            = need_closure_questions_answers_(need_closure)
-                [i];
+        struct NeedQueueItem_ *queue_item
+            = &need_closure->queue_items[i];
+        struct B_Answer *answer = queue_item->answer;
         if (answer) {
             struct B_AnswerVTable const *answer_vtable
-                = need_closure_questions_vtables_(
-                    need_closure)[i]->answer_vtable;
+                = queue_item->super.question_vtable
+                    ->answer_vtable;
             (void) answer_vtable->deallocate(answer, eh);
         }
     }
@@ -467,6 +441,8 @@ static B_FUNC
 need_closure_complete_(
         struct NeedClosure_ *need_closure,
         struct B_ErrorHandler const *eh) {
+    bool ok;
+
     if (need_closure->callback_called) {
         if (need_closure->answered_questions_count
                 == need_closure->questions_count) {
@@ -500,11 +476,34 @@ need_closure_complete_(
         }
     }
 
+    size_t questions_count = need_closure->questions_count;
+    struct B_Answer **answers = NULL;
+    if (!b_allocate(
+            sizeof(struct B_Answer *) * questions_count,
+            (void **) &answers,
+            eh)) {
+        goto fail;
+    }
+    for (size_t i = 0; i < questions_count; ++i) {
+        answers[i] = need_closure->queue_items[i].answer;
+    }
+
     need_closure->callback_called = true;
-    return need_closure->completed_callback(
-        need_closure_questions_answers_(need_closure),
-        need_closure->callback_opaque,
-        eh);
+    if (!need_closure->completed_callback(
+            answers, need_closure->callback_opaque, eh)) {
+        goto fail;
+    }
+
+    ok = true;
+done:
+    if (answers) {
+        (void) b_deallocate(answers, eh);
+    }
+    return ok;
+
+fail:
+    ok = false;
+    goto done;
 }
 
 static B_FUNC
@@ -552,22 +551,6 @@ need_closure_cancel_(
     return true;
 }
 
-static struct B_QuestionVTable const **
-need_closure_questions_vtables_(
-        struct NeedClosure_ *need_closure) {
-    B_ASSERT(need_closure);
-    return need_closure->questions_vtables_;
-}
-
-static struct B_Answer **
-need_closure_questions_answers_(
-        struct NeedClosure_ *need_closure) {
-    B_ASSERT(need_closure);
-    return (struct B_Answer **)
-        (&need_closure->questions_vtables_[
-            need_closure->questions_count]);
-}
-
 static B_FUNC
 need_answer_callback_(
         B_TRANSFER B_OPT struct B_Answer *answer,
@@ -577,19 +560,13 @@ need_answer_callback_(
 
     struct NeedQueueItem_ *need_queue_item = opaque;
     struct NeedClosure_ *need_closure
-            = need_queue_item->closure;
-    size_t question_index = need_queue_item->question_index;
+        = need_queue_item->closure;
 
     B_CHECK_PRECONDITION_NEED_CLOSURE(eh, need_closure);
-    B_CHECK_PRECONDITION(eh, question_index
-        < need_closure->questions_count);
-    B_CHECK_PRECONDITION(eh,
-        !need_closure_questions_answers_(need_closure)
-            [question_index]);
+    B_CHECK_PRECONDITION(eh, !need_queue_item->answer);
 
     if (answer) {
-        need_closure_questions_answers_(need_closure)
-            [question_index] = answer;
+        need_queue_item->answer = answer;
         need_closure->answered_questions_count += 1;
         if (need_closure->answered_questions_count
                 == need_closure->questions_count) {
