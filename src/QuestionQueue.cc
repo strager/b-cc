@@ -20,9 +20,7 @@ struct B_QuestionQueue {
             lock(PTHREAD_MUTEX_INITIALIZER),
             cond(PTHREAD_COND_INITIALIZER),
 #endif
-            closed(false),
-            queue_items(B_Allocator<std::deque<
-                    B_QuestionQueueItem *>>()) {
+            closed(false) {
     }
 
     ~B_QuestionQueue() {
@@ -111,9 +109,8 @@ private:
 #endif
 
     bool closed;
-    std::deque<
-            B_QuestionQueueItem *,
-            B_Allocator<B_QuestionQueueItem *>> queue_items;
+    // TODO(strager): Use the B allocator or stop using STL.
+    std::deque<B_QuestionQueueItem *> queue_items;
 };
 
 B_EXPORT_FUNC

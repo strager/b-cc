@@ -9,37 +9,6 @@
 # define B_CONFIG_GNU_ATTRIBUTES
 #endif
 
-#if defined(__cplusplus)
-// Test for libc++/libstdc++ bug where an allocator *must*
-// define rebind for std::allocator_traits<T>::rebind to
-// work.
-# include <string>
-# if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION <= 1101) \
-    || (defined(__GLIBCXX__) && __GLIBCXX__ <= 20140206)
-#  define B_CONFIG_ALLOCATOR_REBIND_REQUIRED
-# endif
-#endif
-
-#if defined(__cplusplus)
-// Test for possible libc++/libstdc++ bug (or my
-// misunderstanding of how things work) where an allocator
-// *must* define pointer, const_pointer, etc. to work with
-// STL containers.
-# include <string>
-# if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION <= 1101) \
-    || (defined(__GLIBCXX__) && __GLIBCXX__ <= 20140206)
-#  define B_CONFIG_ALLOCATOR_TYPEDEFS_REQUIRED
-# endif
-#endif
-
-#if defined(__cplusplus)
-// Test for libstdc++ bug where an allocator *must* define
-// construct and destroy to work with STL containers.
-# if defined(__GLIBCXX__) && __GLIBCXX__ <= 20140206
-#  define B_CONFIG_ALLOCATOR_CONSTRUCT_REQUIRED
-# endif
-#endif
-
 #if !defined(__cplusplus)
 // GCC disallows assignment of struct values where any field
 // in the struct is declared const.
