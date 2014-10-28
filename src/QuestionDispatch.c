@@ -9,7 +9,7 @@
 
 #include <stdlib.h>
 
-struct AnswerCallbackClosure_ {
+struct QuestionDispatchClosure_ {
     struct B_AnswerContext answer_context;
     struct B_QuestionQueueItemObject *B_CONST_STRUCT_MEMBER queue_item;
     struct B_Database *B_CONST_STRUCT_MEMBER database;
@@ -99,7 +99,7 @@ dispatch_one_(
     B_ASSERT(callback);
     B_ASSERT(keep_going);
 
-    struct AnswerCallbackClosure_ *closure = NULL;
+    struct QuestionDispatchClosure_ *closure = NULL;
     struct B_QuestionQueueItemObject *queue_item = NULL;
 
     if (!b_question_queue_dequeue(
@@ -130,14 +130,14 @@ dispatch_one_(
     }
 
     // Answer the question The Hard Way.
-    // FIXME(strager): If AnswerCallbackClosure_ and
+    // FIXME(strager): If QuestionDispatchClosure_ and
     // B_AnswerContext have the same lifetime, they can be
     // merged into one allocation.
     if (!b_allocate(
             sizeof(*closure), (void **) &closure, eh)) {
         goto fail;
     }
-    *closure = (struct AnswerCallbackClosure_) {
+    *closure = (struct QuestionDispatchClosure_) {
         .answer_context = {
             .question = queue_item->question,
             .question_vtable = queue_item->question_vtable,
@@ -177,7 +177,7 @@ answer_callback_(
         B_TRANSFER B_OPT struct B_Answer *answer,
         void *opaque,
         struct B_ErrorHandler const *eh) {
-    struct AnswerCallbackClosure_ *closure = opaque;
+    struct QuestionDispatchClosure_ *closure = opaque;
     B_CHECK_PRECONDITION(eh, closure);
     B_CHECK_PRECONDITION(eh, closure->queue_item);
     B_CHECK_PRECONDITION(eh, closure->queue_item->answer_callback);
