@@ -1,7 +1,7 @@
 #include <B/Alloc.h>
 #include <B/AnswerContext.h>
 #include <B/Assert.h>
-#include <B/DependencyDelegate.h>
+#include <B/Database.h>
 #include <B/Errno.h>
 #include <B/Error.h>
 #include <B/Private/RefCount.h>
@@ -18,9 +18,6 @@
         B_CHECK_PRECONDITION((_eh), (_answer_context)->question_vtable); \
         B_CHECK_PRECONDITION((_eh), (_answer_context)->answer_callback); \
         B_CHECK_PRECONDITION((_eh), (_answer_context)->question_queue); \
-        if ((_answer_context)->dependency_delegate) { \
-            B_CHECK_PRECONDITION((_eh), (_answer_context)->dependency_delegate->dependency); \
-        } \
     } while (0)
 
 #define B_CHECK_PRECONDITION_NEED_CLOSURE(_eh, _need_closure) \
@@ -212,10 +209,9 @@ need_one_(
         struct B_AnswerContext const *answer_context,
         struct NeedQueueItem_ *queue_item,
         struct B_ErrorHandler const *eh) {
-    if (answer_context->dependency_delegate) {
-        if (!answer_context->dependency_delegate
-                ->dependency(
-                    answer_context->dependency_delegate,
+    if (answer_context->database) {
+        if (!b_database_record_dependency(
+                    answer_context->database,
                     answer_context->question,
                     answer_context->question_vtable,
                     queue_item->super.question,

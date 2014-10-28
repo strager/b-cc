@@ -287,7 +287,6 @@ add_library(
     include/B/Config.h
     include/B/CXX.h
     include/B/Database.h
-    include/B/DependencyDelegate.h
     include/B/Deserialize.h
     include/B/Errno.h
     include/B/Error.h

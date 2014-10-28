@@ -42,7 +42,7 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
     };
     answer_context.answer_callback_opaque = nullptr;
     answer_context.question_queue = question_queue.get();
-    answer_context.dependency_delegate = nullptr;
+    answer_context.database = nullptr;
 
     ASSERT_TRUE(b_answer_context_need_one(
         &answer_context,
@@ -112,7 +112,7 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
     };
     answer_context.answer_callback_opaque = nullptr;
     answer_context.question_queue = question_queue.get();
-    answer_context.dependency_delegate = nullptr;
+    answer_context.database = nullptr;
 
     size_t need_callback_called = 0;
     ASSERT_TRUE(b_answer_context_need_one(
@@ -191,7 +191,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
     };
     answer_context.answer_callback_opaque = nullptr;
     answer_context.question_queue = question_queue.get();
-    answer_context.dependency_delegate = nullptr;
+    answer_context.database = nullptr;
 
     size_t need_callback_1_called = 0;
     ASSERT_TRUE(b_answer_context_need_one(
@@ -344,7 +344,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
     };
     answer_context.answer_callback_opaque = nullptr;
     answer_context.question_queue = question_queue.get();
-    answer_context.dependency_delegate = nullptr;
+    answer_context.database = nullptr;
 
     B_Question const *needed_questions[2] = {
         &needed_question_1,
@@ -472,7 +472,7 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
     };
     answer_context.answer_callback_opaque = nullptr;
     answer_context.question_queue = question_queue.get();
-    answer_context.dependency_delegate = nullptr;
+    answer_context.database = nullptr;
 
     size_t need_callback_called = 0;
     ASSERT_TRUE(b_answer_context_need_one(
@@ -553,7 +553,7 @@ TEST(TestAnswerContext, SuccessAnswerCallsContextCallback) {
     answer_context.answer_callback_opaque
         = &answer_callback;
     answer_context.question_queue = question_queue.get();
-    answer_context.dependency_delegate = nullptr;
+    answer_context.database = nullptr;
 
     EXPECT_EQ(0U, answer_callback_called);
     ASSERT_TRUE(b_answer_context_success_answer(
@@ -606,7 +606,7 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
     answer_context.answer_callback_opaque
         = &answer_callback;
     answer_context.question_queue = question_queue.get();
-    answer_context.dependency_delegate = nullptr;
+    answer_context.database = nullptr;
 
     EXPECT_EQ(0U, answer_callback_called);
     ASSERT_TRUE(b_answer_context_success(

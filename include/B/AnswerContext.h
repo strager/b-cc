@@ -6,7 +6,7 @@
 
 #include <stddef.h>
 
-struct B_DependencyDelegateObject;
+struct B_Database;
 struct B_ErrorHandler;
 struct B_ProcessLoop;
 struct B_Question;
@@ -55,8 +55,9 @@ struct B_AnswerContext {
     // b_answer_context_need.
     B_BORROWED struct B_QuestionQueue *question_queue;
 
-    // ::dependency called by b_answer_context_need.
-    B_BORROWED B_OPT struct B_DependencyDelegateObject *dependency_delegate;
+    // b_database_record_dependency called by
+    // b_answer_context_need.
+    B_BORROWED B_OPT struct B_Database *database;
 };
 
 #if defined(__cplusplus)
