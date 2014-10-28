@@ -22,7 +22,7 @@ struct B_QuestionQueue {
 #endif
             closed(false),
             queue_items(B_Allocator<std::deque<
-                    B_QuestionQueueItemObject *>>()) {
+                    B_QuestionQueueItem *>>()) {
     }
 
     ~B_QuestionQueue() {
@@ -42,7 +42,7 @@ struct B_QuestionQueue {
 
 #if defined(B_CONFIG_PTHREAD)
     void
-    enqueue(B_QuestionQueueItemObject *queue_item) {
+    enqueue(B_QuestionQueueItem *queue_item) {
         B_ASSERT(queue_item);
 
         {
@@ -54,7 +54,7 @@ struct B_QuestionQueue {
         }
     }
 
-    B_QuestionQueueItemObject *
+    B_QuestionQueueItem *
     dequeue() {
         {
             B_PthreadMutexHolder locker(&this->lock);
@@ -75,7 +75,7 @@ struct B_QuestionQueue {
         }
     }
 
-    B_QuestionQueueItemObject *
+    B_QuestionQueueItem *
     try_dequeue() {
         {
             B_PthreadMutexHolder locker(&this->lock);
@@ -112,8 +112,8 @@ private:
 
     bool closed;
     std::deque<
-            B_QuestionQueueItemObject *,
-            B_Allocator<B_QuestionQueueItemObject *>> queue_items;
+            B_QuestionQueueItem *,
+            B_Allocator<B_QuestionQueueItem *>> queue_items;
 };
 
 B_EXPORT_FUNC
@@ -138,7 +138,7 @@ b_question_queue_deallocate(
 B_EXPORT_FUNC
 b_question_queue_enqueue(
         B_QuestionQueue *queue,
-        B_TRANSFER B_QuestionQueueItemObject *queue_item,
+        B_TRANSFER B_QuestionQueueItem *queue_item,
         B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, queue);
     B_CHECK_PRECONDITION(eh, queue_item);
@@ -155,7 +155,7 @@ b_question_queue_enqueue(
 B_EXPORT_FUNC
 b_question_queue_dequeue(
         B_QuestionQueue *queue,
-        B_OUTPTR B_QuestionQueueItemObject **out,
+        B_OUTPTR B_QuestionQueueItem **out,
         B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, queue);
     B_CHECK_PRECONDITION(eh, out);
@@ -167,7 +167,7 @@ b_question_queue_dequeue(
 B_EXPORT_FUNC
 b_question_queue_try_dequeue(
         struct B_QuestionQueue *queue,
-        B_OUTPTR struct B_QuestionQueueItemObject *B_OPT *out,
+        B_OUTPTR struct B_QuestionQueueItem *B_OPT *out,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, queue);
     B_CHECK_PRECONDITION(eh, out);
@@ -188,7 +188,7 @@ b_question_queue_close(
 
 B_EXPORT_FUNC
 b_question_queue_item_object_deallocate(
-        struct B_QuestionQueueItemObject *queue_item,
+        struct B_QuestionQueueItem *queue_item,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, queue_item);
     B_CHECK_PRECONDITION(eh, queue_item->deallocate);

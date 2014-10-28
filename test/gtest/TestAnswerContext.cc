@@ -11,7 +11,7 @@
 #include <gtest/gtest.h>
 
 typedef std::unique_ptr<
-        B_QuestionQueueItemObject,
+        B_QuestionQueueItem,
         B_QuestionQueueItemDeleter>
     QueueItemUniquePtr;
 
@@ -61,7 +61,7 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
         eh));
 
     QueueItemUniquePtr first_queue_item(B_RETURN_OUTPTR(
-            B_QuestionQueueItemObject *,
+            B_QuestionQueueItem *,
             b_question_queue_try_dequeue(
                 question_queue.get(),
                 &_,
@@ -74,7 +74,7 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
         first_queue_item->question_vtable);
 
     QueueItemUniquePtr second_queue_item(B_RETURN_OUTPTR(
-            B_QuestionQueueItemObject *,
+            B_QuestionQueueItem *,
             b_question_queue_try_dequeue(
                 question_queue.get(),
                 &_,
@@ -135,7 +135,7 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
         eh));
 
     QueueItemUniquePtr queue_item(B_RETURN_OUTPTR(
-            B_QuestionQueueItemObject *,
+            B_QuestionQueueItem *,
             b_question_queue_try_dequeue(
                 question_queue.get(),
                 &_,
@@ -235,7 +235,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
 
     {
         QueueItemUniquePtr queue_item_1(B_RETURN_OUTPTR(
-                B_QuestionQueueItemObject *,
+                B_QuestionQueueItem *,
                 b_question_queue_try_dequeue(
                     question_queue.get(),
                     &_,
@@ -273,7 +273,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
 
     {
         QueueItemUniquePtr queue_item_2(B_RETURN_OUTPTR(
-                B_QuestionQueueItemObject *,
+                B_QuestionQueueItem *,
                 b_question_queue_try_dequeue(
                     question_queue.get(),
                     &_,
@@ -379,7 +379,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
 
     {
         QueueItemUniquePtr queue_item_1(B_RETURN_OUTPTR(
-                B_QuestionQueueItemObject *,
+                B_QuestionQueueItem *,
                 b_question_queue_try_dequeue(
                     question_queue.get(),
                     &_,
@@ -412,7 +412,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
 
     {
         QueueItemUniquePtr queue_item_2(B_RETURN_OUTPTR(
-                B_QuestionQueueItemObject *,
+                B_QuestionQueueItem *,
                 b_question_queue_try_dequeue(
                     question_queue.get(),
                     &_,
@@ -494,7 +494,7 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
         eh));
 
     QueueItemUniquePtr queue_item(B_RETURN_OUTPTR(
-            B_QuestionQueueItemObject *,
+            B_QuestionQueueItem *,
             b_question_queue_try_dequeue(
                 question_queue.get(),
                 &_,

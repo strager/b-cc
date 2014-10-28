@@ -13,7 +13,7 @@
 #include <stddef.h>
 
 struct RootQueueItem_ {
-    struct B_QuestionQueueItemObject super;
+    struct B_QuestionQueueItem super;
 
     struct B_QuestionQueue *queue;
 
@@ -31,7 +31,7 @@ B_STATIC_ASSERT(
 
 static B_FUNC
 root_queue_item_deallocate_(
-        struct B_QuestionQueueItemObject *super,
+        struct B_QuestionQueueItem *super,
         struct B_ErrorHandler const *eh) {
     struct RootQueueItem_ *root_queue_item
         = (struct RootQueueItem_ *) super;

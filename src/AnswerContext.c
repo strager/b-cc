@@ -34,7 +34,7 @@
 struct NeedClosure_;
 
 struct NeedQueueItem_ {
-    struct B_QuestionQueueItemObject super;
+    struct B_QuestionQueueItem super;
     B_BORROWED struct NeedClosure_ *B_CONST_STRUCT_MEMBER closure;
     struct B_Answer *answer;
 };
@@ -74,7 +74,7 @@ need_one_(
 
 static B_FUNC
 need_queue_item_deallocate_(
-        struct B_QuestionQueueItemObject *,
+        struct B_QuestionQueueItem *,
         struct B_ErrorHandler const *);
 
 static B_FUNC
@@ -305,7 +305,7 @@ b_answer_context_exec(
 
 static B_FUNC
 need_queue_item_deallocate_(
-        struct B_QuestionQueueItemObject *queue_item,
+        struct B_QuestionQueueItem *queue_item,
         struct B_ErrorHandler const *eh) {
     struct NeedQueueItem_ *need_queue_item
             = (struct NeedQueueItem_ *) queue_item;

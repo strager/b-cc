@@ -10,7 +10,7 @@
 
 struct QuestionDispatchClosure_ {
     struct B_AnswerContext answer_context;
-    struct B_QuestionQueueItemObject *B_CONST_STRUCT_MEMBER queue_item;
+    struct B_QuestionQueueItem *B_CONST_STRUCT_MEMBER queue_item;
     struct B_Database *B_CONST_STRUCT_MEMBER database;
 };
 
@@ -69,7 +69,7 @@ dispatch_one_(
     B_ASSERT(keep_going);
 
     struct QuestionDispatchClosure_ *closure = NULL;
-    struct B_QuestionQueueItemObject *queue_item = NULL;
+    struct B_QuestionQueueItem *queue_item = NULL;
 
     if (!b_question_queue_dequeue(
             question_queue, &queue_item, eh)) {

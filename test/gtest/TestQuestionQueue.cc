@@ -8,13 +8,13 @@
 
 using namespace testing;
 
-class MockQuestionQueueItemObject :
-        public B_QuestionQueueItemObject {
+class MockQuestionQueueItem :
+        public B_QuestionQueueItem {
 public:
-    MockQuestionQueueItemObject(
+    MockQuestionQueueItem(
             B_Question *question,
             B_QuestionVTable const *question_vtable) :
-            B_QuestionQueueItemObject{
+            B_QuestionQueueItem{
                 deallocate_,
                 question,
                 question_vtable,
@@ -31,9 +31,9 @@ public:
 private:
     static B_FUNC
     deallocate_(
-            B_QuestionQueueItemObject *queue_item,
+            B_QuestionQueueItem *queue_item,
             B_ErrorHandler const *eh) {
-        return static_cast<MockQuestionQueueItemObject *>(
+        return static_cast<MockQuestionQueueItem *>(
             queue_item)->deallocate(eh);
     }
 
@@ -42,7 +42,7 @@ private:
             B_TRANSFER B_OPT B_Answer *answer,
             void *opaque,
             B_ErrorHandler const *eh) {
-        return static_cast<MockQuestionQueueItemObject *>(
+        return static_cast<MockQuestionQueueItem *>(
             opaque)->answer_callback(answer, eh);
     }
 };
@@ -60,7 +60,7 @@ TEST(TestQuestionQueue, EnqueueOneItem) {
 
     // Must be alive while queue is destructed.
     StrictMock<MockQuestion> question;
-    StrictMock<MockQuestionQueueItemObject>
+    StrictMock<MockQuestionQueueItem>
         queue_item(&question, &MockQuestion::vtable);
     EXPECT_CALL(queue_item, deallocate(_))
         .WillOnce(Return(true));
