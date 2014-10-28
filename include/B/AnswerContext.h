@@ -140,9 +140,10 @@ b_answer_context_exec(
 # include <B/Alloc.h>
 # include <B/Config.h>
 
-# include <functional>
-
 // Closure for b_answer_context_need.
+template<
+        typename TCompletedCallback,
+        typename TCancelledCallback>
 struct B_NeedCallbacks {
     typedef B_FUNC
     Completed(
@@ -153,28 +154,15 @@ struct B_NeedCallbacks {
     Cancelled(
             B_ErrorHandler const *);
 
-    template<
-            typename TCompletedCallback,
-            typename TCancelledCallback>
     B_NeedCallbacks(
-            TCompletedCallback const &completed_callback,
-            TCancelledCallback const &cancelled_callback) :
-            completed_callback(
-# if !defined(B_CONFIG_NO_FUNCTION_ALLOCATOR)
-                    std::allocator_arg,
-                    B_Allocator<std::function<Completed>>(),
-# endif
-                    completed_callback),
-            cancelled_callback(
-# if !defined(B_CONFIG_NO_FUNCTION_ALLOCATOR)
-                    std::allocator_arg,
-                    B_Allocator<std::function<Cancelled>>(),
-# endif
-                    cancelled_callback) {
+            TCompletedCallback completed_callback,
+            TCancelledCallback cancelled_callback) :
+            completed_callback(completed_callback),
+            cancelled_callback(cancelled_callback) {
     }
 
-    std::function<Completed> completed_callback;
-    std::function<Cancelled> cancelled_callback;
+    TCompletedCallback completed_callback;
+    TCancelledCallback cancelled_callback;
 
     static B_FUNC
     completed(
@@ -223,9 +211,8 @@ b_answer_context_need(
         TCompletedCallback const &completed_callback,
         TCancelledCallback const &cancelled_callback,
         B_ErrorHandler const *eh) {
-    // TODO(strager): Optimize for function pointers.
-
-    B_NeedCallbacks *callbacks;
+    B_NeedCallbacks<
+        TCompletedCallback, TCancelledCallback> *callbacks;
     if (!b_new(
             &callbacks,
             eh,
@@ -239,8 +226,8 @@ b_answer_context_need(
         questions,
         questions_vtables,
         questions_count,
-        B_NeedCallbacks::completed,
-        B_NeedCallbacks::cancelled,
+        callbacks->completed,
+        callbacks->cancelled,
         callbacks,
         eh);
 }

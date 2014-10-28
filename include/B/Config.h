@@ -40,14 +40,6 @@
 # endif
 #endif
 
-#if defined(__cplusplus)
-// Test for libstdc++ which is missing an std::function
-// constructor accepting std::allocator_arg.
-# if defined(__GLIBCXX__) && __GLIBCXX__ <= 20140206
-#  define B_CONFIG_NO_FUNCTION_ALLOCATOR
-# endif
-#endif
-
 #if !defined(__cplusplus)
 // GCC disallows assignment of struct values where any field
 // in the struct is declared const.
