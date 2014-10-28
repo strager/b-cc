@@ -52,6 +52,7 @@ enum {
     B_SELECT_ANSWER_QUESTION_UUID = 1,
     B_SELECT_ANSWER_QUESTION_DATA = 2,
 };
+
 // NOTE[select answer query]: These are column indices for
 // results of b_database_look_up_answer's SELECT query.
 enum {
