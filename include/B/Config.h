@@ -25,48 +25,12 @@
 # define B_CONFIG_POSIX_SPAWN
 #endif
 
-#if defined(__APPLE__)
-# define B_CONFIG_VFORK
-#endif
-
 #if defined(__APPLE__) || defined(__FreeBSD__)
 # define B_CONFIG_KQUEUE
 #endif
 
 #if defined(__linux__) || defined(__android__)
 # define B_CONFIG_EPOLL
-#endif
-
-#if defined(__APPLE__) || defined(__FreeBSD__) || \
-    defined(__linux__) || defined(__android__)
-# define B_CONFIG_SYSQUEUE
-#endif
-
-#if defined(__APPLE__)
-# define B_CONFIG_LIBKERN
-#endif
-
-#if defined(__BYTE_ORDER__) && \
-    defined(__ORDER_LITTLE_ENDIAN__) && \
-    defined(__ORDER_BIG_ENDIAN__)
-# if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#  define B_CONFIG_LITTLE_ENDIAN
-# endif
-# if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#  define B_CONFIG_LITTLE_ENDIAN
-# endif
-#endif
-
-#if !defined(B_CONFIG_LITTLE_ENDIAN) && \
-    defined(__LITTLE_ENDIAN__)
-# define B_CONFIG_LITTLE_ENDIAN
-#endif
-#if !defined(B_CONFIG_BIG_ENDIAN) && defined(__BIG_ENDIAN__)
-# define B_CONFIG_BIG_ENDIAN
-#endif
-
-#if defined(__GNUC__) || defined(__clang__)
-# define B_CONFIG_BSWAP_BUILTIN
 #endif
 
 #define B_CONFIG_POSIX_FD

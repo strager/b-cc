@@ -21,9 +21,6 @@
 #if !defined(B_CONFIG_PTHREAD)
 # error "pthread support is assumed for this B_ProcessLoop implementation"
 #endif
-#if !defined(B_CONFIG_SYSQUEUE)
-# error "sys/queue.h support is assumed for this B_ProcessLoop implementation"
-#endif
 
 #if !defined(B_CONFIG_KQUEUE) && !defined(B_CONFIG_EPOLL)
 # error "Only kqueue and epoll are implemented for B_ProcessLoop"
