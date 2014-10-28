@@ -37,7 +37,7 @@
 #if defined(__clang__)
 # define B_BEGIN_IGNORE_CONDITIONAL_UNINITIALIZED \
     _Pragma("GCC diagnostic push") \
-    _Pragma("GCC diagnostic warning \"-Wconditional-uninitialized\"")
+    _Pragma("GCC diagnostic ignored \"-Wconditional-uninitialized\"")
 # define B_END_IGNORE_CONDITIONAL_UNINITIALIZED \
     _Pragma("GCC diagnostic pop")
 #else
