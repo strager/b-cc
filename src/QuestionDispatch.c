@@ -10,7 +10,7 @@
 #include <stdlib.h>
 
 struct AnswerCallbackClosure_ {
-    struct B_AnswerContext *B_CONST_STRUCT_MEMBER answer_context;
+    struct B_AnswerContext answer_context;
     struct B_QuestionQueueItemObject *B_CONST_STRUCT_MEMBER queue_item;
     struct B_Database *B_CONST_STRUCT_MEMBER database;
 };
@@ -101,7 +101,6 @@ dispatch_one_(
 
     struct AnswerCallbackClosure_ *closure = NULL;
     struct B_QuestionQueueItemObject *queue_item = NULL;
-    struct B_AnswerContext *answer_context = NULL;
 
     if (!b_question_queue_dequeue(
             question_queue, &queue_item, eh)) {
@@ -138,27 +137,23 @@ dispatch_one_(
             sizeof(*closure), (void **) &closure, eh)) {
         goto fail;
     }
-    if (!b_allocate(
-            sizeof(*answer_context),
-            (void **) &answer_context,
-            eh)) {
-        goto fail;
-    }
     *closure = (struct AnswerCallbackClosure_) {
-        .answer_context = answer_context,
+        .answer_context = {
+            .question = queue_item->question,
+            .question_vtable = queue_item->question_vtable,
+            .answer_callback = answer_callback_,
+            .answer_callback_opaque = closure,
+            .question_queue = question_queue,
+            .dependency_delegate = dependency_delegate,
+        },
         .queue_item = queue_item,
         .database = database,
     };
-    *answer_context = (struct B_AnswerContext) {
-        .question = queue_item->question,
-        .question_vtable = queue_item->question_vtable,
-        .answer_callback = answer_callback_,
-        .answer_callback_opaque = closure,
-        .question_queue = question_queue,
-        .dependency_delegate = dependency_delegate,
-    };
 
-    if (!callback(answer_context, callback_opaque, eh)) {
+    if (!callback(
+            &closure->answer_context,
+            callback_opaque,
+            eh)) {
         goto fail;
     }
 
@@ -166,9 +161,6 @@ dispatch_one_(
     return true;
 
 fail:
-    if (answer_context) {
-        (void) b_deallocate(answer_context, eh);
-    }
     if (queue_item) {
         // FIXME(strager): Should we re-enqueue instead?
         (void) b_question_queue_item_object_deallocate(
@@ -192,8 +184,8 @@ answer_callback_(
 
     if (!b_database_record_answer(
             closure->database,
-            closure->answer_context->question,
-            closure->answer_context->question_vtable,
+            closure->answer_context.question,
+            closure->answer_context.question_vtable,
             answer,
             eh)) {
         return false;
@@ -204,7 +196,6 @@ answer_callback_(
         return false;
     }
 
-    (void) b_deallocate(closure->answer_context, eh);
     (void) b_question_queue_item_object_deallocate(
         closure->queue_item, eh);
     (void) b_deallocate(closure, eh);
