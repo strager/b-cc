@@ -5,6 +5,7 @@
 #include <B/UUID.h>
 
 #include <stdbool.h>
+#include <stddef.h>
 
 struct B_AnswerContext;
 struct B_ByteSink;
