@@ -13,9 +13,9 @@ struct B_ErrorHandler;
 // b_question_queue_dequeue and call answer_callback on
 // returned QuestionQueueItem-s.
 //
-// Generally, your application's consumer will be
-// b_question_dispatch and your application's producer will
-// be b_answer_context_need.
+// Generally, your application's consumer will immediately
+// call b_question_dispatch_one and your application's
+// producer will be b_answer_context_need.
 //
 // Thread-safe: YES
 // Signal-safe: NO

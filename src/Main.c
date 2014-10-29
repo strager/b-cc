@@ -133,18 +133,32 @@ b_main(
         goto fail;
     }
 
+    // Drain the queue.
     struct B_MainClosure closure = {
         .process_loop = process_loop,
         .opaque = opaque,
     };
-    if (!b_question_dispatch(
-            question_queue,
-            database,
-            dispatch_callback,
-            &closure,
-            eh)) {
-        goto fail;
+    while (true) {
+        struct B_QuestionQueueItem *queue_item = NULL;
+        if (!b_question_queue_dequeue(
+                question_queue, &queue_item, eh)) {
+            goto fail;
+        }
+        if (!queue_item) {
+            break;
+        }
+
+        if (!b_question_dispatch_one(
+                queue_item,
+                question_queue,
+                database,
+                dispatch_callback,
+                &closure,
+                eh)) {
+            goto fail;
+        }
     }
+
     if (!root_queue_item.did_answer) {
         goto fail;
     }

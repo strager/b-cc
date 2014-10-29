@@ -8,6 +8,7 @@ struct B_Database;
 struct B_ErrorHandler;
 struct B_Question;
 struct B_QuestionQueue;
+struct B_QuestionQueueItem;
 struct B_QuestionVTable;
 
 typedef B_FUNC
@@ -20,13 +21,17 @@ B_QuestionDispatchCallback(
 extern "C" {
 #endif
 
-// Dequeues items from the given QuestionQueue, answering
-// questions by calling the given QuestionCallback with a
-// corresponding AnswerContext.  Consults a Database for
-// previously-determined Answers and writes dependencies and
-// answers to the Database.
+// Asynchronously answers the Question in the given
+// QueueItem by calling the given QuestionCallback with an
+// AnswerContext corresponding to the QueueItem.  Consults a
+// Database for previously-determined Answers and writes
+// dependencies and answers to the Database.  Enqueues new
+// questions onto the QuestionQueue if answering the given
+// Question requires answering other questions.
+// Non-blocking.
 B_EXPORT_FUNC
-b_question_dispatch(
+b_question_dispatch_one(
+        B_TRANSFER struct B_QuestionQueueItem *,
         struct B_QuestionQueue *,
         struct B_Database *,
         B_QuestionDispatchCallback *callback,

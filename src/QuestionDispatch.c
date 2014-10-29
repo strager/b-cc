@@ -20,68 +20,23 @@ answer_callback_(
         void *opaque,
         struct B_ErrorHandler const *);
 
-static B_FUNC
-dispatch_one_(
-        struct B_QuestionQueue *question_queue,
-        struct B_Database *database,
-        B_QuestionDispatchCallback *callback,
-        void *callback_opaque,
-        bool *keep_going,
-        struct B_ErrorHandler const *eh);
-
 B_EXPORT_FUNC
-b_question_dispatch(
+b_question_dispatch_one(
+        B_TRANSFER struct B_QuestionQueueItem *queue_item,
         struct B_QuestionQueue *question_queue,
         struct B_Database *database,
         B_QuestionDispatchCallback *callback,
         void *callback_opaque,
         struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, queue_item);
+    B_CHECK_PRECONDITION(eh, queue_item->question);
+    B_CHECK_PRECONDITION(eh, queue_item->question_vtable);
+    B_CHECK_PRECONDITION(eh, queue_item->answer_callback);
     B_CHECK_PRECONDITION(eh, question_queue);
     B_CHECK_PRECONDITION(eh, database);
     B_CHECK_PRECONDITION(eh, callback);
 
-    bool keep_going = true;
-    while (keep_going) {
-        if (!dispatch_one_(
-                question_queue,
-                database,
-                callback,
-                callback_opaque,
-                &keep_going,
-                eh)) {
-            return false;
-        }
-    }
-    return true;
-}
-
-static B_FUNC
-dispatch_one_(
-        struct B_QuestionQueue *question_queue,
-        struct B_Database *database,
-        B_QuestionDispatchCallback *callback,
-        void *callback_opaque,
-        bool *keep_going,
-        struct B_ErrorHandler const *eh) {
-    B_ASSERT(question_queue);
-    B_ASSERT(database);
-    B_ASSERT(callback);
-    B_ASSERT(keep_going);
-
     struct QuestionDispatchClosure_ *closure = NULL;
-    struct B_QuestionQueueItem *queue_item = NULL;
-
-    if (!b_question_queue_dequeue(
-            question_queue, &queue_item, eh)) {
-        goto fail;
-    }
-    if (!queue_item) {
-        *keep_going = false;
-        return true;
-    }
-    B_ASSERT(queue_item->question);
-    B_ASSERT(queue_item->question_vtable);
-    B_ASSERT(queue_item->answer_callback);
 
     // Try asking the database for an answer.
     struct B_Answer *answer;
@@ -126,15 +81,13 @@ dispatch_one_(
         goto fail;
     }
 
-    *keep_going = true;
     return true;
 
 fail:
-    if (queue_item) {
-        // FIXME(strager): Should we re-enqueue instead?
-        (void) b_question_queue_item_object_deallocate(
-            queue_item, eh);
-    }
+    // FIXME(strager): Should we (or the caller) re-enqueue
+    // instead?
+    (void) b_question_queue_item_object_deallocate(
+        queue_item, eh);
     if (closure) {
         (void) b_deallocate(closure, eh);
     }
