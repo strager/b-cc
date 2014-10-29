@@ -185,6 +185,7 @@ run_link(
         "src/QuestionAnswer.c.o",
         "src/QuestionDispatch.c.o",
         "src/QuestionQueue.cc.o",
+        "src/QuestionQueueRoot.c.o",
         "src/QuestionVTableSet.c.o",
         "src/RefCount.c.o",
         "src/SQLite3.c.o",

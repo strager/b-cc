@@ -12,57 +12,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-struct RootQueueItem_ {
-    struct B_QuestionQueueItem super;
-
-    struct B_QuestionQueue *queue;
-
-    // Assigned when answer_callback is called.
-    bool did_answer;
-    struct B_Answer *answer;
-
-    // Assigned when dealloate is called.
-    bool did_deallocate;
-};
-
-B_STATIC_ASSERT(
-    offsetof(struct RootQueueItem_, super) == 0,
-    "RootQueueItem_::super must be the first member");
-
-static B_FUNC
-root_queue_item_deallocate_(
-        struct B_QuestionQueueItem *super,
-        struct B_ErrorHandler const *eh) {
-    struct RootQueueItem_ *root_queue_item
-        = (struct RootQueueItem_ *) super;
-    B_CHECK_PRECONDITION(eh, root_queue_item);
-
-    B_ASSERT(!root_queue_item->did_deallocate);
-    root_queue_item->did_deallocate = true;
-
-    return true;
-}
-
-static B_FUNC
-root_queue_item_answer_(
-        B_TRANSFER B_OPT struct B_Answer *answer,
-        void *super,
-        struct B_ErrorHandler const *eh) {
-    struct RootQueueItem_ *root_queue_item = super;
-    B_CHECK_PRECONDITION(eh, root_queue_item);
-
-    B_ASSERT(!root_queue_item->did_answer);
-    root_queue_item->did_answer = true;
-    root_queue_item->answer = answer;
-
-    if (!b_question_queue_close(
-            root_queue_item->queue, eh)) {
-        return false;
-    }
-
-    return true;
-}
-
 B_EXPORT_FUNC
 b_main(
         struct B_Question const *initial_question,
@@ -84,19 +33,8 @@ b_main(
     struct B_ProcessLoop *process_loop = NULL;
     struct B_QuestionQueue *question_queue = NULL;
     struct B_Database *database = NULL;
-    struct RootQueueItem_ root_queue_item = {
-        .super = {
-            .deallocate = root_queue_item_deallocate_,
-            .question = (struct B_Question *)
-                initial_question,
-            .question_vtable = initial_question_vtable,
-            .answer_callback = root_queue_item_answer_,
-        },
-        .queue = NULL,
-        .did_answer = false,
-        .answer = NULL,
-        .did_deallocate = false,
-    };
+    struct B_QuestionQueueRoot *question_queue_root = NULL;
+    struct B_Answer *tmp_answer = NULL;
 
     if (!b_process_loop_allocate(
             1,
@@ -126,10 +64,12 @@ b_main(
             &question_queue, eh)) {
         goto fail;
     }
-    root_queue_item.queue = question_queue;
-
-    if (!b_question_queue_enqueue(
-            question_queue, &root_queue_item.super, eh)) {
+    if (!b_question_queue_enqueue_root(
+            question_queue,
+            initial_question,
+            initial_question_vtable,
+            &question_queue_root,
+            eh)) {
         goto fail;
     }
 
@@ -159,19 +99,23 @@ b_main(
         }
     }
 
-    if (!root_queue_item.did_answer) {
+    if (!b_question_queue_finalize_root(
+            question_queue_root, &tmp_answer, eh)) {
         goto fail;
     }
-
-    B_ASSERT(root_queue_item.did_deallocate);
-    *answer = root_queue_item.answer;
+    question_queue_root = NULL;  // Transferred.
+    if (!tmp_answer) {
+        (void) eh;  // TODO(strager)
+        goto fail;
+    }
+    *answer = tmp_answer;
 
     ok = true;
 
 done:
-    if (!ok && root_queue_item.answer) {
+    if (!ok && tmp_answer) {
         (void) initial_question_vtable->answer_vtable
-            ->deallocate(root_queue_item.answer, eh);
+            ->deallocate(tmp_answer, eh);
     }
     if (database) {
         (void) b_database_close(database, eh);
@@ -186,6 +130,10 @@ done:
             process_loop,
             process_force_kill_timeout_picoseconds,
             eh);
+    }
+    if (question_queue_root) {
+        (void) b_question_queue_finalize_root(
+            question_queue_root, &tmp_answer, eh);
     }
     return ok;
 

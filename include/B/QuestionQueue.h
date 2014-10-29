@@ -21,6 +21,7 @@ struct B_ErrorHandler;
 // Signal-safe: NO
 struct B_QuestionQueue;
 struct B_QuestionQueueItem;
+struct B_QuestionQueueRoot;
 
 #if defined(__cplusplus)
 extern "C" {
@@ -88,6 +89,26 @@ B_ABSTRACT struct B_QuestionQueueItem {
     // opaque points to the QuestionQueueItem.
     B_AnswerCallback *answer_callback;
 };
+
+// Enqueues a QuestionQueueItem which, when answered, will
+// close the QuestionQueue.  Use
+// b_question_queue_finalize_root to retreive the Answer and
+// clean up resources.
+B_EXPORT_FUNC
+b_question_queue_enqueue_root(
+        B_BORROWED struct B_QuestionQueue *,
+        B_BORROWED const struct B_Question *,
+        B_BORROWED const struct B_QuestionVTable *,
+        B_OUTPTR struct B_QuestionQueueRoot **,
+        struct B_ErrorHandler const *);
+
+// Deallocates a QuestionQueueRoot and returns the Answer to
+// the Question given to b_question_queue_enqueue_root.
+B_EXPORT_FUNC
+b_question_queue_finalize_root(
+        B_TRANSFER struct B_QuestionQueueRoot *,
+        B_OUTPTR B_TRANSFER struct B_Answer **,
+        struct B_ErrorHandler const *);
 
 #if defined(__cplusplus)
 }

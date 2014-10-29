@@ -273,6 +273,7 @@ add_library(
     src/QuestionAnswer.c
     src/QuestionDispatch.c
     src/QuestionQueue.cc
+    src/QuestionQueueRoot.c
     src/QuestionVTableSet.c
     src/RefCount.c
     src/SQLite3.c
