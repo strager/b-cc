@@ -440,3 +440,6 @@ add_gtest_test(TestProcess)
 add_gtest_test(TestQuestionQueue)
 add_gtest_test(TestSerialize)
 add_gtest_test(TestUUID)
+
+add_executable(ex1 ex/1/main.cc)
+target_link_libraries(ex1 b)

@@ -2,7 +2,6 @@
 #include <B/AnswerContext.h>
 #include <B/Assert.h>
 #include <B/Database.h>
-#include <B/DependencyDelegate.h>
 #include <B/Error.h>
 #include <B/File.h>
 #include <B/Main.h>
@@ -181,6 +180,7 @@ run_link(
         "src/Log.c.o",
         "src/Main.c.o",
         "src/Misc.c.o",
+        "src/OS.c.o",
         "src/Process.c.o",
         "src/QuestionAnswer.c.o",
         "src/QuestionDispatch.c.o",
@@ -369,46 +369,6 @@ check_file(
 
     return b_answer_context_success(answer_context, eh);
 }
-
-struct RootQueueItem_ :
-        public B_QuestionQueueItemObject {
-    template<typename TAnswerCallback>
-    RootQueueItem_(
-            B_Question *question,
-            B_QuestionVTable const *question_vtable,
-            TAnswerCallback answer_callback) :
-            B_QuestionQueueItemObject {
-                deallocate_,
-                question,
-                question_vtable,
-                answer_callback_,
-            },
-            callback(answer_callback) {
-    }
-
-private:
-    static B_FUNC
-    deallocate_(
-            B_QuestionQueueItemObject *queue_item,
-            B_ErrorHandler const *eh) {
-        return b_delete(
-            static_cast<RootQueueItem_ *>(queue_item),
-            eh);
-    }
-
-    static B_FUNC
-    answer_callback_(
-            B_TRANSFER B_OPT struct B_Answer *answer,
-            void *opaque,
-            struct B_ErrorHandler const *eh) {
-        auto queue_item = static_cast<RootQueueItem_ *>(
-            reinterpret_cast<B_QuestionQueueItemObject *>(
-                opaque));
-        return queue_item->callback(answer, opaque, eh);
-    }
-
-    std::function<B_AnswerCallback> callback;
-};
 
 int
 main(
