@@ -33,6 +33,14 @@
 # define B_CONFIG_EPOLL
 #endif
 
+#if defined(__linux__) || defined(__android__)
+# define B_CONFIG_EVENTFD
+#endif
+
+#if defined(__linux__) || defined(__android__)
+# define B_CONFIG_SIGNALFD
+#endif
+
 #define B_CONFIG_POSIX_FD
 
 #endif

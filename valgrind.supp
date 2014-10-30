@@ -3,14 +3,4 @@
     Helgrind:Misc
     obj:/usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so
     fun:_ZN12_GLOBAL__N_124QuestionQueuePthreadCond15signal_enqueuedEv
-    fun:_ZN15B_QuestionQueue7enqueueEP19B_QuestionQueueItem
-    fun:b_question_queue_enqueue
-    fun:_ZN44TestQuestionQueue_EnqueueOneItemSignals_Test8TestBodyEv
-    fun:_ZN7testing8internal38HandleSehExceptionsInMethodIfSupportedINS_4TestEvEET0_PT_MS4_FS3_vEPKc
-    fun:_ZN7testing8internal35HandleExceptionsInMethodIfSupportedINS_4TestEvEET0_PT_MS4_FS3_vEPKc
-    fun:_ZN7testing4Test3RunEv
-    fun:_ZN7testing8TestInfo3RunEv
-    fun:_ZN7testing8TestCase3RunEv
-    fun:_ZN7testing8internal12UnitTestImpl11RunAllTestsEv
-    fun:_ZN7testing8internal38HandleSehExceptionsInMethodIfSupportedINS0_12UnitTestImplEbEET0_PT_MS4_FS3_vEPKc
 }

@@ -89,7 +89,9 @@ retry:;
     B_CATCH_ERROR_IF_(rc == -1, "epoll_ctl");
     return true;
 }
+#endif
 
+#if defined(B_CONFIG_EVENTFD)
 B_EXPORT_FUNC
 b_eventfd(
         unsigned int initial_value,
@@ -126,7 +128,9 @@ retry:;
     B_CATCH_ERROR_IF_(rc == -1, "eventfd_write");
     return true;
 }
+#endif
 
+#if defined(B_CONFIG_SIGNALFD)
 B_EXPORT_FUNC
 b_signalfd_create(
         const sigset_t *mask,

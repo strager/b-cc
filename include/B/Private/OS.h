@@ -15,6 +15,9 @@
 # include <signal.h>
 # include <stdint.h>
 # include <sys/epoll.h>
+#endif
+
+#if defined(B_CONFIG_EVENTFD)
 # include <sys/eventfd.h>
 #endif
 
@@ -46,7 +49,9 @@ b_epoll_ctl_fd(
         int fd,
         uint32_t events,
         struct B_ErrorHandler const *);
+#endif
 
+#if defined(B_CONFIG_EVENTFD)
 B_EXPORT_FUNC
 b_eventfd(
         unsigned int initial_value,
@@ -65,7 +70,9 @@ b_eventfd_write(
         int fd,
         eventfd_t value,
         struct B_ErrorHandler const *);
+#endif
 
+#if defined(B_CONFIG_SIGNALFD)
 // signalfd with -1 fd.
 B_EXPORT_FUNC
 b_signalfd_create(

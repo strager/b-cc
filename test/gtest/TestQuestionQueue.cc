@@ -12,6 +12,16 @@
 # include <pthread.h>
 #endif
 
+#if defined(B_CONFIG_KQUEUE)
+# include <sys/event.h>
+#endif
+
+#if defined(B_CONFIG_EVENTFD)
+# include <fcntl.h>
+# include <poll.h>
+# include <sys/eventfd.h>
+#endif
+
 using namespace testing;
 
 class MockQuestionQueueItem :
@@ -240,6 +250,138 @@ private:
 };
 #endif
 
+#if defined(B_CONFIG_KQUEUE)
+class KqueueTester : public Tester {
+public:
+    KqueueTester() {
+        this->kqueue = ::kqueue();
+        EXPECT_NE(-1, this->kqueue) << strerror(errno);
+
+        struct kevent change;
+        EV_SET(
+            &change,
+            reinterpret_cast<uintptr_t>(this),
+            EVFILT_USER,
+            EV_ADD,
+            NOTE_TRIGGER,
+            0,
+            nullptr);
+        int rc = kevent(
+            this->kqueue, &change, 1, nullptr, 0, nullptr);
+        EXPECT_EQ(0, rc) << strerror(errno);
+    }
+
+    ~KqueueTester() {
+        EXPECT_EQ(0, close(this->kqueue))
+            << strerror(errno);
+    }
+
+    const char *
+    get_type_string() const override {
+        return "kqueue";
+    }
+
+    B_FUNC
+    queue_allocate(
+            B_OUTPTR B_QuestionQueue **out,
+            B_ErrorHandler const *eh) override {
+        struct kevent trigger;
+        EV_SET(
+            &trigger,
+            reinterpret_cast<uintptr_t>(this),
+            EVFILT_USER,
+            EV_ENABLE,
+            NOTE_TRIGGER,
+            0,
+            nullptr);
+        return b_question_queue_allocate_with_kqueue(
+            this->kqueue, &trigger, out, eh);
+    }
+
+    bool
+    try_consume_event() override {
+        const struct timespec timeout = {0, 0};
+        struct kevent events[2];
+        int rc = kevent(
+            this->kqueue,
+            nullptr,
+            0,
+            events,
+            sizeof(events) / sizeof(*events),
+            &timeout);
+        if (rc == -1 && errno == ETIMEDOUT) {
+            return false;
+        } else if (rc >= 1) {
+            EXPECT_EQ(
+                this, reinterpret_cast<KqueueTester *>(
+                    events[0].ident));
+            EXPECT_EQ(1, rc) << "Too many events";
+            return true;
+        } else {
+            EXPECT_NE(-1, rc) << strerror(errno);
+            return false;
+        }
+    }
+
+private:
+    int kqueue;
+};
+#endif
+
+#if defined(B_CONFIG_EVENTFD)
+class EventfdTester : public Tester {
+public:
+    EventfdTester() {
+        this->eventfd = ::eventfd(0, O_CLOEXEC);
+        EXPECT_NE(-1, this->eventfd) << strerror(errno);
+    }
+
+    ~EventfdTester() {
+        EXPECT_EQ(0, close(this->eventfd))
+            << strerror(errno);
+    }
+
+    const char *
+    get_type_string() const override {
+        return "eventfd";
+    }
+
+    B_FUNC
+    queue_allocate(
+            B_OUTPTR B_QuestionQueue **out,
+            B_ErrorHandler const *eh) override {
+        return b_question_queue_allocate_with_eventfd(
+            this->eventfd, out, eh);
+    }
+
+    bool
+    try_consume_event() override {
+        struct pollfd poll_event;
+        poll_event.fd = this->eventfd;
+        poll_event.events = POLLIN;
+
+        int rc = poll(&poll_event, 1, 0);
+        if (rc >= 1) {
+            EXPECT_EQ(1, rc) << "Too many events";
+            EXPECT_TRUE(poll_event.revents & POLLIN);
+            eventfd_t value;
+            EXPECT_EQ(0, eventfd_read(
+                this->eventfd, &value)) << strerror(errno);
+            EXPECT_EQ(static_cast<eventfd_t>(1), value);
+            return true;
+        } else if (rc == 0) {
+            return false;
+        } else {
+            EXPECT_EQ(0, rc) << strerror(errno);
+            return false;
+        }
+    }
+
+private:
+    int eventfd;
+};
+#endif
+
 std::ostream &operator<<(
         std::ostream &stream,
         Testers::Tester *tester) {
@@ -255,6 +397,12 @@ Testers::Tester *tester_instances[] = {
     new Testers::SingleThreadedTester(),
 #if defined(B_CONFIG_PTHREAD)
     new Testers::PthreadCondTester(),
+#endif
+#if defined(B_CONFIG_KQUEUE)
+    new Testers::KqueueTester(),
+#endif
+#if defined(B_CONFIG_EVENTFD)
+    new Testers::EventfdTester(),
 #endif
 };
 

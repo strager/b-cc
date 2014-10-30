@@ -15,6 +15,14 @@
 # include <pthread.h>
 #endif
 
+#if defined(B_CONFIG_KQUEUE)
+# include <sys/event.h>
+#endif
+
+#if defined(B_CONFIG_EVENTFD)
+# include <B/Private/OS.h>
+#endif
+
 struct B_QuestionQueue {
     B_QuestionQueue() :
             closed(false) {
@@ -174,6 +182,70 @@ private:
 };
 #endif
 
+#if defined(B_CONFIG_KQUEUE)
+class QuestionQueueKqueue : public B_QuestionQueue {
+public:
+    QuestionQueueKqueue(
+            B_BORROWED int kqueue,
+            B_BORROWED const struct kevent *kevent) :
+            kqueue(kqueue),
+            kevent(*kevent) {
+    }
+
+    void
+    signal_enqueued() override {
+        int rc = ::kevent(
+            this->kqueue,
+            &this->kevent,
+            1,
+            nullptr,
+            0,
+            nullptr);
+        B_ASSERT(rc == 0);  // FIXME(strager)
+    }
+
+    void
+    wait_for_signal() override {
+        // FIXME(strager): As far as I know, it's impossible
+        // to block waiting for a specific filter+ident
+        // combination in a kqueue.
+        B_NYI();
+    }
+
+private:
+    int kqueue;
+    struct kevent kevent;
+};
+#endif
+
+#if defined(B_CONFIG_EVENTFD)
+class QuestionQueueEventfd : public B_QuestionQueue {
+public:
+    QuestionQueueEventfd(
+            B_BORROWED int eventfd) :
+            eventfd(eventfd) {
+    }
+
+    void
+    signal_enqueued() override {
+        B_ErrorHandler *eh = nullptr;  // FIXME(strager)
+        bool ok = b_eventfd_write(this->eventfd, 1, eh);
+        (void) ok;  // FIXME(strager)
+    }
+
+    void
+    wait_for_signal() override {
+        B_ErrorHandler *eh = nullptr;  // FIXME(strager)
+        eventfd_t value;
+        bool ok = b_eventfd_read(this->eventfd, &value, eh);
+        (void) ok;  // FIXME(strager)
+    }
+
+private:
+    int eventfd;
+};
+#endif
+
 }
 
 B_EXPORT_FUNC
@@ -213,6 +285,60 @@ b_question_queue_allocate_with_pthread_cond(
         eh,
         ENOTSUP,
         "b_question_queue_allocate_with_pthread_cond");
+    return false;
+#endif
+}
+
+B_EXPORT_FUNC
+b_question_queue_allocate_with_kqueue(
+        B_BORROWED int kqueue_fd,
+        B_BORROWED const void *trigger,  // kevent
+        B_OUTPTR struct B_QuestionQueue **out,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, kqueue_fd >= 0);
+    B_CHECK_PRECONDITION(eh, trigger);
+    B_CHECK_PRECONDITION(eh, out);
+
+#if defined(B_CONFIG_KQUEUE)
+    QuestionQueueKqueue *queue;
+    if (!b_new(
+            &queue,
+            eh,
+            kqueue_fd,
+            static_cast<struct kevent const *>(trigger))) {
+        return false;
+    }
+    *out = queue;
+    return true;
+#else
+    (void) B_RAISE_ERRNO_ERROR(
+        eh,
+        ENOTSUP,
+        "b_question_queue_allocate_with_kqueue");
+    return false;
+#endif
+}
+
+B_EXPORT_FUNC
+b_question_queue_allocate_with_eventfd(
+        B_BORROWED int eventfd,
+        B_OUTPTR struct B_QuestionQueue **out,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, eventfd >= 0);
+    B_CHECK_PRECONDITION(eh, out);
+
+#if defined(B_CONFIG_EVENTFD)
+    QuestionQueueEventfd *queue;
+    if (!b_new(&queue, eh, eventfd)) {
+        return false;
+    }
+    *out = queue;
+    return true;
+#else
+    (void) B_RAISE_ERRNO_ERROR(
+        eh,
+        ENOTSUP,
+        "b_question_queue_allocate_with_eventfd");
     return false;
 #endif
 }

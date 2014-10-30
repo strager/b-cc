@@ -42,6 +42,40 @@ b_question_queue_allocate_with_pthread_cond(
         B_OUTPTR struct B_QuestionQueue **,
         struct B_ErrorHandler const *);
 
+// Creates a QuestionQueue which will signal the given Linux
+// eventfd when b_question_queue_enqueue is called.  Calling
+// b_question_queue_dequeue does not remove the event from
+// the eventfd.
+B_EXPORT_FUNC
+b_question_queue_allocate_with_eventfd(
+        B_BORROWED int eventfd,
+        B_OUTPTR struct B_QuestionQueue **,
+        struct B_ErrorHandler const *);
+
+// Creates a QuestionQueue which will call kevent with the
+// given changelist on the given kqueue file descriptor when
+// b_question_queue_enqueue is called.  Calling
+// b_question_queue_dequeue does not clear the event in the
+// kqueue.
+B_EXPORT_FUNC
+b_question_queue_allocate_with_kqueue(
+        B_BORROWED int kqueue_fd,
+        B_BORROWED const void *trigger,  // kevent
+        B_OUTPTR struct B_QuestionQueue **,
+        struct B_ErrorHandler const *);
+
+// Creates a QuestionQueue which will call kevent64 with the
+// given changelist on the given kqueue file descriptor when
+// b_question_queue_enqueue is called.  Calling
+// b_question_queue_dequeue does not clear the event in the
+// kqueue.
+B_EXPORT_FUNC
+b_question_queue_allocate_with_kqueue64(
+        B_BORROWED int kqueue_fd,
+        B_BORROWED const void *trigger,  // kevent64_s
+        B_OUTPTR struct B_QuestionQueue **,
+        struct B_ErrorHandler const *);
+
 B_EXPORT_FUNC
 b_question_queue_deallocate(
         struct B_QuestionQueue *,
