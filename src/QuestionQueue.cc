@@ -9,6 +9,7 @@
 #endif
 
 #include <deque>
+#include <errno.h>
 
 #if defined(B_CONFIG_PTHREAD)
 # include <pthread.h>
@@ -16,14 +17,18 @@
 
 struct B_QuestionQueue {
     B_QuestionQueue() :
-#if defined(B_CONFIG_PTHREAD)
-            lock(PTHREAD_MUTEX_INITIALIZER),
-            cond(PTHREAD_COND_INITIALIZER),
-#endif
             closed(false) {
+#if defined(B_CONFIG_PTHREAD)
+        int rc = pthread_mutex_init(&this->lock, nullptr);
+        B_ASSERT(rc == 0);
+#endif
     }
 
     ~B_QuestionQueue() {
+#if defined(B_CONFIG_PTHREAD)
+        int rc = pthread_mutex_destroy(&this->lock);
+        B_ASSERT(rc == 0);
+#endif
         B_ASSERT(this->queue_items.empty());
     }
 
@@ -38,29 +43,33 @@ struct B_QuestionQueue {
         this->queue_items.clear();
     }
 
-#if defined(B_CONFIG_PTHREAD)
     void
     enqueue(B_QuestionQueueItem *queue_item) {
         B_ASSERT(queue_item);
 
         {
+#if defined(B_CONFIG_PTHREAD)
             B_PthreadMutexHolder locker(&this->lock);
+#else
+# error "Unknown threads implementation"
+#endif
 
             queue_items.push_back(queue_item);
-            int rc = pthread_cond_signal(&this->cond);
-            B_ASSERT(rc == 0);
+            this->signal_enqueued();
         }
     }
 
     B_QuestionQueueItem *
     dequeue() {
         {
+#if defined(B_CONFIG_PTHREAD)
             B_PthreadMutexHolder locker(&this->lock);
+#else
+# error "Unknown threads implementation"
+#endif
 
             while (queue_items.empty() && !this->closed) {
-                int rc = pthread_cond_wait(
-                        &this->cond, &this->lock);
-                B_ASSERT(rc == 0);
+                this->wait_for_signal();
             }
             if (this->closed) {
                 return nullptr;
@@ -76,7 +85,11 @@ struct B_QuestionQueue {
     B_QuestionQueueItem *
     try_dequeue() {
         {
+#if defined(B_CONFIG_PTHREAD)
             B_PthreadMutexHolder locker(&this->lock);
+#else
+# error "Unknown threads implementation"
+#endif
 
             if (queue_items.empty()) {
                 return nullptr;
@@ -91,35 +104,117 @@ struct B_QuestionQueue {
     void
     close() {
         {
+#if defined(B_CONFIG_PTHREAD)
             B_PthreadMutexHolder locker(&this->lock);
-
-            this->closed = true;
-            int rc = pthread_cond_signal(&this->cond);
-            B_ASSERT(rc == 0);
-        }
-    }
 #else
 # error "Unknown threads implementation"
 #endif
 
-private:
+            this->closed = true;
+            this->signal_enqueued();
+        }
+    }
+
+protected:
+    // ::lock is held.
+    virtual void
+    signal_enqueued() = 0;
+
+    // ::lock is held.  Spurious wake-ups are accepted.
+    virtual void
+    wait_for_signal() = 0;
+
 #if defined(B_CONFIG_PTHREAD)
     pthread_mutex_t lock;
-    pthread_cond_t cond;
 #endif
 
+private:
     bool closed;
     // TODO(strager): Use the B allocator or stop using STL.
     std::deque<B_QuestionQueueItem *> queue_items;
 };
 
+namespace {
+
+class QuestionQueueSingleThreaded : public B_QuestionQueue {
+public:
+    void
+    signal_enqueued() override {
+        // Do nothing.
+    }
+
+    void
+    wait_for_signal() override {
+        // Do nothing.
+    }
+};
+
+#if defined(B_CONFIG_PTHREAD)
+class QuestionQueuePthreadCond : public B_QuestionQueue {
+public:
+    QuestionQueuePthreadCond(
+            B_BORROWED pthread_cond_t *cond) :
+            cond(cond) {
+    }
+
+    void
+    signal_enqueued() override {
+        int rc = pthread_cond_signal(this->cond);
+        B_ASSERT(rc == 0);
+    }
+
+    void
+    wait_for_signal() override {
+        int rc = pthread_cond_wait(this->cond, &this->lock);
+        B_ASSERT(rc == 0);
+    }
+
+private:
+    pthread_cond_t *cond;
+};
+#endif
+
+}
+
 B_EXPORT_FUNC
-b_question_queue_allocate(
+b_question_queue_allocate_single_threaded(
         B_OUTPTR B_QuestionQueue **out,
         B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, out);
 
-    return b_new(out, eh);
+    QuestionQueueSingleThreaded *queue;
+    if (!b_new(&queue, eh)) {
+        return false;
+    }
+    *out = queue;
+    return true;
+}
+
+B_EXPORT_FUNC
+b_question_queue_allocate_with_pthread_cond(
+        void *cond,
+        B_OUTPTR B_QuestionQueue **out,
+        B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, cond);
+    B_CHECK_PRECONDITION(eh, out);
+
+#if defined(B_CONFIG_PTHREAD)
+    QuestionQueuePthreadCond *queue;
+    if (!b_new(
+            &queue,
+            eh,
+            static_cast<pthread_cond_t *>(cond))) {
+        return false;
+    }
+    *out = queue;
+    return true;
+#else
+    (void) B_RAISE_ERRNO_ERROR(
+        eh,
+        ENOTSUP,
+        "b_question_queue_allocate_with_pthread_cond");
+    return false;
+#endif
 }
 
 B_EXPORT_FUNC

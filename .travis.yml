@@ -13,17 +13,18 @@ before_script:
     - export CC="$cc" CXX="$cxx"
     - echo "$CC" && "$CC" --version
     - echo "$CXX" && "$CXX" --version
+    - if $valgrind; then export VALGRIND_FLAGS="--suppressions=$PWD/valgrind.supp --error-exitcode=1"; fi
 script:
     - make test $makeflags
-    - if $valgrind; then make test run_with='valgrind --tool=memcheck --error-exitcode=1'; fi
-    - if $valgrind; then make test run_with='valgrind --tool=helgrind --error-exitcode=1'; fi
+    - if $valgrind; then make test run_with="valgrind --tool=memcheck $VALGRIND_FLAGS"; fi
+    - if $valgrind; then make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"; fi
 
     # Now with optimizations!
     - export CFLAGS='-O3'
     - export CXXFLAGS="$CFLAGS"
     - make clean
     - make test
-    - if $valgrind; then make test run_with='valgrind --tool=memcheck --error-exitcode=1'; fi
-    - if $valgrind; then make test run_with='valgrind --tool=helgrind --error-exitcode=1'; fi
+    - if $valgrind; then make test run_with="valgrind --tool=memcheck $VALGRIND_FLAGS"; fi
+    - if $valgrind; then make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"; fi
 
     # TODO(strager): DRD (valgrind tool) crashes on vfork (posix_spawn).

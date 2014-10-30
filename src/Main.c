@@ -12,6 +12,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#if defined(B_CONFIG_PTHREAD)
+# include <pthread.h>
+#endif
+
 B_EXPORT_FUNC
 b_main(
         struct B_Question const *initial_question,
@@ -35,6 +39,11 @@ b_main(
     struct B_Database *database = NULL;
     struct B_QuestionQueueRoot *question_queue_root = NULL;
     struct B_Answer *tmp_answer = NULL;
+
+#if defined(B_CONFIG_PTHREAD)
+    pthread_cond_t question_queue_cond;
+    bool did_init_question_queue_cond = false;
+#endif
 
     if (!b_process_loop_allocate(
             1,
@@ -60,8 +69,15 @@ b_main(
         goto fail;
     }
 
-    if (!b_question_queue_allocate(
-            &question_queue, eh)) {
+#if defined(B_CONFIG_PTHREAD)
+    int rc = pthread_cond_init(&question_queue_cond, NULL);
+    B_ASSERT(rc == 0);
+    did_init_question_queue_cond = true;
+#else
+# error "Unknown question queue implementation"
+#endif
+    if (!b_question_queue_allocate_with_pthread_cond(
+            &question_queue_cond, &question_queue, eh)) {
         goto fail;
     }
     if (!b_question_queue_enqueue_root(
@@ -124,6 +140,12 @@ done:
         (void) b_question_queue_deallocate(
             question_queue, eh);
     }
+#if defined(B_CONFIG_PTHREAD)
+    if (did_init_question_queue_cond) {
+        rc = pthread_cond_destroy(&question_queue_cond);
+        B_ASSERT(rc == 0);
+    }
+#endif
     if (process_loop) {
         uint64_t process_force_kill_timeout_picoseconds = 0;
         (void) b_process_loop_deallocate(

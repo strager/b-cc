@@ -30,7 +30,8 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
         question_queue(B_RETURN_OUTPTR(
             B_QuestionQueue *,
-            b_question_queue_allocate(&_, eh)), eh);
+            b_question_queue_allocate_single_threaded(
+                &_, eh)), eh);
 
     answer_context.question = &question;
     answer_context.question_vtable = &MockQuestion::vtable;
@@ -100,7 +101,8 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
         question_queue(B_RETURN_OUTPTR(
             B_QuestionQueue *,
-            b_question_queue_allocate(&_, eh)), eh);
+            b_question_queue_allocate_single_threaded(
+                &_, eh)), eh);
 
     answer_context.question = &question;
     answer_context.question_vtable = &MockQuestion::vtable;
@@ -179,7 +181,8 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
         question_queue(B_RETURN_OUTPTR(
             B_QuestionQueue *,
-            b_question_queue_allocate(&_, eh)), eh);
+            b_question_queue_allocate_single_threaded(
+                &_, eh)), eh);
 
     answer_context.question = &question;
     answer_context.question_vtable = &MockQuestion::vtable;
@@ -332,7 +335,8 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
         question_queue(B_RETURN_OUTPTR(
             B_QuestionQueue *,
-            b_question_queue_allocate(&_, eh)), eh);
+            b_question_queue_allocate_single_threaded(
+                &_, eh)), eh);
 
     answer_context.question = &question;
     answer_context.question_vtable = &MockQuestion::vtable;
@@ -460,7 +464,8 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
         question_queue(B_RETURN_OUTPTR(
             B_QuestionQueue *,
-            b_question_queue_allocate(&_, eh)), eh);
+            b_question_queue_allocate_single_threaded(
+                &_, eh)), eh);
 
     answer_context.question = &question;
     answer_context.question_vtable = &MockQuestion::vtable;
@@ -530,7 +535,8 @@ TEST(TestAnswerContext, SuccessAnswerCallsContextCallback) {
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
         question_queue(B_RETURN_OUTPTR(
             B_QuestionQueue *,
-            b_question_queue_allocate(&_, eh)), eh);
+            b_question_queue_allocate_single_threaded(
+                &_, eh)), eh);
 
     size_t answer_callback_called = 0;
     auto answer_callback = [&](
@@ -583,7 +589,8 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
         question_queue(B_RETURN_OUTPTR(
             B_QuestionQueue *,
-            b_question_queue_allocate(&_, eh)), eh);
+            b_question_queue_allocate_single_threaded(
+                &_, eh)), eh);
 
     size_t answer_callback_called = 0;
     auto answer_callback = [&](
