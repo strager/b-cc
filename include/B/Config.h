@@ -41,10 +41,19 @@
 # define B_CONFIG_SIGNALFD
 #endif
 
+#define B_CONFIG_POSIX_PROCESS
+
+#define B_CONFIG_POSIX_SIGNALS
+
 #define B_CONFIG_POSIX_FD
 
 #if !(defined(NDEBUG) && NDEBUG)
 # define B_CONFIG_DEBUG
+#endif
+
+#if defined(__APPLE__)
+// pselect is poorly implemented on certain platforms.
+# define B_CONFIG_BROKEN_PSELECT
 #endif
 
 #endif

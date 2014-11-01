@@ -53,6 +53,55 @@ retry:;
     *fd = rc;
     return true;
 }
+
+B_EXPORT_FUNC
+b_kevent(
+        int fd,
+        struct kevent const *changes,
+        size_t changes_size,
+        struct kevent *events,
+        size_t events_size,
+        struct timespec const *timeout,
+        B_OUT size_t *out_events,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, fd >= 0);
+    // Permit empty changes or empty events, but not both.
+    // Ensure 0 changes/events means NULL was given.
+    B_CHECK_PRECONDITION(eh, changes || events);
+    B_CHECK_PRECONDITION(
+        eh, (changes_size == 0) != (events_size == 0));
+    B_CHECK_PRECONDITION(
+        eh, (changes == NULL) == (changes_size == 0));
+    B_CHECK_PRECONDITION(eh, changes_size <= INT_MAX);
+    B_CHECK_PRECONDITION(
+        eh, (events == NULL) == (events_size == 0));
+    B_CHECK_PRECONDITION(eh, events_size <= INT_MAX);
+    B_CHECK_PRECONDITION(
+        eh, (out_events == NULL) == (events_size == 0));
+retry:;
+    int rc = kevent(
+        fd,
+        changes,
+        (int) changes_size,
+        events,
+        (int) events_size,
+        timeout);
+    if (rc == -1) {
+        switch (B_RAISE_ERRNO_ERROR(eh, errno, "kevent")) {
+        case B_ERROR_RETRY:
+            goto retry;
+        case B_ERROR_IGNORE:
+        case B_ERROR_ABORT:
+            return false;
+        }
+    }
+    if (out_events) {
+        *out_events = rc;
+    } else {
+        B_ASSERT(rc == 0);
+    }
+    return true;
+}
 #endif
 
 #if defined(B_CONFIG_EPOLL)
@@ -109,12 +158,15 @@ retry:;
 B_EXPORT_FUNC
 b_eventfd_read(
         int fd,
-        B_OUT eventfd_t *value,
+        B_OPT B_OUT eventfd_t *value,
         struct B_ErrorHandler const *eh) {
-    B_CHECK_PRECONDITION(eh, value);
 retry:;
-    int rc = eventfd_read(fd, value);
+    eventfd_t real_value;
+    int rc = eventfd_read(fd, &real_value);
     B_CATCH_ERROR_IF_(rc == -1, "eventfd_read");
+    if (value) {
+        *value = real_value;
+    }
     return true;
 }
 
@@ -143,6 +195,69 @@ retry:;
     int rc = signalfd(-1, mask, flags);
     B_CATCH_ERROR_IF_(rc == -1, "eventfd");
     *fd = rc;
+    return true;
+}
+#endif
+
+#if defined(B_CONFIG_POSIX_FD)
+B_EXPORT_FUNC
+b_close_fd(
+        int fd,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, fd >= 0);
+retry:;
+    int rc = close(fd);
+    B_CATCH_ERROR_IF_(rc == -1, "close");
+    return true;
+}
+#endif
+
+#if defined(B_CONFIG_POSIX_SIGNALS)
+B_EXPORT void
+b_sigemptyset(
+        sigset_t *set) {
+    int rc = sigemptyset(set);
+    B_ASSERT(rc == 0);
+}
+
+B_EXPORT void
+b_sigaddset(
+        sigset_t *set,
+        int signal_number) {
+    int rc = sigaddset(set, signal_number);
+    B_ASSERT(rc == 0);
+}
+
+B_EXPORT void
+b_sigdelset(
+        sigset_t *set,
+        int signal_number) {
+    int rc = sigdelset(set, signal_number);
+    B_ASSERT(rc == 0);
+}
+
+B_EXPORT_FUNC
+b_sigaction(
+        int signal_number,
+        B_OPT struct sigaction const *new_sigaction,
+        B_OPT struct sigaction *old_sigaction,
+        struct B_ErrorHandler const *eh) {
+retry:;
+    int rc = sigaction(
+        signal_number, new_sigaction, old_sigaction);
+    B_CATCH_ERROR_IF_(rc == -1, "sigaction");
+    return true;
+}
+
+B_EXPORT_FUNC
+b_sigprocmask(
+        int how,
+        B_OPT sigset_t *const new_set,
+        B_OPT sigset_t *old_set,
+        struct B_ErrorHandler const *eh) {
+retry:;
+    int rc = sigprocmask(how, new_set, old_set);
+    B_CATCH_ERROR_IF_(rc == -1, "sigprocmask");
     return true;
 }
 #endif

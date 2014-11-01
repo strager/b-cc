@@ -147,6 +147,18 @@ elseif (HAVE_STD_CXX0X)
     append_with_space(CMAKE_CXX_FLAGS -std=c++0x)
 endif ()
 
+# For glibc.  Without this, many definitions (functions,
+# macros, structs, etc.) are missing from headers when
+# compiling with a non-GNU -std.
+#
+# Ideally we would use _DEFAULT_SOURCE, but that doesn't
+# exist in older glibc versions.
+add_definitions(-D_POSIX_SOURCE -D_POSIX_C_SOURCE=200112L)
+
+# For Mac OS X, to include BSD extensions such as flock().
+# Required if _POSIX_SOURCE is defined.
+add_definitions(-D_DARWIN_C_SOURCE)
+
 # These checks must come after checking for -std=c++11.
 # Otherwise, we may pick a really old libc++ without C++11
 # support instead of a modern libstdc++.

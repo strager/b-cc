@@ -46,6 +46,7 @@ static char const *
 log_level_name_(enum B_LogLevel log_level) {
     switch (log_level) {
     case B_DEBUG: return "Debug";
+    case B_WARN: return "Warning";
     }
     B_BUG();
 }

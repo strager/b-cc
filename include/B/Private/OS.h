@@ -21,6 +21,10 @@
 # include <sys/eventfd.h>
 #endif
 
+#if defined(B_CONFIG_POSIX_SIGNALS)
+# include <signal.h>
+#endif
+
 struct B_ErrorHandler;
 
 #if defined(__cplusplus)
@@ -31,6 +35,17 @@ extern "C" {
 B_EXPORT_FUNC
 b_kqueue(
         B_OUT int *fd,
+        struct B_ErrorHandler const *);
+
+B_EXPORT_FUNC
+b_kevent(
+        int fd,
+        struct kevent const *changes,
+        size_t changes_size,
+        struct kevent *events,
+        size_t events_size,
+        struct timespec const *timeout,
+        B_OUT size_t *out_events,
         struct B_ErrorHandler const *);
 #endif
 
@@ -62,7 +77,7 @@ b_eventfd(
 B_EXPORT_FUNC
 b_eventfd_read(
         int fd,
-        B_OUT eventfd_t *value,
+        B_OPT B_OUT eventfd_t *value,
         struct B_ErrorHandler const *);
 
 B_EXPORT_FUNC
@@ -86,6 +101,39 @@ b_signalfd_create(
 B_EXPORT_FUNC
 b_close_fd(
         int fd,
+        struct B_ErrorHandler const *);
+#endif
+
+#if defined(B_CONFIG_POSIX_SIGNALS)
+// Aborts on failure.
+B_EXPORT void
+b_sigemptyset(
+        sigset_t *);
+
+// Aborts on failure.
+B_EXPORT void
+b_sigaddset(
+        sigset_t *,
+        int signal_number);
+
+// Aborts on failure.
+B_EXPORT void
+b_sigdelset(
+        sigset_t *,
+        int signal_number);
+
+B_EXPORT_FUNC
+b_sigaction(
+        int signal_number,
+        B_OPT struct sigaction const *new_sigaction,
+        B_OPT struct sigaction *old_sigaction,
+        struct B_ErrorHandler const *);
+
+B_EXPORT_FUNC
+b_sigprocmask(
+        int how,
+        B_OPT sigset_t *const new_set,
+        B_OPT sigset_t *old_set,
         struct B_ErrorHandler const *);
 #endif
 

@@ -9,6 +9,7 @@
 
 enum B_LogLevel {
     B_DEBUG = 1,
+    B_WARN = 2,
 };
 
 #define B_LOG(_level, ...) \

@@ -92,21 +92,21 @@ static B_FUNC
 run_link(
         std::string const &path,
         B_AnswerContext const *answer_context,
-        B_ProcessLoop *,
+        B_ProcessController *,
         B_ErrorHandler const *eh);
 
 static B_FUNC
 run_c_compile(
         std::string const &path,
         B_AnswerContext const *answer_context,
-        B_ProcessLoop *,
+        B_ProcessController *,
         B_ErrorHandler const *eh);
 
 static B_FUNC
 run_cc_compile(
         std::string const &path,
         B_AnswerContext const *answer_context,
-        B_ProcessLoop *,
+        B_ProcessController *,
         B_ErrorHandler const *eh);
 
 static B_FUNC
@@ -122,8 +122,8 @@ dispatch_question(
         B_ErrorHandler const *eh) {
     auto main_closure
         = static_cast<B_MainClosure *>(opaque);
-    B_ProcessLoop *process_loop
-        = main_closure->process_loop;
+    B_ProcessController *process_controller
+        = main_closure->process_controller;
 
     if (answer_context->question_vtable->uuid
             != b_file_contents_question_vtable()->uuid) {
@@ -143,19 +143,19 @@ dispatch_question(
         return run_link(
             path,
             answer_context,
-            process_loop,
+            process_controller,
             eh);
     } else if (extension == ".c.o") {
         return run_c_compile(
             path,
             answer_context,
-            process_loop,
+            process_controller,
             eh);
     } else if (extension == ".cc.o") {
         return run_cc_compile(
             path,
             answer_context,
-            process_loop,
+            process_controller,
             eh);
     } else {
         return check_file(path, answer_context, eh);
@@ -166,7 +166,7 @@ static B_FUNC
 run_link(
         std::string const &exe_path,
         B_AnswerContext const *answer_context,
-        B_ProcessLoop *process_loop,
+        B_ProcessController *process_controller,
         B_ErrorHandler const *eh) {
     std::vector<std::string> o_paths = {
         "ex/1/main.cc.o",
@@ -215,7 +215,7 @@ run_link(
         questions.data(),
         questions_vtables.data(),
         questions.size(),
-        [answer_context, exe_path, o_paths, process_loop](
+        [=](
                 B_Answer *const *,
                 B_ErrorHandler const *eh) {
             std::vector<char const *> args = {
@@ -239,7 +239,7 @@ run_link(
             args.push_back(nullptr);
             return b_answer_context_exec(
                 answer_context,
-                process_loop,
+                process_controller,
                 args.data(),
                 eh);
         },
@@ -255,7 +255,7 @@ static B_FUNC
 run_c_compile(
         std::string const &o_path,
         B_AnswerContext const *answer_context,
-        B_ProcessLoop *process_loop,
+        B_ProcessController *process_controller,
         B_ErrorHandler const *eh) {
     std::string c_path
             = path_drop_extensions(o_path) + ".c";
@@ -266,7 +266,7 @@ run_c_compile(
         answer_context,
         question,
         b_file_contents_question_vtable(),
-        [answer_context, c_path, o_path, process_loop](
+        [=](
                 B_Answer *,
                 B_ErrorHandler const *eh) {
             char const *command[] = {
@@ -284,7 +284,7 @@ run_c_compile(
             };
             return b_answer_context_exec(
                 answer_context,
-                process_loop,
+                process_controller,
                 command,
                 eh);
         },
@@ -300,7 +300,7 @@ static B_FUNC
 run_cc_compile(
         std::string const &o_path,
         B_AnswerContext const *answer_context,
-        B_ProcessLoop *process_loop,
+        B_ProcessController *process_controller,
         B_ErrorHandler const *eh) {
     std::string cc_path
             = path_drop_extensions(o_path) + ".cc";
@@ -312,7 +312,7 @@ run_cc_compile(
         answer_context,
         question,
         b_file_contents_question_vtable(),
-        [answer_context, cc_path, o_path, process_loop](
+        [=](
                 B_Answer *,
                 B_ErrorHandler const *eh) {
             char const *command[] = {
@@ -330,7 +330,7 @@ run_cc_compile(
             };
             return b_answer_context_exec(
                 answer_context,
-                process_loop,
+                process_controller,
                 command,
                 eh);
         },

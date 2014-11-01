@@ -112,13 +112,7 @@ need_answer_callback_(
 
 static B_FUNC
 exec_exit_callback_(
-        int exit_code,
-        void *opaque,
-        struct B_ErrorHandler const *);
-
-static B_FUNC
-exec_error_callback_(
-        struct B_Error,
+        struct B_ProcessExitStatus const *,
         void *opaque,
         struct B_ErrorHandler const *);
 
@@ -287,18 +281,17 @@ b_answer_context_error(
 B_EXPORT_FUNC
 b_answer_context_exec(
         struct B_AnswerContext const *answer_context,
-        struct B_ProcessLoop *process_loop,
+        struct B_ProcessController *process_controller,
         char const *const *args,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION_ANSWER_CONTEXT(eh, answer_context);
-    B_CHECK_PRECONDITION(eh, process_loop);
+    B_CHECK_PRECONDITION(eh, process_controller);
     B_CHECK_PRECONDITION(eh, args);
 
-    return b_process_loop_exec(
-        process_loop,
+    return b_process_controller_exec_basic(
+        process_controller,
         args,
         exec_exit_callback_,
-        exec_error_callback_,
         (void *) answer_context,
         eh);
 }
@@ -577,29 +570,26 @@ need_answer_callback_(
 
 static B_FUNC
 exec_exit_callback_(
-        int exit_code,
+        struct B_ProcessExitStatus const *exit_status,
         void *opaque,
         struct B_ErrorHandler const *eh) {
     struct B_AnswerContext const *answer_context
         = (const void *) opaque;
     B_CHECK_PRECONDITION(eh, answer_context);
 
-    if (exit_code == 0) {
-        return b_answer_context_success(answer_context, eh);
-    } else {
+    switch (exit_status->type) {
+    case B_PROCESS_EXIT_STATUS_SIGNAL:
+    case B_PROCESS_EXIT_STATUS_EXCEPTION:
+    default:
         return b_answer_context_error(answer_context, eh);
+
+    case B_PROCESS_EXIT_STATUS_CODE:
+        if (exit_status->code.exit_code == 0) {
+            return b_answer_context_success(
+                answer_context, eh);
+        } else {
+            return b_answer_context_error(
+                answer_context, eh);
+        }
     }
-}
-
-static B_FUNC
-exec_error_callback_(
-        struct B_Error error,
-        void *opaque,
-        struct B_ErrorHandler const *eh) {
-    struct B_AnswerContext const *answer_context
-        = (const void *) opaque;
-    B_CHECK_PRECONDITION(eh, answer_context);
-
-    (void) error;  // TODO(strager)
-    return b_answer_context_error(answer_context, eh);
 }

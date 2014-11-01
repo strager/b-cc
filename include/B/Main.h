@@ -6,13 +6,13 @@
 
 struct B_Answer;
 struct B_ErrorHandler;
-struct B_ProcessLoop;
+struct B_ProcessController;
 struct B_Question;
 struct B_QuestionVTable;
 struct B_QuestionVTableSet;
 
 struct B_MainClosure {
-    struct B_ProcessLoop *process_loop;
+    struct B_ProcessController *process_controller;
 
     // Parameter to b_main.
     void *opaque;
@@ -29,16 +29,22 @@ extern "C" {
 // combination of the following function calls:
 //
 // 1. b_process_loop_allocate
-// 2. b_process_loop_run_async_unsafe
-// 3. b_question_queue_allocate
+// 2. b_process_manager_allocate
+// 3. b_question_queue_allocate_*
 // 4. b_database_load_sqlite
 // 5. b_database_recheck_all
-// 6. b_question_queue_enqueue
-// 7. b_question_dispatch
-// 8-. Deallocation routines for steps 1-4.
+// 6. b_question_queue_enqueue_root
+// 7. b_question_queue_try_dequeue
+// 8. b_question_dispatch_one
+// 9. b_question_queue_finalize_root
 //
 // When dispatch_callback is called, the opaque parameter
 // points to a MainClosure.
+//
+// On some POSIX platforms (e.g. Linux), b_main will block
+// the SIGCHLD signal process-wide (using sigprocmask).
+// When this function returns, SIGCHLD is unblocked (or
+// remains blocked if it was blocked before calling b_main).
 B_EXPORT_FUNC
 b_main(
         struct B_Question const *initial_question,

@@ -8,7 +8,7 @@
 
 struct B_Database;
 struct B_ErrorHandler;
-struct B_ProcessLoop;
+struct B_ProcessController;
 struct B_Question;
 struct B_QuestionQueue;
 struct B_QuestionVTable;
@@ -121,14 +121,15 @@ b_answer_context_error(
 //        struct B_AnswerContext const *,
 //        struct B_ErrorHandler const *);
 
-// Convenience function which calls b_process_run and
-// (eventually) b_answer_context_success (upon an exit code
-// of zero) or b_answer_context_error (upon an asynchronous
-// error or non-zero exit code).
+// Convenience function which calls
+// b_process_controller_exec_basic and (eventually)
+// b_answer_context_success (upon an exit code of zero) or
+// b_answer_context_error (upon a non-zero exit code,
+// signal, or exception).
 B_EXPORT_FUNC
 b_answer_context_exec(
         struct B_AnswerContext const *,
-        struct B_ProcessLoop *,
+        struct B_ProcessController *,
         char const *const *args,
         struct B_ErrorHandler const *);
 
