@@ -41,6 +41,26 @@ scan_build_flags := $(addprefix -enable-checker ,\
 # alpha.core.PointerArithm # Noisy in gtest macros.
 # alpha.deadcode.UnreachableCode # Noisy false positives.
 
+# List of all goals defined by this Makefile.
+real_goals := \
+	$(outdir)/.exists \
+	$(outdir)/Makefile \
+	all \
+	build \
+	clang-static-analysis \
+	clean \
+	configure \
+	test
+
+# Goals given but unrecognized by this Makefile.  Will be
+# passed to child invocations of 'make'.
+unknown_goals := $(filter-out $(real_goals),$(MAKECMDGOALS))
+
+# Define a goal for every unknown goal which depends on
+# 'build'.  This will cause 'build' to run (only once).
+$(foreach goal,$(unknown_goals), \
+$(goal): build)
+
 .PHONY: all
 all: build
 
@@ -61,7 +81,7 @@ $(out_dir)/Makefile: $(out_dir)/.exists
 
 .PHONY: build
 build: $(out_dir)/Makefile
-	@$(MAKE) -C $(out_dir)
+	@$(MAKE) -C $(out_dir) $(unknown_goals)
 
 # TODO(strager): Pass down -j argument from Make to ctest.
 .PHONY: test
