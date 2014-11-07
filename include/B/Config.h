@@ -43,4 +43,8 @@
 
 #define B_CONFIG_POSIX_FD
 
+#if !(defined(NDEBUG) && NDEBUG)
+# define B_CONFIG_DEBUG
+#endif
+
 #endif

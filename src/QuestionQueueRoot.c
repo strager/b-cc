@@ -1,5 +1,6 @@
 #include <B/Alloc.h>
 #include <B/Assert.h>
+#include <B/Config.h>
 #include <B/Error.h>
 #include <B/QuestionQueue.h>
 
@@ -12,8 +13,10 @@ struct B_QuestionQueueRoot {
     bool did_answer;
     struct B_Answer *answer;
 
+#if defined(B_CONFIG_DEBUG)
     // Assigned when dealloate is called.
     bool did_deallocate;
+#endif
 };
 
 static B_FUNC
@@ -59,7 +62,9 @@ b_question_queue_enqueue_root(
         .queue = queue,
         .did_answer = false,
         .answer = NULL,
+#if defined(B_CONFIG_DEBUG)
         .did_deallocate = false,
+#endif
     };
 
     if (!b_question_queue_enqueue(
@@ -87,9 +92,6 @@ b_question_queue_finalize_root(
     B_CHECK_PRECONDITION(eh, root);
     B_CHECK_PRECONDITION(eh, out_answer);
 
-    // FIXME(strager): Should this error on failure instead?
-    B_ASSERT(root->did_deallocate);
-
     if (root->did_answer) {
         *out_answer = root->answer;
     } else {
@@ -107,8 +109,10 @@ root_deallocate_(
         = (struct B_QuestionQueueRoot *) super;
     B_CHECK_PRECONDITION(eh, root_queue_item);
 
+#if defined(B_CONFIG_DEBUG)
     B_ASSERT(!root_queue_item->did_deallocate);
     root_queue_item->did_deallocate = true;
+#endif
 
     return true;
 }
