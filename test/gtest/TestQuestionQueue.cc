@@ -84,11 +84,16 @@ public:
             B_OUTPTR B_QuestionQueue **,
             B_ErrorHandler const *) = 0;
 
+    // Returns true if try_consume_event can have false
+    // positives.
+    virtual bool
+    consumes_spurious_events() = 0;
+
     // Tests if an event was given by the QuestionQueue.  If
     // so, the event is consumed.
     //
-    // Spurious wake-ups are possible.  In other words,
-    // there are false positives for signaled being true.
+    // May have false positives iff consumes_spurious_events
+    // returns true.
     virtual bool
     try_consume_event() = 0;
 };
@@ -115,6 +120,11 @@ public:
             B_ErrorHandler const *eh) override {
         return b_question_queue_allocate_single_threaded(
             out, eh);
+    }
+
+    bool
+    consumes_spurious_events() override {
+        return true;
     }
 
     bool
@@ -196,6 +206,11 @@ public:
             B_ErrorHandler const *eh) override {
         return b_question_queue_allocate_with_pthread_cond(
             &this->cond, out, eh);
+    }
+
+    bool
+    consumes_spurious_events() override {
+        return true;
     }
 
     bool
@@ -331,6 +346,11 @@ public:
     }
 
     bool
+    consumes_spurious_events() override {
+        return false;
+    }
+
+    bool
     try_consume_event() override {
         const struct timespec timeout = {0, 0};
         struct kevent events[2];
@@ -393,6 +413,11 @@ public:
             B_ErrorHandler const *eh) override {
         return b_question_queue_allocate_with_eventfd(
             this->eventfd, out, eh);
+    }
+
+    bool
+    consumes_spurious_events() override {
+        return false;
     }
 
     bool
@@ -495,4 +520,19 @@ TEST_P(TestQuestionQueue, EnqueueOneItemSignals) {
         eh));
 
     EXPECT_TRUE(tester->try_consume_event());
+}
+
+TEST_P(TestQuestionQueue, EmptyQueueIsUnsignaled) {
+    B_ErrorHandler const *eh = nullptr;
+    auto tester = this->create_tester();
+
+    B_QuestionQueue *queue_raw;
+    ASSERT_TRUE(tester->queue_allocate(&queue_raw, eh));
+    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
+        queue(queue_raw, eh);
+    queue_raw = nullptr;
+
+    if (!tester->consumes_spurious_events()) {
+        EXPECT_FALSE(tester->try_consume_event());
+    }
 }
