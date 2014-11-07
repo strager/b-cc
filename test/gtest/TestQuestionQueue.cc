@@ -67,11 +67,17 @@ namespace Testers {
 
 class Tester {
 public:
+    class Factory {
+    public:
+        virtual std::unique_ptr<Tester>
+        create_tester() const = 0;
+
+        virtual const char *
+        get_type_string() const = 0;
+    };
+
     virtual ~Tester() {
     }
-
-    virtual const char *
-    get_type_string() const = 0;
 
     virtual B_FUNC
     queue_allocate(
@@ -89,10 +95,19 @@ public:
 
 class SingleThreadedTester : public Tester {
 public:
-    const char *
-    get_type_string() const override {
-        return "single_threaded";
-    }
+    class Factory : public Tester::Factory {
+    public:
+        std::unique_ptr<Tester>
+        create_tester() const override {
+            return std::unique_ptr<Tester>(
+                new SingleThreadedTester());
+        }
+
+        const char *
+        get_type_string() const override {
+            return "single_threaded";
+        }
+    };
 
     B_FUNC
     queue_allocate(
@@ -111,6 +126,21 @@ public:
 #if defined(B_CONFIG_PTHREAD)
 class PthreadCondTester : public Tester {
 public:
+    class Factory : public Tester::Factory {
+    public:
+        std::unique_ptr<Tester>
+        create_tester() const override {
+            return std::unique_ptr<Tester>(
+                new PthreadCondTester());
+        }
+
+
+        const char *
+        get_type_string() const override {
+            return "pthread_cond";
+        }
+    };
+
     PthreadCondTester() :
             signaled(false),
             started(false),
@@ -156,15 +186,8 @@ public:
 
         rc = pthread_cond_destroy(&this->cond);
         EXPECT_EQ(0, rc) << strerror(rc);
-        rc = pthread_cond_destroy(&this->cond);
-        EXPECT_EQ(0, rc) << strerror(rc);
         rc = pthread_mutex_destroy(&this->lock);
         EXPECT_EQ(0, rc) << strerror(rc);
-    }
-
-    const char *
-    get_type_string() const override {
-        return "pthread_cond";
     }
 
     B_FUNC
@@ -253,6 +276,20 @@ private:
 #if defined(B_CONFIG_KQUEUE)
 class KqueueTester : public Tester {
 public:
+    class Factory : public Tester::Factory {
+    public:
+        std::unique_ptr<Tester>
+        create_tester() const override {
+            return std::unique_ptr<Tester>(
+                new KqueueTester());
+        }
+
+        const char *
+        get_type_string() const override {
+            return "kqueue";
+        }
+    };
+
     KqueueTester() {
         this->kqueue = ::kqueue();
         EXPECT_NE(-1, this->kqueue) << strerror(errno);
@@ -274,11 +311,6 @@ public:
     ~KqueueTester() {
         EXPECT_EQ(0, close(this->kqueue))
             << strerror(errno);
-    }
-
-    const char *
-    get_type_string() const override {
-        return "kqueue";
     }
 
     B_FUNC
@@ -331,6 +363,20 @@ private:
 #if defined(B_CONFIG_EVENTFD)
 class EventfdTester : public Tester {
 public:
+    class Factory : public Tester::Factory {
+    public:
+        std::unique_ptr<Tester>
+        create_tester() const override {
+            return std::unique_ptr<Tester>(
+                new EventfdTester());
+        }
+
+        const char *
+        get_type_string() const override {
+            return "eventfd";
+        }
+    };
+
     EventfdTester() {
         this->eventfd = ::eventfd(0, O_CLOEXEC);
         EXPECT_NE(-1, this->eventfd) << strerror(errno);
@@ -339,11 +385,6 @@ public:
     ~EventfdTester() {
         EXPECT_EQ(0, close(this->eventfd))
             << strerror(errno);
-    }
-
-    const char *
-    get_type_string() const override {
-        return "eventfd";
     }
 
     B_FUNC
@@ -384,54 +425,56 @@ private:
 
 std::ostream &operator<<(
         std::ostream &stream,
-        Testers::Tester *tester) {
-    if (tester) {
-        stream << tester->get_type_string();
+        Testers::Tester::Factory *tester_factory) {
+    if (tester_factory) {
+        stream << tester_factory->get_type_string();
     } else {
         stream << "(null)";
     }
     return stream;
 }
 
-Testers::Tester *tester_instances[] = {
-    new Testers::SingleThreadedTester(),
+Testers::Tester::Factory *tester_factories[] = {
+    new Testers::SingleThreadedTester::Factory(),
 #if defined(B_CONFIG_PTHREAD)
-    new Testers::PthreadCondTester(),
+    new Testers::PthreadCondTester::Factory(),
 #endif
 #if defined(B_CONFIG_KQUEUE)
-    new Testers::KqueueTester(),
+    new Testers::KqueueTester::Factory(),
 #endif
 #if defined(B_CONFIG_EVENTFD)
-    new Testers::EventfdTester(),
+    new Testers::EventfdTester::Factory(),
 #endif
 };
 
 }
 
-class TestQuestionQueue :
-        public ::testing::TestWithParam<Testers::Tester *> {
+class TestQuestionQueue : public ::testing::TestWithParam<
+        Testers::Tester::Factory *> {
 public:
-    Testers::Tester *
-    tester() const {
-        return this->GetParam();
+    std::unique_ptr<Testers::Tester>
+    create_tester() const {
+        return this->GetParam()->create_tester();
     }
 };
 
 INSTANTIATE_TEST_CASE_P(
     ,  // No prefix.
     TestQuestionQueue,
-    ::testing::ValuesIn(Testers::tester_instances));
+    ::testing::ValuesIn(Testers::tester_factories));
 
 TEST_P(TestQuestionQueue, AllocateDeallocate) {
     B_ErrorHandler const *eh = nullptr;
+    auto tester = this->create_tester();
 
     B_QuestionQueue *queue;
-    ASSERT_TRUE(this->tester()->queue_allocate(&queue, eh));
+    ASSERT_TRUE(tester->queue_allocate(&queue, eh));
     EXPECT_TRUE(b_question_queue_deallocate(queue, eh));
 }
 
 TEST_P(TestQuestionQueue, EnqueueOneItemSignals) {
     B_ErrorHandler const *eh = nullptr;
+    auto tester = this->create_tester();
 
     // Must be alive while queue is destructed.
     StrictMock<MockQuestion> question;
@@ -441,8 +484,7 @@ TEST_P(TestQuestionQueue, EnqueueOneItemSignals) {
         .WillOnce(Return(true));
 
     B_QuestionQueue *queue_raw;
-    ASSERT_TRUE(this->tester()->queue_allocate(
-        &queue_raw, eh));
+    ASSERT_TRUE(tester->queue_allocate(&queue_raw, eh));
     std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
         queue(queue_raw, eh);
     queue_raw = nullptr;
@@ -452,5 +494,5 @@ TEST_P(TestQuestionQueue, EnqueueOneItemSignals) {
         &queue_item,
         eh));
 
-    EXPECT_TRUE(this->tester()->try_consume_event());
+    EXPECT_TRUE(tester->try_consume_event());
 }
