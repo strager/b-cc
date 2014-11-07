@@ -43,6 +43,8 @@ b_main(
 #if defined(B_CONFIG_PTHREAD)
     pthread_cond_t question_queue_cond;
     bool did_init_question_queue_cond = false;
+    pthread_mutex_t question_queue_lock;
+    bool did_init_question_queue_lock = false;
 #endif
 
     if (!b_process_loop_allocate(
@@ -70,9 +72,13 @@ b_main(
     }
 
 #if defined(B_CONFIG_PTHREAD)
-    int rc = pthread_cond_init(&question_queue_cond, NULL);
+    int rc;
+    rc = pthread_cond_init(&question_queue_cond, NULL);
     B_ASSERT(rc == 0);
     did_init_question_queue_cond = true;
+    rc = pthread_mutex_init(&question_queue_lock, NULL);
+    B_ASSERT(rc == 0);
+    did_init_question_queue_lock = true;
 #else
 # error "Unknown question queue implementation"
 #endif
@@ -94,15 +100,43 @@ b_main(
         .process_loop = process_loop,
         .opaque = opaque,
     };
+#if defined(B_CONFIG_PTHREAD)
+    rc = pthread_mutex_lock(&question_queue_lock);
+    B_ASSERT(rc == 0);
+#endif
     while (true) {
-        struct B_QuestionQueueItem *queue_item = NULL;
-        if (!b_question_queue_dequeue(
-                question_queue, &queue_item, eh)) {
+        struct B_QuestionQueueItem *queue_item;
+        bool question_queue_closed = false;
+        if (!b_question_queue_try_dequeue(
+                question_queue,
+                &queue_item,
+                &question_queue_closed,
+                eh)) {
+#if defined(B_CONFIG_PTHREAD)
+            rc = pthread_mutex_unlock(&question_queue_lock);
+            B_ASSERT(rc == 0);
+#endif
             goto fail;
         }
-        if (!queue_item) {
+        if (question_queue_closed) {
+#if defined(B_CONFIG_PTHREAD)
+            rc = pthread_mutex_unlock(&question_queue_lock);
+            B_ASSERT(rc == 0);
+#endif
             break;
         }
+        if (queue_item == NULL) {
+#if defined(B_CONFIG_PTHREAD)
+            rc = pthread_cond_wait(
+                &question_queue_cond, &question_queue_lock);
+            B_ASSERT(rc == 0);
+#endif
+            continue;
+        }
+#if defined(B_CONFIG_PTHREAD)
+        rc = pthread_mutex_unlock(&question_queue_lock);
+        B_ASSERT(rc == 0);
+#endif
 
         if (!b_question_dispatch_one(
                 queue_item,
@@ -141,6 +175,10 @@ done:
             question_queue, eh);
     }
 #if defined(B_CONFIG_PTHREAD)
+    if (did_init_question_queue_lock) {
+        rc = pthread_mutex_destroy(&question_queue_lock);
+        B_ASSERT(rc == 0);
+    }
     if (did_init_question_queue_cond) {
         rc = pthread_cond_destroy(&question_queue_cond);
         B_ASSERT(rc == 0);

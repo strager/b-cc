@@ -4,14 +4,16 @@
 #include <B/Base.h>
 #include <B/QuestionAnswer.h>
 
+#include <stdbool.h>
+
 struct B_ErrorHandler;
 
-// An unordered, thread-safe, dequeue-blocking queue of
-// Question-s.  Producers create QuestionQueueItem-s and add
-// them to the queue with b_question_queue_enqueue in a
-// fire-and-forget manner.  Consumers call
-// b_question_queue_dequeue and call answer_callback on
-// returned QuestionQueueItem-s.
+// An unordered, thread-safe, non-blocking queue of
+// Question-s.  Producers create QuestionQueueItem-s
+// (including a Question and a callback) and add them to the
+// queue with b_question_queue_enqueue in a fire-and-forget
+// manner.  Consumers call b_question_queue_try_dequeue and
+// call answer_callback on returned QuestionQueueItem-s.
 //
 // Generally, your application's consumer will immediately
 // call b_question_dispatch_one and your application's
@@ -27,8 +29,8 @@ struct B_QuestionQueueRoot;
 extern "C" {
 #endif
 
-// Creates a QuestionQueue which will cause
-// b_question_queue_dequeue to spin block on an empty queue.
+// Creates a QuestionQueue which will not produce any signal
+// when b_question_queue_enqueue is called.
 B_EXPORT_FUNC
 b_question_queue_allocate_single_threaded(
         B_OUTPTR struct B_QuestionQueue **,
@@ -44,8 +46,8 @@ b_question_queue_allocate_with_pthread_cond(
 
 // Creates a QuestionQueue which will signal the given Linux
 // eventfd when b_question_queue_enqueue is called.  Calling
-// b_question_queue_dequeue does not remove the event from
-// the eventfd.
+// b_question_queue_try_dequeue does not remove the event
+// from the eventfd.
 B_EXPORT_FUNC
 b_question_queue_allocate_with_eventfd(
         B_BORROWED int eventfd,
@@ -55,8 +57,8 @@ b_question_queue_allocate_with_eventfd(
 // Creates a QuestionQueue which will call kevent with the
 // given changelist on the given kqueue file descriptor when
 // b_question_queue_enqueue is called.  Calling
-// b_question_queue_dequeue does not clear the event in the
-// kqueue.
+// b_question_queue_try_dequeue does not clear the event in
+// the kqueue.
 B_EXPORT_FUNC
 b_question_queue_allocate_with_kqueue(
         B_BORROWED int kqueue_fd,
@@ -67,8 +69,8 @@ b_question_queue_allocate_with_kqueue(
 // Creates a QuestionQueue which will call kevent64 with the
 // given changelist on the given kqueue file descriptor when
 // b_question_queue_enqueue is called.  Calling
-// b_question_queue_dequeue does not clear the event in the
-// kqueue.
+// b_question_queue_try_dequeue does not clear the event in
+// the kqueue.
 B_EXPORT_FUNC
 b_question_queue_allocate_with_kqueue64(
         B_BORROWED int kqueue_fd,
@@ -89,24 +91,31 @@ b_question_queue_enqueue(
         B_TRANSFER struct B_QuestionQueueItem *,
         struct B_ErrorHandler const *);
 
-// Blocking.  Outputs a NULL pointer if
-// b_question_queue_close was called.
-B_EXPORT_FUNC
-b_question_queue_dequeue(
-        struct B_QuestionQueue *,
-        B_OUTPTR struct B_QuestionQueueItem *B_OPT *,
-        struct B_ErrorHandler const *);
-
-// Non-blocking.  Outputs a NULL pointer if
-// b_question_queue_close was called or if the queue is
-// empty.
+// Pops a QuestionQueueItem enqueued by
+// b_question_queue_enqueue not already returned by a
+// previous call to b_question_queue_try_dequeue.
+//
+// If b_question_queue_close was called on the given
+// QuestionQueue, returns a NULL
+// question queue item and returns true for closed.
+//
+// If no QuestionQueueItem was enqueued (i.e. if the queue
+// is empty), returns a NULL question queue item and returns
+// false for closed.
+//
+// Otherwise, transfers ownership of a QuestionQueueItem to
+// the caller and returns false for closed.
+//
+// This function does not block waiting for a
+// QuestionQueueItem to be enqueued.
 B_EXPORT_FUNC
 b_question_queue_try_dequeue(
         struct B_QuestionQueue *,
         B_OUTPTR struct B_QuestionQueueItem *B_OPT *,
+        B_OUT bool *closed,
         struct B_ErrorHandler const *);
 
-// After this is called, b_question_queue_dequeue will
+// After this is called, b_question_queue_try_dequeue will
 // return NULL, and b_question_queue_enqueue will do
 // nothing.  Idempotent.
 B_EXPORT_FUNC

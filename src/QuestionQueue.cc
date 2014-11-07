@@ -68,7 +68,7 @@ struct B_QuestionQueue {
     }
 
     B_QuestionQueueItem *
-    dequeue() {
+    try_dequeue(bool *closed) {
         {
 #if defined(B_CONFIG_PTHREAD)
             B_PthreadMutexHolder locker(&this->lock);
@@ -76,28 +76,11 @@ struct B_QuestionQueue {
 # error "Unknown threads implementation"
 #endif
 
-            while (queue_items.empty() && !this->closed) {
-                this->wait_for_signal();
-            }
             if (this->closed) {
+                *closed = true;
                 return nullptr;
-            } else {
-                B_ASSERT(!queue_items.empty());
-                auto front = this->queue_items.front();
-                this->queue_items.pop_front();
-                return front;
             }
-        }
-    }
-
-    B_QuestionQueueItem *
-    try_dequeue() {
-        {
-#if defined(B_CONFIG_PTHREAD)
-            B_PthreadMutexHolder locker(&this->lock);
-#else
-# error "Unknown threads implementation"
-#endif
+            *closed = false;
 
             if (queue_items.empty()) {
                 return nullptr;
@@ -128,10 +111,6 @@ protected:
     virtual void
     signal_enqueued() = 0;
 
-    // ::lock is held.  Spurious wake-ups are accepted.
-    virtual void
-    wait_for_signal() = 0;
-
 #if defined(B_CONFIG_PTHREAD)
     pthread_mutex_t lock;
 #endif
@@ -150,11 +129,6 @@ public:
     signal_enqueued() override {
         // Do nothing.
     }
-
-    void
-    wait_for_signal() override {
-        // Do nothing.
-    }
 };
 
 #if defined(B_CONFIG_PTHREAD)
@@ -168,12 +142,6 @@ public:
     void
     signal_enqueued() override {
         int rc = pthread_cond_signal(this->cond);
-        B_ASSERT(rc == 0);
-    }
-
-    void
-    wait_for_signal() override {
-        int rc = pthread_cond_wait(this->cond, &this->lock);
         B_ASSERT(rc == 0);
     }
 
@@ -204,14 +172,6 @@ public:
         B_ASSERT(rc == 0);  // FIXME(strager)
     }
 
-    void
-    wait_for_signal() override {
-        // FIXME(strager): As far as I know, it's impossible
-        // to block waiting for a specific filter+ident
-        // combination in a kqueue.
-        B_NYI();
-    }
-
 private:
     int kqueue;
     struct kevent kevent;
@@ -230,14 +190,6 @@ public:
     signal_enqueued() override {
         B_ErrorHandler *eh = nullptr;  // FIXME(strager)
         bool ok = b_eventfd_write(this->eventfd, 1, eh);
-        (void) ok;  // FIXME(strager)
-    }
-
-    void
-    wait_for_signal() override {
-        B_ErrorHandler *eh = nullptr;  // FIXME(strager)
-        eventfd_t value;
-        bool ok = b_eventfd_read(this->eventfd, &value, eh);
         (void) ok;  // FIXME(strager)
     }
 
@@ -371,26 +323,15 @@ b_question_queue_enqueue(
 }
 
 B_EXPORT_FUNC
-b_question_queue_dequeue(
-        B_QuestionQueue *queue,
-        B_OUTPTR B_QuestionQueueItem **out,
-        B_ErrorHandler const *eh) {
-    B_CHECK_PRECONDITION(eh, queue);
-    B_CHECK_PRECONDITION(eh, out);
-
-    *out = queue->dequeue();
-    return true;
-}
-
-B_EXPORT_FUNC
 b_question_queue_try_dequeue(
         struct B_QuestionQueue *queue,
         B_OUTPTR struct B_QuestionQueueItem *B_OPT *out,
+        B_OUT bool *closed,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, queue);
     B_CHECK_PRECONDITION(eh, out);
 
-    *out = queue->try_dequeue();
+    *out = queue->try_dequeue(closed);
     return true;
 }
 

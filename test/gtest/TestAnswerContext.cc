@@ -20,6 +20,8 @@ typedef std::unique_ptr<
 TEST(TestAnswerContext, NeedOneEnqueues) {
     B_ErrorHandler const *eh = nullptr;
 
+    bool closed;
+
     // Must be alive while question_queue is destructed.
     StrictMock<MockQuestion> question;
     MockRefCounting(question);
@@ -66,8 +68,10 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
             b_question_queue_try_dequeue(
                 question_queue.get(),
                 &_,
+                &closed,
                 eh)), eh);
     ASSERT_NE(nullptr, first_queue_item);
+    EXPECT_FALSE(closed);
 
     EXPECT_EQ(&needed_question, first_queue_item->question);
     EXPECT_EQ(
@@ -79,8 +83,10 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
             b_question_queue_try_dequeue(
                 question_queue.get(),
                 &_,
+                &closed,
                 eh)), eh);
     ASSERT_EQ(nullptr, second_queue_item);
+    EXPECT_FALSE(closed);
 }
 
 // Ensures calling b_answer_context_need_one's enqueued
@@ -136,13 +142,16 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
         },
         eh));
 
+    bool closed;
     QueueItemUniquePtr queue_item(B_RETURN_OUTPTR(
             B_QuestionQueueItem *,
             b_question_queue_try_dequeue(
                 question_queue.get(),
                 &_,
+                &closed,
                 eh)), eh);
     ASSERT_NE(nullptr, queue_item);
+    EXPECT_FALSE(closed);
 
     EXPECT_EQ(&needed_question, queue_item->question);
     EXPECT_EQ(
@@ -237,13 +246,16 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
         eh));
 
     {
+        bool closed;
         QueueItemUniquePtr queue_item_1(B_RETURN_OUTPTR(
                 B_QuestionQueueItem *,
                 b_question_queue_try_dequeue(
                     question_queue.get(),
                     &_,
+                    &closed,
                     eh)), eh);
         ASSERT_NE(nullptr, queue_item_1);
+        EXPECT_FALSE(closed);
 
         EXPECT_EQ(
             &MockQuestion::vtable,
@@ -275,13 +287,16 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
     }
 
     {
+        bool closed;
         QueueItemUniquePtr queue_item_2(B_RETURN_OUTPTR(
                 B_QuestionQueueItem *,
                 b_question_queue_try_dequeue(
                     question_queue.get(),
                     &_,
+                    &closed,
                     eh)), eh);
         ASSERT_NE(nullptr, queue_item_2);
+        EXPECT_FALSE(closed);
 
         EXPECT_EQ(
             &MockQuestion::vtable,
@@ -382,13 +397,16 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
         eh));
 
     {
+        bool closed;
         QueueItemUniquePtr queue_item_1(B_RETURN_OUTPTR(
                 B_QuestionQueueItem *,
                 b_question_queue_try_dequeue(
                     question_queue.get(),
                     &_,
+                    &closed,
                     eh)), eh);
         ASSERT_NE(nullptr, queue_item_1);
+        EXPECT_FALSE(closed);
 
         EXPECT_EQ(
             &MockQuestion::vtable,
@@ -415,13 +433,16 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
     }
 
     {
+        bool closed;
         QueueItemUniquePtr queue_item_2(B_RETURN_OUTPTR(
                 B_QuestionQueueItem *,
                 b_question_queue_try_dequeue(
                     question_queue.get(),
                     &_,
+                    &closed,
                     eh)), eh);
         ASSERT_NE(nullptr, queue_item_2);
+        EXPECT_FALSE(closed);
 
         EXPECT_EQ(
             &MockQuestion::vtable,
@@ -498,13 +519,16 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
         },
         eh));
 
+    bool closed;
     QueueItemUniquePtr queue_item(B_RETURN_OUTPTR(
             B_QuestionQueueItem *,
             b_question_queue_try_dequeue(
                 question_queue.get(),
                 &_,
+                &closed,
                 eh)), eh);
     ASSERT_NE(nullptr, queue_item);
+    EXPECT_FALSE(closed);
 
     EXPECT_EQ(&needed_question, queue_item->question);
     EXPECT_EQ(
