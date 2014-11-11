@@ -218,21 +218,21 @@ if (SQLITE3_STATIC)
 
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=56273
     check_cxx_source_compiles("
+#include <cstdio>
+
 namespace {
     struct type {
         bool a;
         bool b;
-    };
 
-    bool get_b(type a) {
-        return a.b;
-    }
+        bool
+        get_b() {
+            return b;
+        }
+    };
 
     type stuff[9u];
 }
-
-void
-bar();
 
 void
 foo() {
@@ -240,13 +240,19 @@ foo() {
       if (!stuff[i].a) {
           continue;
       }
-      bar();
+      fprintf(stdout, \"\");
       for (unsigned j = i + 1u; j < 9u; j++) {
-          if (stuff[j].a && get_b(stuff[j])) {
+          if (stuff[j].a && stuff[j].get_b()) {
               return;
           }
       }
   }
+}
+
+int
+main() {
+    foo();
+    return 0;
 }
 " HAVE_NOT_GCC_BUG_56273)
     check_c_compiler_flag(
