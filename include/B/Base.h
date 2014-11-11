@@ -16,7 +16,7 @@
 // f will return false when an error occurs and eh->f()
 // returns B_ERROR_ABORT.  B_FUNC is an alias for bool as a
 // function return type.
-#define B_FUNC bool
+#define B_FUNC __attribute__((warn_unused_result)) bool
 
 #define B_EXPORT
 

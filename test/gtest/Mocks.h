@@ -86,7 +86,7 @@ public:
         }
     }
 
-    MOCK_CONST_METHOD3(equals, B_FUNC(
+    MOCK_CONST_METHOD3(equals, bool(
         MockAnswer const &,
         B_OUTPTR bool *,
         B_ErrorHandler const *));
@@ -100,7 +100,7 @@ public:
         return a->equals(*b, out, eh);
     }
 
-    MOCK_CONST_METHOD2(replicate, B_FUNC(
+    MOCK_CONST_METHOD2(replicate, bool(
         B_OUTPTR MockAnswer **,
         B_ErrorHandler const *));
 
@@ -112,7 +112,7 @@ public:
         return self->replicate(out, eh);
     }
 
-    MOCK_METHOD1(deallocate, B_FUNC(
+    MOCK_METHOD1(deallocate, bool(
         B_ErrorHandler const *));
 
     static B_FUNC
@@ -122,7 +122,7 @@ public:
         return self->deallocate(eh);
     }
 
-    MOCK_CONST_METHOD2(serialize, B_FUNC(
+    MOCK_CONST_METHOD2(serialize, bool(
         B_ByteSink *,
         B_ErrorHandler const *));
 
@@ -165,7 +165,7 @@ public:
         }
     }
 
-    MOCK_CONST_METHOD2(answer, B_FUNC(
+    MOCK_CONST_METHOD2(answer, bool(
         B_OUTPTR MockAnswer **,
         B_ErrorHandler const *));
 
@@ -177,7 +177,7 @@ public:
         return self->answer(out, eh);
     }
 
-    MOCK_CONST_METHOD3(equals, B_FUNC(
+    MOCK_CONST_METHOD3(equals, bool(
         MockQuestion const &,
         B_OUTPTR bool *,
         B_ErrorHandler const *));
@@ -191,7 +191,7 @@ public:
         return a->equals(*b, out, eh);
     }
 
-    MOCK_CONST_METHOD2(replicate, B_FUNC(
+    MOCK_CONST_METHOD2(replicate, bool(
         B_OUTPTR MockQuestion **,
         B_ErrorHandler const *));
 
@@ -203,7 +203,7 @@ public:
         return self->replicate(out, eh);
     }
 
-    MOCK_METHOD1(deallocate, B_FUNC(
+    MOCK_METHOD1(deallocate, bool(
         B_ErrorHandler const *));
 
     static B_FUNC
@@ -213,7 +213,7 @@ public:
         return self->deallocate(eh);
     }
 
-    MOCK_CONST_METHOD2(serialize, B_FUNC(
+    MOCK_CONST_METHOD2(serialize, bool(
         B_ByteSink *,
         B_ErrorHandler const *));
 

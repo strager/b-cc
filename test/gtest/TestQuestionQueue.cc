@@ -37,10 +37,10 @@ public:
                 answer_callback_} {
     }
 
-    MOCK_METHOD1(deallocate, B_FUNC(
+    MOCK_METHOD1(deallocate, bool(
         B_ErrorHandler const *));
 
-    MOCK_METHOD2(answer_callback, B_FUNC(
+    MOCK_METHOD2(answer_callback, bool(
         B_TRANSFER B_OPT B_Answer *,
         B_ErrorHandler const *));
 

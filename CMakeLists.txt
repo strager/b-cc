@@ -80,6 +80,35 @@ if (HAVE_W_CONDITIONAL_UNINITIALIZED)
     append_compiler_flags(-Wconditional-uninitialized)
 endif ()
 
+# WONTFIX by GCC:
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=25509
+check_c_source_compiles("
+__attribute__((warn_unused_result)) int
+foo(void) {
+    return 1;
+}
+int
+main() {
+    return 0;
+}
+" HAVE_ATTRIBUTE_WARN_UNUSED_RESULT)
+if (HAVE_ATTRIBUTE_WARN_UNUSED_RESULT)
+  check_c_source_compiles("
+__attribute__((warn_unused_result)) int
+foo(void) {
+    return 1;
+}
+int
+main() {
+    (void) foo();
+    return 0;
+}
+" HAVE_SUPPRESSABLE_ATTRIBUTE_WARN_UNUSED_RESULT)
+  if (NOT HAVE_SUPPRESSABLE_ATTRIBUTE_WARN_UNUSED_RESULT)
+    append_compiler_flags(-Wno-unused-result)
+  endif ()
+endif ()
+
 # TODO(strager): Use configured header file.
 check_include_file(valgrind/valgrind.h HAVE_VALGRIND_H)
 if (HAVE_VALGRIND_H)
