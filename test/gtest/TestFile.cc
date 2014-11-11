@@ -85,6 +85,11 @@ TEST(TestFile, AnswerEmptyFilesHaveSameAnswer) {
     ASSERT_TRUE(question_vtable->answer_vtable
         ->equal(answer_1, answer_2, &equal, eh));
     EXPECT_TRUE(equal);
+
+    ASSERT_TRUE(question_vtable->answer_vtable->deallocate(
+        answer_1, eh));
+    ASSERT_TRUE(question_vtable->answer_vtable->deallocate(
+        answer_2, eh));
 }
 
 TEST(TestFile, AnswerFilesWithDifferingContentsHaveDifferingAnswers) {
@@ -139,6 +144,11 @@ TEST(TestFile, AnswerFilesWithDifferingContentsHaveDifferingAnswers) {
     ASSERT_TRUE(question_vtable->answer_vtable
         ->equal(answer_1, answer_2, &equal, eh));
     EXPECT_FALSE(equal);
+
+    ASSERT_TRUE(question_vtable->answer_vtable->deallocate(
+        answer_1, eh));
+    ASSERT_TRUE(question_vtable->answer_vtable->deallocate(
+        answer_2, eh));
 }
 
 TEST(TestFile, AnswerFileWithOneOfEveryByte) {
@@ -174,4 +184,7 @@ TEST(TestFile, AnswerFileWithOneOfEveryByte) {
         &answer,
         eh));
     ASSERT_NE(nullptr, answer);
+
+    ASSERT_TRUE(question_vtable->answer_vtable->deallocate(
+        answer, eh));
 }

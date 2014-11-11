@@ -16,7 +16,7 @@ before_script:
     - if $valgrind; then export VALGRIND_FLAGS="--suppressions=$PWD/valgrind.supp --error-exitcode=1"; fi
 script:
     - make test $makeflags
-    - if $valgrind; then make test run_with="valgrind --tool=memcheck $VALGRIND_FLAGS"; fi
+    - if $valgrind; then make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"; fi
     - if $valgrind; then make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"; fi
 
     # Now with optimizations!
@@ -24,7 +24,7 @@ script:
     - export CXXFLAGS="$CFLAGS"
     - make clean
     - make test
-    - if $valgrind; then make test run_with="valgrind --tool=memcheck $VALGRIND_FLAGS"; fi
+    - if $valgrind; then make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"; fi
     - if $valgrind; then make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"; fi
 
     # TODO(strager): DRD (valgrind tool) crashes on vfork (posix_spawn).
