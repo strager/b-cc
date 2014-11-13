@@ -104,13 +104,15 @@ answer_callback_(
     B_CHECK_PRECONDITION(eh, closure->queue_item);
     B_CHECK_PRECONDITION(eh, closure->queue_item->answer_callback);
 
-    if (!b_database_record_answer(
-            closure->database,
-            closure->answer_context.question,
-            closure->answer_context.question_vtable,
-            answer,
-            eh)) {
-        return false;
+    if (answer) {
+        if (!b_database_record_answer(
+                closure->database,
+                closure->answer_context.question,
+                closure->answer_context.question_vtable,
+                answer,
+                eh)) {
+            return false;
+        }
     }
 
     if (!closure->queue_item->answer_callback(

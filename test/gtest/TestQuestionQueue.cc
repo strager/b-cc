@@ -24,45 +24,6 @@
 
 using namespace testing;
 
-class MockQuestionQueueItem :
-        public B_QuestionQueueItem {
-public:
-    MockQuestionQueueItem(
-            B_Question *question,
-            B_QuestionVTable const *question_vtable) :
-            B_QuestionQueueItem{
-                deallocate_,
-                question,
-                question_vtable,
-                answer_callback_} {
-    }
-
-    MOCK_METHOD1(deallocate, bool(
-        B_ErrorHandler const *));
-
-    MOCK_METHOD2(answer_callback, bool(
-        B_TRANSFER B_OPT B_Answer *,
-        B_ErrorHandler const *));
-
-private:
-    static B_FUNC
-    deallocate_(
-            B_QuestionQueueItem *queue_item,
-            B_ErrorHandler const *eh) {
-        return static_cast<MockQuestionQueueItem *>(
-            queue_item)->deallocate(eh);
-    }
-
-    static B_FUNC
-    answer_callback_(
-            B_TRANSFER B_OPT B_Answer *answer,
-            void *opaque,
-            B_ErrorHandler const *eh) {
-        return static_cast<MockQuestionQueueItem *>(
-            opaque)->answer_callback(answer, eh);
-    }
-};
-
 namespace Testers {
 
 class Tester {

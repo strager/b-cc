@@ -42,4 +42,54 @@ b_question_dispatch_one(
 }
 #endif
 
+#if defined(__cplusplus)
+# include <B/Alloc.h>
+# include <B/Assert.h>
+
+template<typename TDispatchCallback>
+B_FUNC
+b_question_dispatch_one(
+        B_TRANSFER struct B_QuestionQueueItem *queue_item,
+        struct B_QuestionQueue *queue,
+        struct B_Database *database,
+        TDispatchCallback callback,
+        struct B_ErrorHandler const *eh) {
+    TDispatchCallback *heap_callback = nullptr;
+
+    if (!b_new(&heap_callback, eh, std::move(callback))) {
+        goto fail;
+    }
+
+    B_QuestionDispatchCallback *real_callback;
+    real_callback = [](
+            B_AnswerContext const *answer_context,
+            void *opaque,
+            B_ErrorHandler const *eh) -> bool {
+        auto heap_callback
+            = static_cast<TDispatchCallback *>(opaque);
+        bool ok = (*heap_callback)(answer_context, eh);
+        (void) b_delete(heap_callback, eh);
+        return ok;
+    };
+
+    if (!b_question_dispatch_one(
+            queue_item,
+            queue,
+            database,
+            real_callback,
+            heap_callback,
+            eh)) {
+        goto fail;
+    }
+
+    return true;
+
+fail:
+    if (heap_callback) {
+        (void) b_delete(heap_callback, eh);
+    }
+    return false;
+}
+#endif
+
 #endif
