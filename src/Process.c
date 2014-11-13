@@ -48,7 +48,7 @@ struct ProcessInfo_ {
 typedef B_LIST_HEAD(, ProcessInfo_) ProcessInfoList_;
 
 struct B_ProcessController {
-    pthread_mutex_t lock;
+    struct B_Mutex lock;
 
     // Locked by lock.
     ProcessInfoList_ processes;
@@ -121,7 +121,6 @@ b_process_manager_allocate(
             == !!delegate->unregister_process_handle);
     B_CHECK_PRECONDITION(eh, out);
 
-    int rc;
     struct B_ProcessManager *manager = NULL;
     bool mutex_initialized = false;
 
@@ -137,18 +136,9 @@ b_process_manager_allocate(
                 &manager->controller.processes),
         },
     };
-retry_mutex_init:
-    rc = pthread_mutex_init(
-        &manager->controller.lock, NULL);
-    if (rc != 0) {
-        switch (B_RAISE_ERRNO_ERROR(
-                eh, rc, "pthread_mutex_init")) {
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            goto fail;
-        case B_ERROR_RETRY:
-            goto retry_mutex_init;
-        }
+    if (!b_mutex_initialize(
+            &manager->controller.lock, eh)) {
+        goto fail;
     }
     mutex_initialized = true;
 
@@ -158,9 +148,8 @@ retry_mutex_init:
 fail:
     if (mutex_initialized) {
         B_ASSERT(manager);
-        // TODO(strager): Error checking.
-        (void) pthread_mutex_destroy(
-            &manager->controller.lock);
+        (void) b_mutex_destroy(
+            &manager->controller.lock, eh);
     }
     if (manager) {
         (void) b_deallocate(manager, eh);
@@ -254,9 +243,7 @@ b_process_manager_check(
     ProcessInfoList_ exited_processes
         = B_LIST_HEAD_INITIALIZER(&exited_processes);
 
-    if (!B_MUTEX_LOCK(manager->controller.lock, eh)) {
-        return false;
-    }
+    b_mutex_lock(&manager->controller.lock);
     B_LIST_FOREACH_SAFE(
             process_info,
             &manager->controller.processes,
@@ -268,7 +255,7 @@ b_process_manager_check(
             break;
         }
     }
-    B_MUTEX_MUST_UNLOCK(manager->controller.lock, eh);
+    b_mutex_unlock(&manager->controller.lock);
 
     B_LIST_FOREACH_SAFE(
             process_info,
@@ -376,12 +363,10 @@ retry:
     // ProcessControllerDelegate::register_process_id calls
     // e.g. b_process_manager_check.
     // TODO(strager): Write a test.
-    if (!B_MUTEX_LOCK(controller->lock, eh)) {
-        goto fail;
-    }
+    b_mutex_lock(&controller->lock);
     B_LIST_INSERT_HEAD(
         &controller->processes, process_info, link);
-    B_MUTEX_MUST_UNLOCK(controller->lock, eh);
+    b_mutex_unlock(&controller->lock);
     process_info_in_list = true;
 
     if (!manager->delegate->register_process_id(
@@ -400,15 +385,9 @@ retry:
 fail:
     if (process_info_in_list) {
         B_ASSERT(process_info);
-        if (!B_MUTEX_LOCK(controller->lock, eh)) {
-            B_LOG(
-                B_WARN,
-                "Leaking process with ID %ld in controller",
-                (long) process_id);
-            goto fail;
-        }
+        b_mutex_lock(&controller->lock);
         B_LIST_REMOVE(process_info, link);
-        B_MUTEX_MUST_UNLOCK(controller->lock, eh);
+        b_mutex_unlock(&controller->lock);
     }
     if (process_info) {
         (void) b_deallocate(process_info, eh);

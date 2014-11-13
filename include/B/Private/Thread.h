@@ -6,89 +6,88 @@
 
 #if defined(B_CONFIG_PTHREAD)
 # include <pthread.h>
+#endif
 
 struct B_ErrorHandler;
 
-B_EXPORT_FUNC
-b_pthread_mutex_lock(
-        pthread_mutex_t *,
-        struct B_ErrorHandler const *);
-
-B_EXPORT_FUNC
-b_pthread_mutex_unlock(
-        pthread_mutex_t *,
-        struct B_ErrorHandler const *);
-
-#define B_MUTEX_LOCK(_lock, _eh) \
-    (b_pthread_mutex_lock(&(_lock), (_eh)))
-
-#define B_MUTEX_UNLOCK(_lock, _eh) \
-    (b_pthread_mutex_unlock(&(_lock), (_eh)))
-
-#define B_MUTEX_MUST_UNLOCK(_lock, _eh) \
-    do { \
-        if (!B_MUTEX_UNLOCK((_lock), (_eh))) { \
-            B_ASSERT(0 && "Failed to unlock mutex"); \
-        } \
-    } while (0)
-
+struct B_Mutex {
+#if defined(B_CONFIG_PTHREAD)
+    pthread_mutex_t mutex;
 #else
 # error "Unknown threads implementation"
+#endif
+};
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
+B_FUNC
+b_mutex_initialize(
+        struct B_Mutex *,
+        struct B_ErrorHandler const *);
+
+B_FUNC
+b_mutex_destroy(
+        struct B_Mutex *,
+        struct B_ErrorHandler const *);
+
+void
+b_mutex_lock(
+        struct B_Mutex *);
+
+void
+b_mutex_unlock(
+        struct B_Mutex *);
+
+#if defined(__cplusplus)
+}
 #endif
 
 #if defined(__cplusplus)
 # include <B/Config.h>
 
-# if defined(B_CONFIG_PTHREAD)
-#  include <B/Assert.h>
-
-# include <pthread.h>
-
 // Thread-safe: NO
 // Signal-safe: NO
-class B_PthreadMutexHolder {
+class B_MutexHolder {
 public:
     // Non-copyable.
-    B_PthreadMutexHolder(
-            B_PthreadMutexHolder const &) = delete;
-    B_PthreadMutexHolder &
-    operator=(B_PthreadMutexHolder const &) = delete;
+    B_MutexHolder(
+            B_MutexHolder const &) = delete;
+    B_MutexHolder &
+    operator=(B_MutexHolder const &) = delete;
 
     // Non-move-assignable.
-    B_PthreadMutexHolder &
-    operator=(B_PthreadMutexHolder &&) = delete;
+    B_MutexHolder &
+    operator=(B_MutexHolder &&) = delete;
 
-    B_PthreadMutexHolder(pthread_mutex_t *mutex) :
+    B_MutexHolder(B_Mutex *mutex) :
             mutex(mutex) {
         B_ASSERT(mutex);
 
-        int rc = pthread_mutex_lock(mutex);
-        B_ASSERT(rc == 0);
+        b_mutex_lock(mutex);
     }
 
-    B_PthreadMutexHolder(B_PthreadMutexHolder &&other) :
-            B_PthreadMutexHolder(other.release()) {
+    B_MutexHolder(B_MutexHolder &&other) :
+            B_MutexHolder(other.release()) {
     }
 
-    ~B_PthreadMutexHolder() {
+    ~B_MutexHolder() {
         if (mutex) {
-            int rc = pthread_mutex_unlock(mutex);
-            B_ASSERT(rc == 0);
+            b_mutex_unlock(mutex);
         }
     }
 
-    pthread_mutex_t *
+    B_Mutex *
     release() {
-        pthread_mutex_t *mutex = this->mutex;
+        B_Mutex *mutex = this->mutex;
         this->mutex = nullptr;
         return mutex;
     }
 
 private:
-    pthread_mutex_t *mutex;
+    B_Mutex *mutex;
 };
-
-# endif
 #endif
 
 #endif

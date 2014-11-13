@@ -26,17 +26,13 @@
 struct B_QuestionQueue {
     B_QuestionQueue() :
             closed(false) {
-#if defined(B_CONFIG_PTHREAD)
-        int rc = pthread_mutex_init(&this->lock, nullptr);
-        B_ASSERT(rc == 0);
-#endif
+        bool ok = b_mutex_initialize(&this->lock, nullptr);
+        B_ASSERT(ok);
     }
 
     ~B_QuestionQueue() {
-#if defined(B_CONFIG_PTHREAD)
-        int rc = pthread_mutex_destroy(&this->lock);
-        B_ASSERT(rc == 0);
-#endif
+        static_cast<void>(b_mutex_destroy(
+            &this->lock, nullptr));
         B_ASSERT(this->queue_items.empty());
     }
 
@@ -56,11 +52,7 @@ struct B_QuestionQueue {
         B_ASSERT(queue_item);
 
         {
-#if defined(B_CONFIG_PTHREAD)
-            B_PthreadMutexHolder locker(&this->lock);
-#else
-# error "Unknown threads implementation"
-#endif
+            B_MutexHolder locker(&this->lock);
 
             queue_items.push_back(queue_item);
             this->signal_enqueued();
@@ -70,11 +62,7 @@ struct B_QuestionQueue {
     B_QuestionQueueItem *
     try_dequeue(bool *closed) {
         {
-#if defined(B_CONFIG_PTHREAD)
-            B_PthreadMutexHolder locker(&this->lock);
-#else
-# error "Unknown threads implementation"
-#endif
+            B_MutexHolder locker(&this->lock);
 
             if (this->closed) {
                 *closed = true;
@@ -95,11 +83,7 @@ struct B_QuestionQueue {
     void
     close() {
         {
-#if defined(B_CONFIG_PTHREAD)
-            B_PthreadMutexHolder locker(&this->lock);
-#else
-# error "Unknown threads implementation"
-#endif
+            B_MutexHolder locker(&this->lock);
 
             this->closed = true;
             this->signal_enqueued();
@@ -111,9 +95,7 @@ protected:
     virtual void
     signal_enqueued() = 0;
 
-#if defined(B_CONFIG_PTHREAD)
-    pthread_mutex_t lock;
-#endif
+    B_Mutex lock;
 
 private:
     bool closed;

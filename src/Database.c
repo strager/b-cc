@@ -20,10 +20,6 @@
 #include <stddef.h>
 #include <string.h>
 
-#if defined(B_CONFIG_PTHREAD)
-# include <pthread.h>
-#endif
-
 struct Buffer_ {
     uint8_t *data;
     size_t size;
@@ -72,9 +68,7 @@ enum {
 };
 
 struct B_Database {
-#if defined(B_CONFIG_PTHREAD)
-    pthread_mutex_t lock;
-#endif
+    struct B_Mutex lock;
 
     sqlite3 *handle;
     sqlite3_stmt *insert_dependency_stmt;
@@ -207,9 +201,7 @@ b_database_load_sqlite(
         return false;
     }
     *database = (struct B_Database) {
-#if defined(B_CONFIG_PTHREAD)
-        .lock = PTHREAD_MUTEX_INITIALIZER,
-#endif
+        // .lock
         .handle = NULL,
         .insert_dependency_stmt = NULL,
         .insert_answer_stmt = NULL,
@@ -220,6 +212,10 @@ b_database_load_sqlite(
             .question_vtable_set = NULL,
         },
     };
+    if (!b_mutex_initialize(&database->lock, eh)) {
+        B_NYI();
+        goto fail;
+    }
 
 retry_open:
     rc = sqlite3_open_v2(
@@ -311,12 +307,12 @@ b_database_record_dependency(
     B_CHECK_PRECONDITION(eh, to_vtable);
 
     bool ok = true;
-    if (!B_MUTEX_LOCK(database->lock, eh)) return false;
+    b_mutex_lock(&database->lock);
     {
         ok = record_dependency_locked_(
             database, from, from_vtable, to, to_vtable, eh);
     }
-    B_MUTEX_MUST_UNLOCK(database->lock, eh);
+    b_mutex_unlock(&database->lock);
     return ok;
 }
 
@@ -333,7 +329,7 @@ b_database_record_answer(
     B_CHECK_PRECONDITION(eh, answer);
 
     bool ok = true;
-    if (!B_MUTEX_LOCK(database->lock, eh)) return false;
+    b_mutex_lock(&database->lock);
     {
         ok = record_answer_locked_(
             database,
@@ -342,7 +338,7 @@ b_database_record_answer(
             answer,
             eh);
     }
-    B_MUTEX_MUST_UNLOCK(database->lock, eh);
+    b_mutex_unlock(&database->lock);
     return ok;
 }
 
@@ -359,7 +355,7 @@ b_database_look_up_answer(
     B_CHECK_PRECONDITION(eh, out_answer);
 
     bool ok = true;
-    if (!B_MUTEX_LOCK(database->lock, eh)) return false;
+    b_mutex_lock(&database->lock);
     {
         ok = look_up_answer_locked_(
             database,
@@ -368,7 +364,7 @@ b_database_look_up_answer(
             out_answer,
             eh);
     }
-    B_MUTEX_MUST_UNLOCK(database->lock, eh);
+    b_mutex_unlock(&database->lock);
     return ok;
 }
 
@@ -381,12 +377,12 @@ b_database_recheck_all(
     B_CHECK_PRECONDITION(eh, question_vtables);
 
     bool ok = true;
-    if (!B_MUTEX_LOCK(database->lock, eh)) return false;
+    b_mutex_lock(&database->lock);
     {
         ok = recheck_all_locked_(
             database, question_vtables, eh);
     }
-    B_MUTEX_MUST_UNLOCK(database->lock, eh);
+    b_mutex_unlock(&database->lock);
     return ok;
 }
 
