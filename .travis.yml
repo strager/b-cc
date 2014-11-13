@@ -1,8 +1,11 @@
 env:
     - CC=gcc-4.8 CXX=g++-4.8 apt_packages="g++-4.8 libstdc++-4.8-dev"
+    - CC=gcc-4.8 CXX=g++-4.8 apt_packages="g++-4.8 libstdc++-4.9-dev"
+    - CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++-4.8-dev"
     - CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++-4.9-dev"
     - CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.8-dev"
     - CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.8-dev"
+    - CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.9-dev"
 before_install:
     - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
     - sudo add-apt-repository ppa:h-rayflood/llvm -y
