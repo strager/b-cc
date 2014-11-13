@@ -51,7 +51,7 @@ enum Enum {
 };
 int main() {
 }
-" HAVE_PEDANTIC_ALLOWING_TRAILING_COMMAS -pedantic)
+" HAVE_PEDANTIC_ALLOWING_TRAILING_COMMAS -Werror -pedantic)
     if (HAVE_PEDANTIC_ALLOWING_TRAILING_COMMAS)
         append_compiler_flags(-pedantic)
     endif ()
