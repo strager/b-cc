@@ -1,31 +1,30 @@
 env:
-    - cc=gcc-4.8 cxx=g++-4.8 apt_packages="g++-4.8 libstdc++-4.8-dev" valgrind=true
-    - cc=gcc-4.9 cxx=g++-4.9 apt_packages="g++-4.9 libstdc++-4.9-dev" valgrind=true
-    - cc=clang-3.3 cxx=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.8-dev" valgrind=true
-    - cc=clang-3.4 cxx=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.8-dev" valgrind=true
+    - cc=gcc-4.8 cxx=g++-4.8 apt_packages="g++-4.8 libstdc++-4.8-dev"
+    - cc=gcc-4.9 cxx=g++-4.9 apt_packages="g++-4.9 libstdc++-4.9-dev"
+    - cc=clang-3.3 cxx=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.8-dev"
+    - cc=clang-3.4 cxx=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.8-dev"
 before_install:
     - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
     - sudo add-apt-repository ppa:h-rayflood/llvm -y
     - sudo apt-get update -qq
 install:
-    - sudo apt-get install cmake $apt_packages
-    - if $valgrind; then sudo apt-get install valgrind; fi
+    - sudo apt-get install cmake valgrind $apt_packages
 before_script:
     - export CC="$cc" CXX="$cxx"
     - echo "$CC" && "$CC" --version
     - echo "$CXX" && "$CXX" --version
-    - if $valgrind; then export VALGRIND_FLAGS="--suppressions=$PWD/valgrind.supp --error-exitcode=1"; fi
+    - export VALGRIND_FLAGS="--suppressions=$PWD/valgrind.supp --error-exitcode=1"
 script:
     - make test $makeflags
-    - if $valgrind; then make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"; fi
-    - if $valgrind; then make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"; fi
+    - make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"
+    - make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"
 
     # Now with optimizations!
     - export CFLAGS='-O3'
     - export CXXFLAGS="$CFLAGS"
     - make clean
     - make test
-    - if $valgrind; then make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"; fi
-    - if $valgrind; then make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"; fi
+    - make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"
+    - make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"
 
     # TODO(strager): DRD (valgrind tool) crashes on vfork (posix_spawn).
