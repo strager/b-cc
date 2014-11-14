@@ -423,7 +423,7 @@ retry:;
         envp);
     if (rc != 0) {
         switch (B_RAISE_ERRNO_ERROR(
-                eh, errno, "posix_spawnp")) {
+                eh, rc, "posix_spawnp")) {
         case B_ERROR_IGNORE:
         case B_ERROR_ABORT:
             return false;

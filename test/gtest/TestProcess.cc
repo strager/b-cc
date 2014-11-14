@@ -24,6 +24,12 @@
 # include <sys/event.h>
 #endif
 
+#if defined(__linux__)
+// TestProcess::ExecutableNotFound fails on Linux
+// https://github.com/strager/b-cc/issues/25
+# define B_BUG_25
+#endif
+
 template<typename TDuration>
 static struct timespec
 duration_to_timespec_(
@@ -564,6 +570,44 @@ TEST_P(TestProcess, FalseReturnsPromptly) {
     EXPECT_TRUE(exited);
     EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
     EXPECT_NE(0, exit_status.code.exit_code);
+
+    EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+}
+
+#if defined(B_BUG_25)
+TEST_P(TestProcess, DISABLED_ExecutableNotFound) {
+#else
+TEST_P(TestProcess, ExecutableNotFound) {
+#endif
+    B_ErrorHandler const *eh = nullptr;
+    auto tester = this->create_tester();
+
+    B_ProcessManager *manager;
+    ASSERT_TRUE(b_process_manager_allocate(
+        tester.get(), &manager, eh));
+    B_ProcessController *controller;
+    ASSERT_TRUE(b_process_manager_get_controller(
+        manager, &controller, eh));
+
+    char const *args[] = {
+        "does_not_exist",
+        nullptr,
+    };
+    MockErrorHandler mock_eh;
+    EXPECT_CALL(mock_eh, handle_error(B_Error{ENOENT}))
+        .WillOnce(Return(B_ERROR_ABORT));
+    EXPECT_FALSE(b_process_controller_exec_basic(
+        controller,
+        args,
+        [](
+                B_ProcessExitStatus const *,
+                void *,
+                B_ErrorHandler const *) -> bool {
+            ADD_FAILURE();
+            return true;
+        },
+        nullptr,
+        &mock_eh));
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
 }
