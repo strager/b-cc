@@ -78,6 +78,19 @@ unregister_process_id_(
         B_ProcessID,
         struct B_ErrorHandler const *);
 
+#if defined(B_MAIN_EVENTFD_PSELECT_)
+static void
+sigchld_handler_(
+        int signal_number,
+        siginfo_t *signal_info,
+        void *thread_context) {
+    // Do nothing.
+    (void) signal_number;
+    (void) signal_info;
+    (void) thread_context;
+}
+#endif
+
 B_EXPORT_FUNC
 b_main(
         struct B_Question const *initial_question,
@@ -233,8 +246,8 @@ b_main(
         // threads interacting.
         struct sigaction sa;
         b_sigemptyset(&sa.sa_mask);
-        sa.sa_handler = SIG_IGN;
-        sa.sa_flags = 0;
+        sa.sa_flags = SA_SIGINFO | SA_NOCLDSTOP;
+        sa.sa_sigaction = sigchld_handler_;
         if (!b_sigaction(SIGCHLD, &sa, NULL, eh)) {
             goto fail;
         }
