@@ -31,6 +31,52 @@
 # define B_BUG_25
 #endif
 
+#if defined(B_CONFIG_POSIX_SIGNALS)
+class SigactionHolder {
+public:
+    static SigactionHolder
+    sigaction(
+            int signal_number,
+            struct sigaction new_action) {
+        struct sigaction action;
+        EXPECT_EQ(0, ::sigaction(
+            signal_number, &new_action, &action))
+            << strerror(errno);
+        return SigactionHolder(signal_number, action);
+    }
+
+    SigactionHolder() {
+    }
+
+    SigactionHolder(
+            int signal_number,
+            struct sigaction action) :
+            data(new Data{signal_number, action}) {
+    }
+
+private:
+    struct Data {
+        int signal_number;
+        struct sigaction action;
+    };
+
+    struct Deleter {
+        void
+        operator()(
+                Data *data) {
+            EXPECT_EQ(0, ::sigaction(
+                data->signal_number,
+                &data->action,
+                nullptr))
+                << strerror(errno);
+            delete data;
+        }
+    };
+
+    std::unique_ptr<Data, Deleter> data;
+};
+#endif
+
 template<typename TDuration>
 static struct timespec
 duration_to_timespec_(
@@ -227,8 +273,8 @@ public:
         action.sa_flags = SA_SIGINFO | SA_NOCLDSTOP;
         action.sa_sigaction = handle_sigchld_;
         EXPECT_EQ(0, sigemptyset(&action.sa_mask));
-        EXPECT_EQ(0, sigaction(
-            SIGCHLD, &action, &old_sigchld_action));
+        this->sigaction_holder
+            = SigactionHolder::sigaction(SIGCHLD, action);
 
         // Block SIGCHLD in case SIGCHLD is received before
         // wait_and_notify is called.
@@ -257,8 +303,6 @@ public:
             EXPECT_EQ(0, sigprocmask(
                 SIG_UNBLOCK, &mask, nullptr));
         }
-        EXPECT_EQ(0, sigaction(
-            SIGCHLD, &old_sigchld_action, nullptr));
     }
 
     B_FUNC
@@ -295,7 +339,7 @@ public:
 
 private:
     bool blocked_sigchld;
-    struct sigaction old_sigchld_action;
+    SigactionHolder sigaction_holder;
 
     static B_FUNC
     register_process_id_(
@@ -890,6 +934,49 @@ TEST_P(TestProcess, BasicExecChildHasCleanSignalMask) {
         manager,
         {test_process_child_path_().c_str(),
             "BasicExecChildHasCleanSignalMask"},
+        &exited,
+        &exit_status);
+
+    bool timed_out;
+    EXPECT_TRUE(tester->wait_and_notify_until(
+        manager,
+        std::chrono::seconds(1),
+        &timed_out,
+        [&exited]() {
+            return exited;
+        },
+        eh));
+    EXPECT_FALSE(timed_out);
+    EXPECT_TRUE(exited);
+    EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
+    EXPECT_EQ(0, exit_status.code.exit_code);
+
+    EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+}
+
+TEST_P(TestProcess, BasicExecChildDoesNotInheritSigaction) {
+    B_ErrorHandler const *eh = nullptr;
+    auto tester = this->create_tester();
+
+    // Ignore SIGALRM.  The child process should have
+    // SIG_DFL for SIGALRM.
+    struct sigaction action;
+    action.sa_flags = 0;
+    action.sa_handler = SIG_IGN;
+    EXPECT_EQ(0, sigemptyset(&action.sa_mask));
+    auto holder = SigactionHolder::sigaction(
+        SIGALRM, action);
+
+    B_ProcessManager *manager;
+    ASSERT_TRUE(b_process_manager_allocate(
+        tester.get(), &manager, eh));
+
+    bool exited = false;
+    B_ProcessExitStatus exit_status;
+    exec_basic_(
+        manager,
+        {test_process_child_path_().c_str(),
+            "BasicExecChildDoesNotInheritSigaction"},
         &exited,
         &exit_status);
 

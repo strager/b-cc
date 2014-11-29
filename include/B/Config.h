@@ -51,6 +51,20 @@
 # define B_CONFIG_DEBUG
 #endif
 
+#if defined(__linux__)
+// glibc's sigfillset sets too many signals, which causes
+// problems with some APIs using sigset_t, especially under
+// Valgrind.
+# define B_CONFIG_BUGGY_SIGFILLSET
+#endif
+
+#if defined(__linux__)
+// glibc's posix_spawn is pedantic about signal sets.  If
+// you try to force SIG_DFL for e.g. SIGKILL, the child
+// process will exit with code 127.
+# define B_CONFIG_PEDANTIC_POSIX_SPAWN_SIGNALS
+#endif
+
 #if defined(__APPLE__)
 // pselect is poorly implemented on certain platforms.
 # define B_CONFIG_BROKEN_PSELECT

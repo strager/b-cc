@@ -122,6 +122,11 @@ b_sigdelset(
         sigset_t *,
         int signal_number);
 
+// Aborts on failure.
+B_EXPORT void
+b_sigfillset(
+        sigset_t *);
+
 B_EXPORT_FUNC
 b_sigaction(
         int signal_number,

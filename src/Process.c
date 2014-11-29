@@ -8,6 +8,10 @@
 #include <B/Private/Thread.h>
 #include <B/Process.h>
 
+#if defined(B_CONFIG_POSIX_SPAWN)
+# include <B/Private/OS.h>
+#endif
+
 #include <stddef.h>
 
 #if defined(B_CONFIG_POSIX_PROCESS)
@@ -17,6 +21,7 @@
 
 #if defined(B_CONFIG_POSIX_SPAWN)
 # include <errno.h>
+# include <signal.h>
 # include <spawn.h>
 #endif
 
@@ -420,11 +425,37 @@ b_process_controller_exec_basic(
     }
     attributes_initialized = true;
     rc = posix_spawnattr_setflags(
-        &attributes, POSIX_SPAWN_SETSIGMASK);
+        &attributes,
+        POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK);
     if (rc != 0) {
         (void) B_RAISE_ERRNO_ERROR(
             eh, rc, "posix_spawnattr_setflags");
         goto fail;
+    }
+    {
+        sigset_t signals;
+        b_sigfillset(&signals);
+#if defined(B_CONFIG_PEDANTIC_POSIX_SPAWN_SIGNALS)
+        b_sigdelset(&signals, SIGKILL);
+        b_sigdelset(&signals, SIGSTOP);
+# if defined(SIGRTMIN) && defined(SIGRTMAX)
+#  if defined(__SIGRTMIN)
+        int start = __SIGRTMIN;
+#  else
+        int start = SIGRTMIN;
+#  endif
+        for (int i = start; i <= SIGRTMAX; ++i) {
+            b_sigdelset(&signals, i);
+        }
+# endif
+#endif
+        rc = posix_spawnattr_setsigdefault(
+            &attributes, &signals);
+        if (rc != 0) {
+            (void) B_RAISE_ERRNO_ERROR(
+                eh, rc, "posix_spawnattr_setsigdefault");
+            goto fail;
+        }
     }
 
 retry:;

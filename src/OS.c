@@ -236,6 +236,20 @@ b_sigdelset(
     B_ASSERT(rc == 0);
 }
 
+B_EXPORT void
+b_sigfillset(
+        sigset_t *set) {
+#if defined(B_CONFIG_BUGGY_SIGFILLSET)
+    b_sigemptyset(set);
+    for (int i = 1; i < _NSIG; ++i) {
+        b_sigaddset(set, i);
+    }
+#else
+    int rc = sigfillset(set);
+    B_ASSERT(rc == 0);
+#endif
+}
+
 B_EXPORT_FUNC
 b_sigaction(
         int signal_number,
