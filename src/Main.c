@@ -86,7 +86,7 @@ b_main(
         char const *database_sqlite_path,
         struct B_QuestionVTableSet const *vtable_set,
         B_QuestionDispatchCallback dispatch_callback,
-        void *opaque,
+        void *dispatch_callback_opaque,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, initial_question);
     B_CHECK_PRECONDITION(eh, initial_question_vtable);
@@ -244,7 +244,7 @@ b_main(
 
     struct B_MainClosure closure = {
         .process_controller = process_controller,
-        .opaque = opaque,
+        .opaque = dispatch_callback_opaque,
     };
     // Event loop.  Keep dispatching questions until the
     // QuestionQueue is closed.

@@ -53,7 +53,7 @@ b_main(
         char const *database_sqlite_path,
         struct B_QuestionVTableSet const *,
         B_QuestionDispatchCallback dispatch_callback,
-        void *opaque,
+        void *dispatch_callback_opaque,
         struct B_ErrorHandler const *);
 
 #if defined(__cplusplus)
