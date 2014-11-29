@@ -1,4 +1,5 @@
 #include "Mocks.h"
+#include "Util.h"
 
 #include <B/Assert.h>
 #include <B/Config.h>
@@ -68,6 +69,14 @@ exec_basic_(
         },
         eh));
 }
+
+#if defined(B_CONFIG_POSIX_SIGNALS)
+static std::string
+test_process_child_path_() {
+    return dirname(get_executable_path())
+        + "/TestProcessChild";
+}
+#endif
 
 TEST(TestProcessVanilla, ValidDelegateImplementations) {
     B_ErrorHandler const *eh = nullptr;
@@ -865,3 +874,39 @@ TEST_P(TestProcess, VeryBranchyProcessTree) {
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
 }
+
+#if defined(B_CONFIG_POSIX_SIGNALS)
+TEST_P(TestProcess, BasicExecChildHasCleanSignalMask) {
+    B_ErrorHandler const *eh = nullptr;
+    auto tester = this->create_tester();
+
+    B_ProcessManager *manager;
+    ASSERT_TRUE(b_process_manager_allocate(
+        tester.get(), &manager, eh));
+
+    bool exited = false;
+    B_ProcessExitStatus exit_status;
+    exec_basic_(
+        manager,
+        {test_process_child_path_().c_str(),
+            "BasicExecChildHasCleanSignalMask"},
+        &exited,
+        &exit_status);
+
+    bool timed_out;
+    EXPECT_TRUE(tester->wait_and_notify_until(
+        manager,
+        std::chrono::seconds(1),
+        &timed_out,
+        [&exited]() {
+            return exited;
+        },
+        eh));
+    EXPECT_FALSE(timed_out);
+    EXPECT_TRUE(exited);
+    EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
+    EXPECT_EQ(0, exit_status.code.exit_code);
+
+    EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+}
+#endif

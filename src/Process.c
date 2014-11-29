@@ -408,16 +408,34 @@ b_process_controller_exec_basic(
     B_CHECK_PRECONDITION(eh, callback);
 
 #if defined(B_CONFIG_POSIX_SPAWN)
+    bool attributes_initialized = false;
+    int rc;
+
+    posix_spawnattr_t attributes;
+    rc = posix_spawnattr_init(&attributes);
+    if (rc != 0) {
+        (void) B_RAISE_ERRNO_ERROR(
+            eh, rc, "posix_spawnattr_init");
+        goto fail;
+    }
+    attributes_initialized = true;
+    rc = posix_spawnattr_setflags(
+        &attributes, POSIX_SPAWN_SETSIGMASK);
+    if (rc != 0) {
+        (void) B_RAISE_ERRNO_ERROR(
+            eh, rc, "posix_spawnattr_setflags");
+        goto fail;
+    }
+
 retry:;
     pid_t pid;
     posix_spawn_file_actions_t const *file_actions = NULL;
-    posix_spawnattr_t const *attributes = NULL;
     char *const *envp = NULL;
-    int rc = posix_spawnp(
+    rc = posix_spawnp(
         &pid,
         args[0],
         file_actions,
-        attributes,
+        &attributes,
         // FIXME(strager): Cast looks like a bug!
         (char *const *) args,
         envp);
@@ -426,7 +444,7 @@ retry:;
                 eh, rc, "posix_spawnp")) {
         case B_ERROR_IGNORE:
         case B_ERROR_ABORT:
-            return false;
+            goto fail;
         case B_ERROR_RETRY:
             goto retry;
         }
@@ -440,11 +458,21 @@ retry:;
             eh)) {
         // FIXME(strager): What do we do about the child
         // process?  Do we kill it?
-        return false;
+        goto fail;
     }
+
+    return true;
+
+fail:
+    if (attributes_initialized) {
+        rc = posix_spawnattr_destroy(&attributes);
+        if (rc != 0) {
+            (void) B_RAISE_ERRNO_ERROR(
+                eh, rc, "posix_spawnattr_destroy");
+        }
+    }
+    return false;
 #else
 # error "Unknown exec_basic implementation"
 #endif
-
-    return true;
 }

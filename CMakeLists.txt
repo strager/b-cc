@@ -490,5 +490,9 @@ add_gtest_test(TestQuestionQueue)
 add_gtest_test(TestSerialize)
 add_gtest_test(TestUUID)
 
+add_executable(TestProcessChild
+               test/gtest/TestProcessChild.c)
+add_dependencies(TestProcess TestProcessChild)
+
 add_executable(ex1 ex/1/main.cc)
 target_link_libraries(ex1 b)
