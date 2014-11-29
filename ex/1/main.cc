@@ -26,7 +26,7 @@
 # define EXTRA_CXXFLAGS "-stdlib=libc++",
 # define EXTRA_LDFLAGS "-stdlib=libc++",
 #elif defined(__linux__)
-# define EXTRA_LDFLAGS "-lpthread",
+# define EXTRA_LDFLAGS "-lpthread", "-ldl",
 #endif
 
 #if !defined(EXTRA_CFLAGS)
@@ -267,6 +267,9 @@ run_c_compile(
                 "clang",
                 "-std=c99",
                 "-Ivendor/sqlite-3.8.4.1",
+                "-D_POSIX_SOURCE",
+                "-D_POSIX_C_SOURCE=200112L",
+                "-D_DARWIN_C_SOURCE",
                 EXTRA_CFLAGS
                 "-Iinclude",
                 "-o", o_path.c_str(),
