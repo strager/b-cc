@@ -21,9 +21,6 @@
 #include <sys/stat.h>
 #include <vector>
 
-// HACK HACK(strager)
-#define BUILDING_ON_STRAGERS_MACHINE
-
 // HACK(strager)
 #if defined(__APPLE__)
 # define EXTRA_CXXFLAGS "-stdlib=libc++",
@@ -192,6 +189,7 @@ run_link(
         "src/Serialize.c.o",
         "src/Thread.c.o",
         "src/UUID.c.o",
+        "vendor/sqlite-3.8.4.1/sqlite3.c.o",
     };
     std::vector<B_Question const *> questions;
     std::transform(
@@ -220,9 +218,6 @@ run_link(
                 B_ErrorHandler const *eh) {
             std::vector<char const *> args = {
                 "clang++",
-#if defined(BUILDING_ON_STRAGERS_MACHINE)
-                "-L/usr/local/opt/sqlite/lib",
-#endif
                 EXTRA_LDFLAGS
                 "-Iinclude",
                 "-o", exe_path.c_str(),
@@ -235,7 +230,6 @@ run_link(
                         const std::string &o_path) {
                     return o_path.c_str();
                 });
-            args.push_back("-lsqlite3");
             args.push_back(nullptr);
             return b_answer_context_exec(
                 answer_context,
@@ -272,9 +266,7 @@ run_c_compile(
             char const *command[] = {
                 "clang",
                 "-std=c99",
-#if defined(BUILDING_ON_STRAGERS_MACHINE)
-                "-I/usr/local/opt/sqlite/include",
-#endif
+                "-Ivendor/sqlite-3.8.4.1",
                 EXTRA_CFLAGS
                 "-Iinclude",
                 "-o", o_path.c_str(),
@@ -318,9 +310,7 @@ run_cc_compile(
             char const *command[] = {
                 "clang++",
                 "-std=c++11",
-#if defined(BUILDING_ON_STRAGERS_MACHINE)
-                "-I/usr/local/opt/sqlite/include",
-#endif
+                "-Ivendor/sqlite-3.8.4.1",
                 EXTRA_CXXFLAGS
                 "-Iinclude",
                 "-o", o_path.c_str(),
