@@ -54,9 +54,6 @@ b_question_dispatch_one(
     }
 
     // Answer the question The Hard Way.
-    // FIXME(strager): If QuestionDispatchClosure_ and
-    // B_AnswerContext have the same lifetime, they can be
-    // merged into one allocation.
     if (!b_allocate(
             sizeof(*closure), (void **) &closure, eh)) {
         goto fail;
