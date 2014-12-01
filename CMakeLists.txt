@@ -182,13 +182,13 @@ if (HAVE_STDLIB_LIBCXX)
     append_with_space(CMAKE_CXX_FLAGS -stdlib=libc++)
     append_with_space(
         CMAKE_SHARED_LINKER_FLAGS
-        -stdlib=libstdc++
+        -stdlib=libc++
     )
 elseif (HAVE_STDLIB_LIBSTDCXX)
     append_with_space(CMAKE_CXX_FLAGS -stdlib=libstdc++)
     append_with_space(
         CMAKE_SHARED_LINKER_FLAGS
-        -stdlib=libc++
+        -stdlib=libstdc++
     )
 endif ()
 
