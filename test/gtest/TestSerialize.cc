@@ -56,7 +56,7 @@ TEST(TestSerialize, BigEndianWordsInMemory) {
     ASSERT_TRUE(b_serialize_2_be(sink, 0x0203, eh));
     ASSERT_TRUE(b_serialize_4_be(sink, 0x04050607, eh));
     ASSERT_TRUE(
-        b_serialize_8_be(sink, 0x08090A0B0C0D0E0F, eh)); 
+        b_serialize_8_be(sink, 0x08090A0B0C0D0E0F, eh));
 
     uint8_t *data;
     size_t data_size;

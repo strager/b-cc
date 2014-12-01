@@ -180,7 +180,7 @@ b_database_load_sqlite(
 #define B_REQUIRED_SQLITE_VERSION_NUMBER_ 3008003
 #if SQLITE_VERSION_NUMBER < B_REQUIRED_SQLITE_VERSION_NUMBER_
 # error "sqlite3 version >=3.8.3 required"
-#endif 
+#endif
     if (sqlite3_libversion_number()
             < B_REQUIRED_SQLITE_VERSION_NUMBER_) {
         (void) B_RAISE_ERRNO_ERROR(
