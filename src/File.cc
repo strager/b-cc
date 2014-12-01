@@ -54,12 +54,20 @@ retry_open:;
             uint64_t *out,
             B_ErrorHandler const *eh) {
         uint64_t sum_hash = 0;
-        int c;
-        while ((c = fgetc(file)) != -1) {
-            sum_hash += static_cast<uint8_t>(c);
+        for (;;) {
+            char buffer[1024];
+            size_t read = fread(
+                buffer, 1, sizeof(buffer), file);
+            for (size_t i = 0; i < read; ++i) {
+                sum_hash += static_cast<uint8_t>(buffer[i]);
+            }
+            if (read != sizeof(buffer)) {
+                break;
+            }
         }
         if (!feof(file)) {
-            (void) B_RAISE_ERRNO_ERROR(eh, errno, "fgetc");
+            // TODO(strager): Retry, etc.
+            (void) B_RAISE_ERRNO_ERROR(eh, errno, "fread");
             return false;
         }
         *out = sum_hash;
