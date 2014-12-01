@@ -167,6 +167,7 @@ run_link(
         "ex/1/main.cc.o",
         "src/Alloc.c.o",
         "src/AnswerContext.c.o",
+        "src/Assert.c.o",
         "src/Database.c.o",
         "src/Deserialize.c.o",
         "src/Error.c.o",

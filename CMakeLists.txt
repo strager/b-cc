@@ -307,6 +307,7 @@ add_library(
     b
     src/Alloc.c
     src/AnswerContext.c
+    src/Assert.c
     src/Database.c
     src/Deserialize.c
     src/Error.c
