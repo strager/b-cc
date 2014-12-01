@@ -192,6 +192,11 @@ elseif (HAVE_STDLIB_LIBSTDCXX)
     )
 endif ()
 
+check_c_compiler_flag(-fPIC HAVE_F_PIC)
+if (HAVE_F_PIC)
+    append_compiler_flags(-fPIC)
+endif ()
+
 if (SQLITE3_STATIC)
     set(VENDOR_SQLITE3 vendor/sqlite-3.8.4.1)
     if (STATIC_ANALYSIS)
@@ -303,71 +308,86 @@ main() {
     endif ()
 endif ()
 
-add_library(
-    b
-    src/Alloc.c
-    src/AnswerContext.c
-    src/Assert.c
-    src/Database.c
-    src/Deserialize.c
-    src/Error.c
-    src/File.cc
-    src/FilePath.c
-    src/Log.c
-    src/Main.c
-    src/Misc.c
-    src/OS.c
-    src/Process.c
-    src/QuestionAnswer.c
-    src/QuestionDispatch.c
-    src/QuestionQueue.cc
-    src/QuestionQueueRoot.c
-    src/QuestionVTableSet.c
-    src/RefCount.c
-    src/SQLite3.c
-    src/Serialize.c
-    src/Thread.c
-    src/UUID.c
+function (b_add_library NAME)
+    add_library(
+        "${NAME}"
+        ${ARGN}
 
-    include/B/Alloc.h
-    include/B/AnswerContext.h
-    include/B/Assert.h
-    include/B/Base.h
-    include/B/Config.h
-    include/B/CXX.h
-    include/B/Database.h
-    include/B/Deserialize.h
-    include/B/Errno.h
-    include/B/Error.h
-    include/B/File.h
-    include/B/FilePath.h
-    include/B/Log.h
-    include/B/Macro.h
-    include/B/Main.h
-    include/B/Private/Misc.h
-    include/B/Private/OS.h
-    include/B/Private/Queue.h
-    include/B/Private/RefCount.h
-    include/B/Private/SQLite3.h
-    include/B/Private/Thread.h
-    include/B/Process.h
-    include/B/QuestionAnswer.h
-    include/B/QuestionDispatch.h
-    include/B/QuestionQueue.h
-    include/B/QuestionVTableSet.h
-    include/B/Serialize.h
-    include/B/UUID.h
-)
-target_include_directories(b PUBLIC include)
-if (SQLITE3_STATIC)
-    target_link_libraries(b LINK_PRIVATE b_sqlite3)
+        src/Alloc.c
+        src/AnswerContext.c
+        src/Assert.c
+        src/Database.c
+        src/Deserialize.c
+        src/Error.c
+        src/File.cc
+        src/FilePath.c
+        src/Log.c
+        src/Main.c
+        src/Misc.c
+        src/OS.c
+        src/Process.c
+        src/QuestionAnswer.c
+        src/QuestionDispatch.c
+        src/QuestionQueue.cc
+        src/QuestionQueueRoot.c
+        src/QuestionVTableSet.c
+        src/RefCount.c
+        src/SQLite3.c
+        src/Serialize.c
+        src/Thread.c
+        src/UUID.c
+
+        include/B/Alloc.h
+        include/B/AnswerContext.h
+        include/B/Assert.h
+        include/B/Base.h
+        include/B/Config.h
+        include/B/CXX.h
+        include/B/Database.h
+        include/B/Deserialize.h
+        include/B/Errno.h
+        include/B/Error.h
+        include/B/File.h
+        include/B/FilePath.h
+        include/B/Log.h
+        include/B/Macro.h
+        include/B/Main.h
+        include/B/Private/Misc.h
+        include/B/Private/OS.h
+        include/B/Private/Queue.h
+        include/B/Private/RefCount.h
+        include/B/Private/SQLite3.h
+        include/B/Private/Thread.h
+        include/B/Process.h
+        include/B/QuestionAnswer.h
+        include/B/QuestionDispatch.h
+        include/B/QuestionQueue.h
+        include/B/QuestionVTableSet.h
+        include/B/Serialize.h
+        include/B/UUID.h
+    )
+    target_include_directories("${NAME}" PUBLIC include)
+    if (SQLITE3_STATIC)
+        target_link_libraries(
+            "${NAME}"
+            LINK_PRIVATE b_sqlite3
+        )
+    else ()
+        depend_pkgconfig("${NAME}" SQLITE3 sqlite3>=3.8.3)
+    endif ()
+    target_link_libraries(
+        "${NAME}"
+        LINK_PRIVATE "${CMAKE_THREAD_LIBS_INIT}"
+    )
+endfunction ()
+
+b_add_library(b)
+if (BUILD_SHARED_LIBS)
+    add_library(b_shared ALIAS b)
 else ()
-    depend_pkgconfig(b SQLITE3 sqlite3>=3.8.3)
+    b_add_library(b_shared SHARED)
+    set_property(TARGET b_shared PROPERTY OUTPUT_NAME b)
 endif ()
-target_link_libraries(
-    b
-    LINK_PRIVATE "${CMAKE_THREAD_LIBS_INIT}"
-)
 
 set(VENDOR_GMOCK vendor/gmock-1.7.0)
 if (STATIC_ANALYSIS)
