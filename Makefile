@@ -58,8 +58,8 @@ unknown_goals := $(filter-out $(real_goals),$(MAKECMDGOALS))
 
 # Define a goal for every unknown goal which depends on
 # 'build'.  This will cause 'build' to run (only once).
-$(foreach goal,$(unknown_goals), \
-$(goal): build)
+create_unknown_goal = $(goal): build
+$(foreach goal,$(unknown_goals),$(eval $(create_unknown_goal)))
 
 .PHONY: all
 all: build
