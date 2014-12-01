@@ -4,7 +4,7 @@
 
 B_EXPORT bool
 b_uuid_equal(
-        struct B_UUID a,
-        struct B_UUID b) {
-    return memcmp(&a, &b, sizeof(struct B_UUID)) == 0;
+        struct B_UUID const *a,
+        struct B_UUID const *b) {
+    return memcmp(a, b, sizeof(struct B_UUID)) == 0;
 }

@@ -92,7 +92,7 @@ b_question_vtable_set_look_up(
     B_SLIST_FOREACH(vtable_entry, &set->vtables, link) {
         struct B_QuestionVTable const *vtable
             = vtable_entry->vtable;
-        if (b_uuid_equal(vtable->uuid, uuid)) {
+        if (b_uuid_equal(&vtable->uuid, &uuid)) {
             *out = vtable;
             return true;
         }

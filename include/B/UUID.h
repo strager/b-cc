@@ -52,8 +52,8 @@ extern "C" {
 
 B_EXPORT bool
 b_uuid_equal(
-        struct B_UUID a,
-        struct B_UUID b);
+        struct B_UUID const *,
+        struct B_UUID const *);
 
 #if defined(__cplusplus)
 }
@@ -62,7 +62,7 @@ b_uuid_equal(
 #if defined(__cplusplus)
 inline bool
 operator==(const B_UUID &a, const B_UUID &b) {
-    return b_uuid_equal(a, b);
+    return b_uuid_equal(&a, &b);
 }
 
 inline bool
