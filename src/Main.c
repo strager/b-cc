@@ -387,14 +387,22 @@ retry_pselect:;
                 if (!queue_item) {
                     break;
                 }
+
+                struct B_AnswerContext const *
+                    answer_context;
                 if (!b_question_dispatch_one(
                         queue_item,
                         question_queue,
                         database,
-                        dispatch_callback,
-                        &closure,
+                        &answer_context,
                         eh)) {
                     goto fail;
+                }
+                if (answer_context) {
+                    if (!dispatch_callback(
+                            answer_context, &closure, eh)) {
+                        goto fail;
+                    }
                 }
             }
         }

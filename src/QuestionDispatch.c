@@ -25,8 +25,7 @@ b_question_dispatch_one(
         B_TRANSFER struct B_QuestionQueueItem *queue_item,
         struct B_QuestionQueue *question_queue,
         struct B_Database *database,
-        B_QuestionDispatchCallback *callback,
-        void *callback_opaque,
+        B_OUTPTR B_OPT struct B_AnswerContext const **out,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, queue_item);
     B_CHECK_PRECONDITION(eh, queue_item->question);
@@ -34,7 +33,7 @@ b_question_dispatch_one(
     B_CHECK_PRECONDITION(eh, queue_item->answer_callback);
     B_CHECK_PRECONDITION(eh, question_queue);
     B_CHECK_PRECONDITION(eh, database);
-    B_CHECK_PRECONDITION(eh, callback);
+    B_CHECK_PRECONDITION(eh, out);
 
     struct QuestionDispatchClosure_ *closure = NULL;
 
@@ -50,6 +49,7 @@ b_question_dispatch_one(
             answer, queue_item, eh);
         (void) b_question_queue_item_object_deallocate(
             queue_item, eh);
+        *out = NULL;
         return ok;
     }
 
@@ -71,13 +71,7 @@ b_question_dispatch_one(
         .database = database,
     };
 
-    if (!callback(
-            &closure->answer_context,
-            callback_opaque,
-            eh)) {
-        goto fail;
-    }
-
+    *out = &closure->answer_context;
     return true;
 
 fail:

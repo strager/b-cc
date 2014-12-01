@@ -2,9 +2,9 @@
 #define B_HEADER_GUARD_4F7E3BFB_AE92_40BA_BAA1_C7907F8737A5
 
 #include <B/Base.h>
-#include <B/QuestionDispatch.h>
 
 struct B_Answer;
+struct B_AnswerContext;
 struct B_ErrorHandler;
 struct B_ProcessController;
 struct B_Question;
@@ -17,6 +17,12 @@ struct B_MainClosure {
     // Parameter to b_main.
     void *opaque;
 };
+
+typedef B_FUNC
+B_QuestionDispatchCallback(
+        struct B_AnswerContext const *,
+        struct B_MainClosure const *,
+        struct B_ErrorHandler const *);
 
 #if defined(__cplusplus)
 extern "C" {
@@ -37,9 +43,6 @@ extern "C" {
 // 7. b_question_queue_try_dequeue
 // 8. b_question_dispatch_one
 // 9. b_question_queue_finalize_root
-//
-// When dispatch_callback is called, the opaque parameter
-// points to a MainClosure.
 //
 // On some POSIX platforms (e.g. Linux), b_main will block
 // the SIGCHLD signal process-wide (using sigprocmask).

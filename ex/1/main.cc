@@ -115,10 +115,8 @@ check_file(
 static B_FUNC
 dispatch_question(
         B_AnswerContext const *answer_context,
-        void *opaque,
+        B_MainClosure const *main_closure,
         B_ErrorHandler const *eh) {
-    auto main_closure
-        = static_cast<B_MainClosure *>(opaque);
     B_ProcessController *process_controller
         = main_closure->process_controller;
 
