@@ -1,0 +1,6 @@
+# Build the ex1 executable from a mix of C and C++ sources.
+
+CPPFLAGS += -Iinclude -Ivendor/sqlite-3.8.4.1
+CXXFLAGS += -stdlib=libc++ -std=c++11
+
+exe ex1: src/*.c src/*.cc ex/1/main.cc vendor/sqlite-3.8.4.1/sqlite3.c
