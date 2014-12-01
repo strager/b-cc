@@ -88,3 +88,39 @@ TEST(TestQuestionDispatch, FailCallbackCalledImmediately) {
     EXPECT_TRUE(b_database_close(database, eh));
     EXPECT_TRUE(b_question_queue_deallocate(queue, eh));
 }
+
+TEST(TestQuestionDispatch, ErrorCallbackCalledImmediately) {
+    B_ErrorHandler const *eh = nullptr;
+
+    StrictMock<MockQuestion> question;
+    MockRefCounting(question);
+    StrictMock<MockQuestionQueueItem> queue_item(
+        &question, &MockQuestion::vtable);
+
+    B_QuestionQueue *queue;
+    ASSERT_TRUE(b_question_queue_allocate_single_threaded(
+        &queue, eh));
+
+    B_Database *database;
+    ASSERT_TRUE(b_database_load_sqlite(
+        ":memory:",
+        SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE,
+        nullptr,
+        &database,
+        eh));
+
+    auto callback = [](
+            B_AnswerContext const *,
+            B_ErrorHandler const *) {
+        return false;
+    };
+    EXPECT_CALL(question, serialize(_, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(queue_item, deallocate(_))
+        .WillOnce(Return(true));
+    EXPECT_FALSE(b_question_dispatch_one(
+        &queue_item, queue, database, callback, eh));
+
+    EXPECT_TRUE(b_database_close(database, eh));
+    EXPECT_TRUE(b_question_queue_deallocate(queue, eh));
+}
