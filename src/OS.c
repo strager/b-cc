@@ -1,12 +1,3 @@
-// glibc requires _POSIX_C_SOURCE >= 1 for SSIZE_MAX.  Alas,
-// there is no macro to check for glibc before setting
-// _POSIX_C_SOURCE, so we do it regardless of whether we are
-// on glibc or not.
-#if !defined(_POSIX_C_SOURCE)
-# define _POSIX_C_SOURCE 1
-#endif
-#include <limits.h>
-
 #include <B/Assert.h>
 #include <B/Config.h>
 #include <B/Error.h>
@@ -15,6 +6,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
