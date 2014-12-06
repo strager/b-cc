@@ -584,7 +584,7 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
     MockRefCounting(answer);
     B_AnswerContext answer_context;
 
-    EXPECT_CALL(question, answer(_, _))
+    EXPECT_CALL(question, query_answer(_, _))
         .WillOnce(DoAll(
             SetArgPointee<0>(&answer),
             Return(true)));

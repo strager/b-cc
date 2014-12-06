@@ -166,16 +166,16 @@ public:
         }
     }
 
-    MOCK_CONST_METHOD2(answer, bool(
+    MOCK_CONST_METHOD2(query_answer, bool(
         B_OUTPTR MockAnswer **,
         B_ErrorHandler const *));
 
     static B_FUNC
-    answer(
+    query_answer(
             MockQuestion const *self,
             B_OUTPTR MockAnswer **out,
             B_ErrorHandler const *eh) {
-        return self->answer(out, eh);
+        return self->query_answer(out, eh);
     }
 
     MOCK_CONST_METHOD3(equals, bool(

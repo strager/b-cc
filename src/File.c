@@ -45,30 +45,6 @@ sum_hash_from_file_(
 }
 
 static B_FUNC
-sum_hash_from_path_(
-        B_FilePath const *path,
-        uint64_t *out,
-        struct B_ErrorHandler const *eh) {
-    B_CHECK_PRECONDITION(eh, path);
-    B_CHECK_PRECONDITION(eh, out);
-retry_open:;
-    FILE *file = fopen(path, "r");
-    if (!file) {
-        switch (B_RAISE_ERRNO_ERROR(
-                eh, errno, "fopen")) {
-        case B_ERROR_ABORT:
-        case B_ERROR_IGNORE:
-            return false;
-        case B_ERROR_RETRY:
-            goto retry_open;
-        }
-    }
-    bool ok = sum_hash_from_file_(file, out, eh);
-    (void) fclose(file);  // FIXME(strager)
-    return ok;
-}
-
-static B_FUNC
 file_answer_from_sum_hash_(
         uint64_t sum_hash,
         B_OUTPTR struct B_Answer **out,
@@ -92,17 +68,38 @@ file_question_path_(
 }
 
 static B_FUNC
-file_question_answer_(
+file_question_query_answer_(
         struct B_Question const *question,
         B_OUTPTR struct B_Answer **out,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, question);
     B_CHECK_PRECONDITION(eh, out);
     B_FilePath const *path = file_question_path_(question);
+
+retry_open:;
+    FILE *file = fopen(path, "r");
+    if (!file) {
+        if (errno == ENOENT) {
+            *out = NULL;
+            return true;
+        }
+        switch (B_RAISE_ERRNO_ERROR(
+                eh, errno, "fopen")) {
+        case B_ERROR_ABORT:
+        case B_ERROR_IGNORE:
+            return false;
+        case B_ERROR_RETRY:
+            goto retry_open;
+        }
+    }
+
     uint64_t sum_hash;
-    if (!sum_hash_from_path_(path, &sum_hash, eh)) {
+    bool ok = sum_hash_from_file_(file, &sum_hash, eh);
+    (void) fclose(file);  // FIXME(strager)
+    if (!ok) {
         return false;
     }
+
     return file_answer_from_sum_hash_(sum_hash, out, eh);
 }
 
@@ -268,7 +265,7 @@ file_question_vtable_ = {
     .uuid = B_UUID_INITIALIZER(
         B6BD5D3B, DDC1, 43B2, 832B, 2B5836BF78FC),
     .answer_vtable = &file_answer_vtable_,
-    .answer = file_question_answer_,
+    .query_answer = file_question_query_answer_,
     .equal = file_question_equal_,
     .replicate = file_question_replicate_,
     .deallocate = file_question_deallocate_,
