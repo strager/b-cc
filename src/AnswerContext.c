@@ -243,7 +243,7 @@ b_answer_context_success(
     B_CHECK_PRECONDITION_ANSWER_CONTEXT(eh, answer_context);
 
     struct B_Answer *answer;
-    if (!answer_context->question_vtable->answer(
+    if (!answer_context->question_vtable->query_answer(
             answer_context->question, &answer, eh)) {
         return false;
     }

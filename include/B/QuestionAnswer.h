@@ -53,7 +53,7 @@ struct B_QuestionVTable {
     struct B_AnswerVTable const *answer_vtable;
 
     B_FUNC
-    (*answer)(
+    (*query_answer)(
         struct B_Question const *,
         B_OUTPTR struct B_Answer **,
         struct B_ErrorHandler const *);
