@@ -1016,8 +1016,13 @@ question_answer_matches_locked_(
 
     // Get actual answer.
     struct B_Answer *answer;
-    if (!question_vtable->answer(question, &answer, eh)) {
+    if (!question_vtable->query_answer(
+            question, &answer, eh)) {
         goto fail;
+    }
+    if (!answer) {
+        result = false;
+        goto done;
     }
     if (!b_answer_serialize_to_memory(
             answer,

@@ -11,21 +11,27 @@
 
 using namespace testing;
 
-TEST(TestFile, AnswerNonExistentFileReturnsENOENT) {
+static B_Question const *
+question_from_file_path_(
+        std::string const &file_path) {
+    return static_cast<B_Question const *>(
+        static_cast<void const *>(file_path.c_str()));
+}
+
+TEST(TestFile, AnswerNonExistentFileReturnsNull) {
     auto temp_dir = B_TemporaryDirectory::create();
     std::string file_path
         = temp_dir.path() + "/non_existent_file";
 
     MockErrorHandler mock_eh;
-    EXPECT_CALL(mock_eh, handle_error(B_Error{ENOENT}))
-        .WillOnce(Return(B_ERROR_ABORT));
 
     B_Answer *answer;
-    EXPECT_FALSE(b_file_contents_question_vtable()->answer(
-        static_cast<B_Question const *>(
-            static_cast<void const *>(file_path.c_str())),
-        &answer,
-        &mock_eh));
+    ASSERT_TRUE(b_file_contents_question_vtable()
+        ->query_answer(
+            question_from_file_path_(file_path),
+            &answer,
+            &mock_eh));
+    EXPECT_EQ(nullptr, answer);
 }
 
 TEST(TestFile, AnswerDirectoryReturnsEISDIR) {
@@ -36,12 +42,11 @@ TEST(TestFile, AnswerDirectoryReturnsEISDIR) {
         .WillOnce(Return(B_ERROR_ABORT));
 
     B_Answer *answer;
-    EXPECT_FALSE(b_file_contents_question_vtable()->answer(
-        static_cast<B_Question const *>(
-            static_cast<void const *>(
-                temp_dir.path().c_str())),
-        &answer,
-        &mock_eh));
+    EXPECT_FALSE(b_file_contents_question_vtable()
+        ->query_answer(
+            question_from_file_path_(temp_dir.path()),
+            &answer,
+            &mock_eh));
 }
 
 TEST(TestFile, AnswerEmptyFilesHaveSameAnswer) {
@@ -67,16 +72,14 @@ TEST(TestFile, AnswerEmptyFilesHaveSameAnswer) {
     }
 
     B_Answer *answer_1;
-    ASSERT_TRUE(question_vtable->answer(
-        static_cast<B_Question const *>(
-            static_cast<void const *>(file_path_1.c_str())),
+    ASSERT_TRUE(question_vtable->query_answer(
+        question_from_file_path_(file_path_1),
         &answer_1,
         eh));
 
     B_Answer *answer_2;
-    ASSERT_TRUE(question_vtable->answer(
-        static_cast<B_Question const *>(
-            static_cast<void const *>(file_path_2.c_str())),
+    ASSERT_TRUE(question_vtable->query_answer(
+        question_from_file_path_(file_path_2),
         &answer_2,
         eh));
 
@@ -126,16 +129,14 @@ TEST(TestFile, AnswerFilesWithDifferingContentsHaveDifferingAnswers) {
     }
 
     B_Answer *answer_1;
-    ASSERT_TRUE(question_vtable->answer(
-        static_cast<B_Question const *>(
-            static_cast<void const *>(file_path_1.c_str())),
+    ASSERT_TRUE(question_vtable->query_answer(
+        question_from_file_path_(file_path_1),
         &answer_1,
         eh));
 
     B_Answer *answer_2;
-    ASSERT_TRUE(question_vtable->answer(
-        static_cast<B_Question const *>(
-            static_cast<void const *>(file_path_2.c_str())),
+    ASSERT_TRUE(question_vtable->query_answer(
+        question_from_file_path_(file_path_2),
         &answer_2,
         eh));
 
@@ -177,9 +178,8 @@ TEST(TestFile, AnswerFileWithOneOfEveryByte) {
     }
 
     B_Answer *answer;
-    ASSERT_TRUE(question_vtable->answer(
-        static_cast<B_Question const *>(
-            static_cast<void const *>(file_path.c_str())),
+    ASSERT_TRUE(question_vtable->query_answer(
+        question_from_file_path_(file_path),
         &answer,
         eh));
     ASSERT_NE(nullptr, answer);

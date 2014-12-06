@@ -52,8 +52,13 @@ struct B_QuestionVTable {
     struct B_UUID uuid;
     struct B_AnswerVTable const *answer_vtable;
 
+    // Tries to answer a Question by looking at the current
+    // environment.  If no Answer could be returned, returns
+    // a NULL Answer.
+    //
+    // Should perform no side effects.
     B_FUNC
-    (*answer)(
+    (*query_answer)(
         struct B_Question const *,
         B_OUTPTR struct B_Answer **,
         struct B_ErrorHandler const *);
@@ -285,14 +290,15 @@ private:
     }
 
     static B_FUNC
-    answer_(
+    query_answer_(
             B_Question const *question,
             B_OUTPTR B_Answer **out,
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, question);
         B_CHECK_PRECONDITION(eh, out);
         typename TClass::AnswerClass *tmp;
-        if (!TClass::answer(cast_(question), &tmp, eh)) {
+        if (!TClass::query_answer(
+                cast_(question), &tmp, eh)) {
             return false;
         }
         *out = tmp;
@@ -376,7 +382,7 @@ private:
     a_, b_::vtable = { \
         __VA_ARGS__, \
         &a_, b_::Class::AnswerClass::vtable, \
-        a_, b_::answer_, \
+        a_, b_::query_answer_, \
         a_, b_::equal_, \
         a_, b_::replicate_, \
         a_, b_::deallocate_, \
