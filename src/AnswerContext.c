@@ -242,10 +242,23 @@ b_answer_context_success(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION_ANSWER_CONTEXT(eh, answer_context);
 
+retry:;
     struct B_Answer *answer;
     if (!answer_context->question_vtable->query_answer(
             answer_context->question, &answer, eh)) {
         return false;
+    }
+    if (!answer) {
+        // FIXME(strager): What is a more appropriate error
+        // code?
+        switch (B_RAISE_ERRNO_ERROR(
+                    eh, ENOENT, "query_answer")) {
+        case B_ERROR_RETRY:
+            goto retry;
+        case B_ERROR_ABORT:
+        case B_ERROR_IGNORE:
+            return false;
+        }
     }
 
     return b_answer_context_success_answer(

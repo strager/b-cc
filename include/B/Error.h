@@ -78,6 +78,40 @@ inline bool
 operator!=(const B_Error &a, const B_Error &b) {
     return !(a == b);
 }
+
+template<typename TFunc>
+struct B_ErrorHandlerWithCallback :
+        public B_ErrorHandler,
+        public TFunc {
+    explicit B_ErrorHandlerWithCallback(
+            TFunc func) :
+            B_ErrorHandler{handle_error_callback},
+            TFunc(func) {
+    }
+
+private:
+    static B_ErrorHandlerResult
+    handle_error_callback(
+            struct B_ErrorHandler const *raw_eh,
+            struct B_Error error) {
+        return static_cast<
+                B_ErrorHandlerWithCallback const *>(
+            raw_eh)->handle_error(error);
+    }
+
+    B_ErrorHandlerResult
+    handle_error(
+            struct B_Error error) const {
+        return (*static_cast<TFunc const *>(this))(error);
+    }
+};
+
+template<typename TFunc>
+B_ErrorHandlerWithCallback<TFunc>
+b_error_handler_with_callback(
+        TFunc &&func) {
+    return B_ErrorHandlerWithCallback<TFunc>(func);
+}
 #endif
 
 #endif

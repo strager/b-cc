@@ -154,9 +154,24 @@ struct FileQuestion :
             B_ErrorHandler const *eh) {
         B_CHECK_PRECONDITION(eh, out);
 
+        bool received_enoent = false;
+        auto sub_eh = b_error_handler_with_callback(
+            [eh, &received_enoent](
+                    B_Error error) -> B_ErrorHandlerResult {
+                if (error.errno_value == ENOENT) {
+                    received_enoent = true;
+                    return B_ERROR_ABORT;
+                }
+                return eh->f(eh, error);
+            });
+
         uint64_t sum_hash;
         if (!FileAnswer::sum_hash_from_path(
-                path, &sum_hash, eh)) {
+                path, &sum_hash, &sub_eh)) {
+            if (received_enoent) {
+                *out = nullptr;
+                return true;
+            }
             return false;
         }
         return b_new(out, eh, sum_hash);

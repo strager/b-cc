@@ -52,6 +52,11 @@ struct B_QuestionVTable {
     struct B_UUID uuid;
     struct B_AnswerVTable const *answer_vtable;
 
+    // Tries to answer a Question by looking at the current
+    // environment.  If no Answer could be returned, returns
+    // a NULL Answer.
+    //
+    // Should perform no side effects.
     B_FUNC
     (*query_answer)(
         struct B_Question const *,

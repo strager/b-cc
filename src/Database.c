@@ -1020,6 +1020,10 @@ question_answer_matches_locked_(
             question, &answer, eh)) {
         goto fail;
     }
+    if (!answer) {
+        result = false;
+        goto done;
+    }
     if (!b_answer_serialize_to_memory(
             answer,
             question_vtable->answer_vtable,

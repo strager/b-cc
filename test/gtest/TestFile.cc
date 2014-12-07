@@ -19,21 +19,20 @@ question_from_file_path_(
         static_cast<void const *>(file_path.c_str()));
 }
 
-TEST(TestFile, AnswerNonExistentFileReturnsENOENT) {
+TEST(TestFile, AnswerNonExistentFileReturnsNull) {
     auto temp_dir = B_TemporaryDirectory::create();
     std::string file_path
         = temp_dir.path() + "/non_existent_file";
 
     MockErrorHandler mock_eh;
-    EXPECT_CALL(mock_eh, handle_error(B_Error{ENOENT}))
-        .WillOnce(Return(B_ERROR_ABORT));
 
     B_Answer *answer;
-    EXPECT_FALSE(b_file_contents_question_vtable()
+    ASSERT_TRUE(b_file_contents_question_vtable()
         ->query_answer(
             question_from_file_path_(file_path),
             &answer,
             &mock_eh));
+    EXPECT_EQ(nullptr, answer);
 }
 
 TEST(TestFile, AnswerDirectoryReturnsEISDIR) {
