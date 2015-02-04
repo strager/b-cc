@@ -88,12 +88,8 @@ unregister_process_id_(
 
 B_EXPORT_FUNC
 b_main_allocate(
-        char const *database_sqlite_path,
-        struct B_QuestionVTableSet const *vtable_set,
         B_OUTPTR struct B_Main **out_main,
         struct B_ErrorHandler const *eh) {
-    B_CHECK_PRECONDITION(eh, database_sqlite_path);
-    B_CHECK_PRECONDITION(eh, vtable_set);
     B_CHECK_PRECONDITION(eh, out_main);
 
     struct B_Main *main;
@@ -117,7 +113,6 @@ b_main_allocate(
 #endif
         },
         .process_manager = NULL,
-        .database = NULL,
         .question_queue = NULL,
     };
     struct ProcessControllerDelegate_ *pcd
@@ -168,21 +163,6 @@ b_main_allocate(
         goto fail;
     }
 
-    if (!b_database_load_sqlite(
-            database_sqlite_path,
-            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
-            NULL,
-            &main->database,
-            eh)) {
-        goto fail;
-    }
-    // FIXME(strager): Perhaps we should delay this until
-    // b_main_loop is called.
-    if (!b_database_recheck_all(
-            main->database, vtable_set, eh)) {
-        goto fail;
-    }
-
     *out_main = main;
     return true;
 
@@ -197,9 +177,6 @@ b_main_deallocate(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, main);
 
-    if (main->database) {
-        (void) b_database_close(main->database, eh);
-    }
     if (main->question_queue) {
         (void) b_question_queue_deallocate(
             main->question_queue, eh);
@@ -257,6 +234,7 @@ b_main_loop(
         struct B_Main *main,
         struct B_Question const *initial_question,
         struct B_QuestionVTable const *initial_question_vtable,
+        struct B_Database *database,
         B_OUTPTR struct B_Answer **answer,
         B_QuestionDispatchCallback dispatch_callback,
         void *dispatch_callback_opaque,
@@ -457,7 +435,7 @@ retry_pselect:;
                 if (!b_question_dispatch_one(
                         queue_item,
                         main->question_queue,
-                        main->database,
+                        database,
                         &answer_context,
                         eh)) {
                     goto fail;

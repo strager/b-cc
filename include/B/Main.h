@@ -5,11 +5,11 @@
 
 struct B_Answer;
 struct B_AnswerContext;
+struct B_Database;
 struct B_ErrorHandler;
 struct B_ProcessController;
 struct B_Question;
 struct B_QuestionVTable;
-struct B_QuestionVTableSet;
 
 // Main is a convenience class which sets up a
 // ProcessController and a QuestionQueue.  Use Main as your
@@ -33,15 +33,8 @@ B_QuestionDispatchCallback(
 extern "C" {
 #endif
 
-// Creates a Main with the given Database and
-// QuestionVTableSet.
-//
-// TODO(strager): Accept a proper Database, not a path.
-// TODO(strager): Have caller call b_database_recheck_all.
 B_EXPORT_FUNC
 b_main_allocate(
-        char const *database_sqlite_path,
-        struct B_QuestionVTableSet const *,
         B_OUTPTR struct B_Main **,
         struct B_ErrorHandler const *);
 
@@ -57,7 +50,8 @@ b_main_process_controller(
         struct B_ErrorHandler const *);
 
 // Runs the B dispatch loop, attempting to answer the given
-// question.  Blocking.
+// Question.  Answer-s and dependencies are recorded into
+// the given Database.  Blocking.
 //
 // On some POSIX platforms (e.g. Linux), b_main_loop will
 // block the SIGCHLD signal process-wide (using
@@ -69,6 +63,7 @@ b_main_loop(
         struct B_Main *,
         struct B_Question const *initial_question,
         struct B_QuestionVTable const *initial_question_vtable,
+        struct B_Database *database,
         B_OUTPTR struct B_Answer **answer,
         B_QuestionDispatchCallback dispatch_callback,
         void *dispatch_callback_opaque,

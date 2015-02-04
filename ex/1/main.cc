@@ -391,12 +391,22 @@ main(
         return 1;
     }
 
-    B_Main *main;
-    if (!b_main_allocate(
+    B_Database *database;
+    if (!b_database_load_sqlite(
             "b_database.sqlite3",
-            question_vtable_set.get(),
-            &main,
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+            nullptr,
+            &database,
             eh)) {
+        return 1;
+    }
+    if (!b_database_recheck_all(
+            database, question_vtable_set.get(), eh)) {
+        return 1;
+    }
+
+    B_Main *main;
+    if (!b_main_allocate(&main, eh)) {
         return 1;
     }
 
@@ -411,6 +421,7 @@ main(
             main,
             initial_question,
             b_file_contents_question_vtable(),
+            database,
             &answer,
             dispatch_question,
             process_controller,
