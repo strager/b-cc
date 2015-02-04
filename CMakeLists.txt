@@ -93,7 +93,7 @@ main() {
 }
 " HAVE_ATTRIBUTE_WARN_UNUSED_RESULT)
 if (HAVE_ATTRIBUTE_WARN_UNUSED_RESULT)
-  check_c_source_compiles("
+    check_c_source_compiles("
 __attribute__((warn_unused_result)) int
 foo(void) {
     return 1;
@@ -104,9 +104,30 @@ main() {
     return 0;
 }
 " HAVE_SUPPRESSABLE_ATTRIBUTE_WARN_UNUSED_RESULT)
-  if (NOT HAVE_SUPPRESSABLE_ATTRIBUTE_WARN_UNUSED_RESULT)
-    append_compiler_flags(-Wno-unused-result)
-  endif ()
+    if (NOT HAVE_SUPPRESSABLE_ATTRIBUTE_WARN_UNUSED_RESULT)
+        append_compiler_flags(-Wno-unused-result)
+    endif ()
+endif ()
+
+# FIXME(strager): We should figure out a better name than
+# 'main' so we don't have to worry about this warning. =]
+check_c_source_compiles("
+int
+main() {
+    int main = 0;
+    return main;
+}
+" HAVE_SANE_MAIN_TREATMENT)
+if (NOT HAVE_SANE_MAIN_TREATMENT)
+    check_c_compiler_flag(
+        -Wno-main
+        HAVE_W_NO_MAIN
+    )
+    if (HAVE_W_NO_MAIN)
+        append_compiler_flags(-Wno-main)
+    else ()
+        message(SEND_ERROR "C compiler does not support 'main' as a variable name")
+    endif ()
 endif ()
 
 # TODO(strager): Use configured header file.
@@ -504,6 +525,7 @@ add_gtest_test(TestAnswerContext)
 add_gtest_test(TestDeserialize)
 add_gtest_test(TestErrorHandler)
 add_gtest_test(TestFile)
+add_gtest_test(TestMain)
 add_gtest_test(TestMisc)
 add_gtest_test(TestProcess)
 add_gtest_test(TestQuestionDispatch)

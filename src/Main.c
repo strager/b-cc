@@ -15,6 +15,7 @@
 # error "Unknown implementation"
 #endif
 
+#include <B/Alloc.h>
 #include <B/Assert.h>
 #include <B/Database.h>
 #include <B/Error.h>
@@ -61,10 +62,17 @@ struct ProcessControllerDelegate_ {
 
 B_STATIC_ASSERT(
     offsetof(
-        struct ProcessControllerDelegate_,
-        super) == 0,
+        struct ProcessControllerDelegate_, super) == 0,
     "ProcessControllerDelegate_::super must be the first "
         "member");
+
+struct B_Main {
+    struct ProcessControllerDelegate_
+        process_controller_delegate;
+    struct B_ProcessManager *process_manager;
+    struct B_Database *database;
+    struct B_QuestionQueue *question_queue;
+};
 
 static B_FUNC
 register_process_id_(
@@ -77,6 +85,159 @@ unregister_process_id_(
         struct B_ProcessControllerDelegate *,
         B_ProcessID,
         struct B_ErrorHandler const *);
+
+B_EXPORT_FUNC
+b_main_allocate(
+        char const *database_sqlite_path,
+        struct B_QuestionVTableSet const *vtable_set,
+        B_OUTPTR struct B_Main **out_main,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, database_sqlite_path);
+    B_CHECK_PRECONDITION(eh, vtable_set);
+    B_CHECK_PRECONDITION(eh, out_main);
+
+    struct B_Main *main;
+    if (!b_allocate(sizeof(*main), (void **) &main, eh)) {
+        return false;
+    }
+
+    *main = (struct B_Main) {
+        .process_controller_delegate = {
+            .super = {
+                .register_process_id = register_process_id_,
+                .unregister_process_id
+                    = unregister_process_id_,
+                .register_process_handle = NULL,
+                .unregister_process_handle = NULL,
+            },
+#if defined(B_MAIN_KQUEUE_)
+            .kqueue = -1,
+#elif defined(B_MAIN_EVENTFD_PSELECT_)
+            .question_queue_eventfd = -1,
+#endif
+        },
+        .process_manager = NULL,
+        .database = NULL,
+        .question_queue = NULL,
+    };
+    struct ProcessControllerDelegate_ *pcd
+        = &main->process_controller_delegate;
+
+#if defined(B_MAIN_KQUEUE_)
+    if (!b_kqueue(&pcd->kqueue, eh)) {
+        goto fail;
+    }
+    // Create an auto-reset event and have the QuestionQueue
+    // trigger it.
+    if (!b_kevent(pcd->kqueue, &(struct kevent) {
+                .ident = B_QUESTION_QUEUE_KQUEUE_USER_IDENT,
+                .filter = EVFILT_USER,
+                .flags = EV_ADD | EV_CLEAR,
+                .fflags = NOTE_FFNOP,
+                .data = (intptr_t) NULL,
+                .udata = NULL,
+            }, 1, NULL, 0, NULL, NULL, eh)) {
+        goto fail;
+    }
+    if (!b_question_queue_allocate_with_kqueue(
+            pcd->kqueue, &(struct kevent) {
+                .ident = B_QUESTION_QUEUE_KQUEUE_USER_IDENT,
+                .filter = EVFILT_USER,
+                .flags = 0,
+                .fflags = NOTE_TRIGGER,
+                .data = (intptr_t) NULL,
+                .udata = NULL,
+            }, &main->question_queue, eh)) {
+        goto fail;
+    }
+#elif defined(B_MAIN_EVENTFD_PSELECT_)
+    if (!b_eventfd(
+            0, 0, &pcd->question_queue_eventfd, eh)) {
+        goto fail;
+    }
+    if (!b_question_queue_allocate_with_eventfd(
+            pcd->question_queue_eventfd,
+            &main->question_queue,
+            eh)) {
+        goto fail;
+    }
+#endif
+
+    if (!b_process_manager_allocate(
+            &pcd->super, &main->process_manager, eh)) {
+        goto fail;
+    }
+
+    if (!b_database_load_sqlite(
+            database_sqlite_path,
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+            NULL,
+            &main->database,
+            eh)) {
+        goto fail;
+    }
+    // FIXME(strager): Perhaps we should delay this until
+    // b_main_loop is called.
+    if (!b_database_recheck_all(
+            main->database, vtable_set, eh)) {
+        goto fail;
+    }
+
+    *out_main = main;
+    return true;
+
+fail:
+    (void) b_main_deallocate(main, eh);
+    return false;
+}
+
+B_EXPORT_FUNC
+b_main_deallocate(
+        B_TRANSFER struct B_Main *main,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, main);
+
+    if (main->database) {
+        (void) b_database_close(main->database, eh);
+    }
+    if (main->question_queue) {
+        (void) b_question_queue_deallocate(
+            main->question_queue, eh);
+    }
+    if (main->process_manager) {
+        // FIXME(strager): Should we block waiting for
+        // children to die or something?
+        (void) b_process_manager_deallocate(
+            main->process_manager, eh);
+    }
+
+    struct ProcessControllerDelegate_ *pcd
+        = &main->process_controller_delegate;
+#if defined(B_MAIN_KQUEUE_)
+    if (pcd->kqueue != -1) {
+        (void) b_close_fd(pcd->kqueue, eh);
+    }
+#elif defined(B_MAIN_EVENTFD_PSELECT_)
+    if (pcd->question_queue_eventfd != -1) {
+        (void) b_close_fd(pcd->question_queue_eventfd, eh);
+    }
+#endif
+
+    (void) b_deallocate(main, eh);
+
+    return true;
+}
+
+B_EXPORT_FUNC
+b_main_process_controller(
+        struct B_Main *main,
+        B_OUT struct B_ProcessController **out,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, main);
+
+    return b_process_manager_get_controller(
+        main->process_manager, out, eh);
+}
 
 #if defined(B_MAIN_EVENTFD_PSELECT_)
 static void
@@ -92,26 +253,21 @@ sigchld_handler_(
 #endif
 
 B_EXPORT_FUNC
-b_main(
+b_main_loop(
+        struct B_Main *main,
         struct B_Question const *initial_question,
         struct B_QuestionVTable const *initial_question_vtable,
         B_OUTPTR struct B_Answer **answer,
-        char const *database_sqlite_path,
-        struct B_QuestionVTableSet const *vtable_set,
         B_QuestionDispatchCallback dispatch_callback,
         void *dispatch_callback_opaque,
         struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, main);
     B_CHECK_PRECONDITION(eh, initial_question);
     B_CHECK_PRECONDITION(eh, initial_question_vtable);
     B_CHECK_PRECONDITION(eh, answer);
-    B_CHECK_PRECONDITION(eh, database_sqlite_path);
-    B_CHECK_PRECONDITION(eh, vtable_set);
     B_CHECK_PRECONDITION(eh, dispatch_callback);
 
     bool ok;
-    struct B_ProcessManager *process_manager = NULL;
-    struct B_QuestionQueue *question_queue = NULL;
-    struct B_Database *database = NULL;
     struct B_QuestionQueueRoot *question_queue_root = NULL;
     struct B_Answer *tmp_answer = NULL;
 
@@ -121,96 +277,11 @@ b_main(
     bool set_sigchld_sigaction = false;
 #endif
 
-#if defined(B_MAIN_KQUEUE_)
-    int kqueue = -1;
-#elif defined(B_MAIN_EVENTFD_PSELECT_)
-    int question_queue_eventfd = -1;
-#endif
-
-#if defined(B_MAIN_KQUEUE_)
-    if (!b_kqueue(&kqueue, eh)) {
-        goto fail;
-    }
-    // Create an auto-reset event and have the QuestionQueue
-    // trigger it.
-    if (!b_kevent(kqueue, &(struct kevent) {
-                .ident = B_QUESTION_QUEUE_KQUEUE_USER_IDENT,
-                .filter = EVFILT_USER,
-                .flags = EV_ADD | EV_CLEAR,
-                .fflags = NOTE_FFNOP,
-                .data = (intptr_t) NULL,
-                .udata = NULL,
-            }, 1, NULL, 0, NULL, NULL, eh)) {
-        goto fail;
-    }
-    if (!b_question_queue_allocate_with_kqueue(
-            kqueue, &(struct kevent) {
-                .ident = B_QUESTION_QUEUE_KQUEUE_USER_IDENT,
-                .filter = EVFILT_USER,
-                .flags = 0,
-                .fflags = NOTE_TRIGGER,
-                .data = (intptr_t) NULL,
-                .udata = NULL,
-            }, &question_queue, eh)) {
-        goto fail;
-    }
-#elif defined(B_MAIN_EVENTFD_PSELECT_)
-    if (!b_eventfd(0, 0, &question_queue_eventfd, eh)) {
-        goto fail;
-    }
-    if (!b_question_queue_allocate_with_eventfd(
-            question_queue_eventfd, &question_queue, eh)) {
-        goto fail;
-    }
-#endif
-    struct ProcessControllerDelegate_
-        process_controller_delegate = {
-            .super = {
-                .register_process_id = register_process_id_,
-                .unregister_process_id
-                    = unregister_process_id_,
-                .register_process_handle = NULL,
-                .unregister_process_handle = NULL,
-            },
-#if defined(B_MAIN_KQUEUE_)
-            .kqueue = kqueue,
-#elif defined(B_MAIN_EVENTFD_PSELECT_)
-            .question_queue_eventfd
-                = question_queue_eventfd,
-#endif
-        };
-    if (!b_process_manager_allocate(
-            &process_controller_delegate.super,
-            &process_manager,
-            eh)) {
-        goto fail;
-    }
-
-    if (!b_database_load_sqlite(
-            database_sqlite_path,
-            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
-            NULL,
-            &database,
-            eh)) {
-        goto fail;
-    }
-    if (!b_database_recheck_all(database, vtable_set, eh)) {
-        goto fail;
-    }
-
     if (!b_question_queue_enqueue_root(
-            question_queue,
+            main->question_queue,
             initial_question,
             initial_question_vtable,
             &question_queue_root,
-            eh)) {
-        goto fail;
-    }
-
-    struct B_ProcessController *process_controller;
-    if (!b_process_manager_get_controller(
-            process_manager,
-            &process_controller,
             eh)) {
         goto fail;
     }
@@ -255,10 +326,6 @@ b_main(
     }
 #endif
 
-    struct B_MainClosure closure = {
-        .process_controller = process_controller,
-        .opaque = dispatch_callback_opaque,
-    };
     // Event loop.  Keep dispatching questions until the
     // QuestionQueue is closed.
     bool keep_going = true;
@@ -267,6 +334,8 @@ b_main(
         bool received_queue_event = false;
 
 #if defined(B_MAIN_KQUEUE_)
+        int kqueue
+            = main->process_controller_delegate.kqueue;
         size_t received_events;
         struct kevent events[10];
         if (!b_kevent(
@@ -314,26 +383,21 @@ b_main(
         }
         b_sigdelset(&mask, SIGCHLD);
 
+        int eventfd = main->process_controller_delegate
+            .question_queue_eventfd;
 retry_pselect:;
         fd_set rfds;
         FD_ZERO(&rfds);
-        FD_SET(question_queue_eventfd, &rfds);
+        FD_SET(eventfd, &rfds);
         int rc = pselect(
-            question_queue_eventfd + 1,
-            &rfds,
-            NULL,
-            NULL,
-            NULL,
-            &mask);
+            eventfd + 1, &rfds, NULL, NULL, NULL, &mask);
         if (rc == 1) {
-            B_ASSERT(FD_ISSET(
-                question_queue_eventfd, &rfds));
+            B_ASSERT(FD_ISSET(eventfd, &rfds));
             B_LOG(
                 B_DEBUG,
                 "Received signal from QuestionQueue");
             received_queue_event = true;
-            if (!b_eventfd_read(
-                    question_queue_eventfd, NULL, eh)) {
+            if (!b_eventfd_read(eventfd, NULL, eh)) {
                 goto fail;
             }
         } else if (rc == -1) {
@@ -360,7 +424,7 @@ retry_pselect:;
 
         if (received_process_event) {
             if (!b_process_manager_check(
-                    process_manager, eh)) {
+                    main->process_manager, eh)) {
                 goto fail;
             }
         }
@@ -374,7 +438,7 @@ retry_pselect:;
                 struct B_QuestionQueueItem *queue_item;
                 bool question_queue_closed;
                 if (!b_question_queue_try_dequeue(
-                        question_queue,
+                        main->question_queue,
                         &queue_item,
                         &question_queue_closed,
                         eh)) {
@@ -392,15 +456,17 @@ retry_pselect:;
                     answer_context;
                 if (!b_question_dispatch_one(
                         queue_item,
-                        question_queue,
-                        database,
+                        main->question_queue,
+                        main->database,
                         &answer_context,
                         eh)) {
                     goto fail;
                 }
                 if (answer_context) {
                     if (!dispatch_callback(
-                            answer_context, &closure, eh)) {
+                            answer_context,
+                            dispatch_callback_opaque,
+                            eh)) {
                         goto fail;
                     }
                 }
@@ -439,32 +505,12 @@ done:
         (void) initial_question_vtable->answer_vtable
             ->deallocate(tmp_answer, eh);
     }
-    if (database) {
-        (void) b_database_close(database, eh);
-    }
-    if (question_queue) {
-        (void) b_question_queue_deallocate(
-            question_queue, eh);
-    }
     if (question_queue_root) {
         (void) b_question_queue_finalize_root(
             question_queue_root, &tmp_answer, eh);
+        // FIXME(strager): We should deallocate tmp_answer
+        // if necessary.
     }
-    if (process_manager) {
-        // FIXME(strager): Should we block waiting for
-        // children to die or something?
-        (void) b_process_manager_deallocate(
-            process_manager, eh);
-    }
-#if defined(B_MAIN_KQUEUE_)
-    if (kqueue != -1) {
-        (void) b_close_fd(kqueue, eh);
-    }
-#elif defined(B_MAIN_EVENTFD_PSELECT_)
-    if (question_queue_eventfd != -1) {
-        (void) b_close_fd(question_queue_eventfd, eh);
-    }
-#endif
     return ok;
 
 fail:

@@ -11,50 +11,65 @@ struct B_Question;
 struct B_QuestionVTable;
 struct B_QuestionVTableSet;
 
-struct B_MainClosure {
-    struct B_ProcessController *process_controller;
-
-    // Parameter to b_main.
-    void *opaque;
-};
+// Main is a convenience class which sets up a
+// ProcessController and a QuestionQueue.  Use Main as your
+// program's entry point into b.
+//
+// Call b_main_loop to process ProcessController results and
+// QuestionQueueItem-s.
+//
+// Thread-safe: NO
+// Signal-safe: NO
+// See also notes in b_main_loop.
+struct B_Main;
 
 typedef B_FUNC
 B_QuestionDispatchCallback(
         struct B_AnswerContext const *,
-        struct B_MainClosure const *,
+        void *opaque,
         struct B_ErrorHandler const *);
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-// Runs the B dispatch loop, attempting to answer the given
-// question.
+// Creates a Main with the given Database and
+// QuestionVTableSet.
 //
-// This is a convenience function which is merely a
-// combination of the following function calls:
-//
-// 1. b_process_loop_allocate
-// 2. b_process_manager_allocate
-// 3. b_question_queue_allocate_*
-// 4. b_database_load_sqlite
-// 5. b_database_recheck_all
-// 6. b_question_queue_enqueue_root
-// 7. b_question_queue_try_dequeue
-// 8. b_question_dispatch_one
-// 9. b_question_queue_finalize_root
-//
-// On some POSIX platforms (e.g. Linux), b_main will block
-// the SIGCHLD signal process-wide (using sigprocmask).
-// When this function returns, SIGCHLD is unblocked (or
-// remains blocked if it was blocked before calling b_main).
+// TODO(strager): Accept a proper Database, not a path.
+// TODO(strager): Have caller call b_database_recheck_all.
 B_EXPORT_FUNC
-b_main(
+b_main_allocate(
+        char const *database_sqlite_path,
+        struct B_QuestionVTableSet const *,
+        B_OUTPTR struct B_Main **,
+        struct B_ErrorHandler const *);
+
+B_EXPORT_FUNC
+b_main_deallocate(
+        B_TRANSFER struct B_Main *,
+        struct B_ErrorHandler const *);
+
+B_EXPORT_FUNC
+b_main_process_controller(
+        struct B_Main *,
+        B_OUT struct B_ProcessController **,
+        struct B_ErrorHandler const *);
+
+// Runs the B dispatch loop, attempting to answer the given
+// question.  Blocking.
+//
+// On some POSIX platforms (e.g. Linux), b_main_loop will
+// block the SIGCHLD signal process-wide (using
+// sigprocmask).  When this function returns, SIGCHLD is
+// unblocked (or remains blocked if it was blocked before
+// calling b_main).
+B_EXPORT_FUNC
+b_main_loop(
+        struct B_Main *,
         struct B_Question const *initial_question,
         struct B_QuestionVTable const *initial_question_vtable,
         B_OUTPTR struct B_Answer **answer,
-        char const *database_sqlite_path,
-        struct B_QuestionVTableSet const *,
         B_QuestionDispatchCallback dispatch_callback,
         void *dispatch_callback_opaque,
         struct B_ErrorHandler const *);

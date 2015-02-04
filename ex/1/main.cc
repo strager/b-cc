@@ -115,10 +115,10 @@ check_file(
 static B_FUNC
 dispatch_question(
         B_AnswerContext const *answer_context,
-        B_MainClosure const *main_closure,
+        void *opaque,
         B_ErrorHandler const *eh) {
-    B_ProcessController *process_controller
-        = main_closure->process_controller;
+    auto process_controller
+        = static_cast<B_ProcessController *>(opaque);
 
     if (answer_context->question_vtable->uuid
             != b_file_contents_question_vtable()->uuid) {
@@ -391,15 +391,29 @@ main(
         return 1;
     }
 
+    B_Main *main;
+    if (!b_main_allocate(
+            "b_database.sqlite3",
+            question_vtable_set.get(),
+            &main,
+            eh)) {
+        return 1;
+    }
+
+    B_ProcessController *process_controller;
+    if (!b_main_process_controller(
+            main, &process_controller, eh)) {
+        return 1;
+    }
+
     B_Answer *answer;
-    if (!b_main(
+    if (!b_main_loop(
+            main,
             initial_question,
             b_file_contents_question_vtable(),
             &answer,
-            "b_database.sqlite3",
-            question_vtable_set.get(),
             dispatch_question,
-            nullptr,
+            process_controller,
             eh)) {
         return 1;
     }
