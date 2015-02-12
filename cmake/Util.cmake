@@ -55,6 +55,16 @@ function (append_compiler_flags)
     set(CMAKE_CXX_FLAGS "${CXXFLAGS}" PARENT_SCOPE)
 endfunction ()
 
+function (append_target_compiler_flags TARGET)
+    set(FLAGS "")
+    append_With_space(FLAGS "${ARGN}")
+    set_property(
+        TARGET "${TARGET}"
+        APPEND_STRING
+        PROPERTY COMPILE_FLAGS "${FLAGS}"
+    )
+endfunction ()
+
 function (depend_pkgconfig TARGET VARIABLE_PREFIX)
     set(MANUAL_HELP "Set ${VARIABLE_PREFIX}_FOUND=1 and
 the following variables as required:

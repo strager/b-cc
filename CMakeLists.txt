@@ -80,6 +80,8 @@ if (HAVE_W_CONDITIONAL_UNINITIALIZED)
     append_compiler_flags(-Wconditional-uninitialized)
 endif ()
 
+check_c_compiler_flag(-fno-exceptions HAVE_F_NO_EXCEPTIONS)
+
 # WONTFIX by GCC:
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=25509
 check_c_source_compiles("
@@ -201,16 +203,8 @@ check_cxx_source_compiles_with_flags(
 )
 if (HAVE_STDLIB_LIBCXX)
     append_with_space(CMAKE_CXX_FLAGS -stdlib=libc++)
-    append_with_space(
-        CMAKE_SHARED_LINKER_FLAGS
-        -stdlib=libc++
-    )
 elseif (HAVE_STDLIB_LIBSTDCXX)
     append_with_space(CMAKE_CXX_FLAGS -stdlib=libstdc++)
-    append_with_space(
-        CMAKE_SHARED_LINKER_FLAGS
-        -stdlib=libstdc++
-    )
 endif ()
 
 check_c_compiler_flag(-fPIC HAVE_F_PIC)
@@ -387,6 +381,10 @@ function (b_add_library NAME)
         include/B/Serialize.h
         include/B/UUID.h
     )
+    set_property(
+        TARGET "${NAME}"
+        PROPERTY LINKER_LANGUAGE C
+    )
     target_include_directories("${NAME}" PUBLIC include)
     if (SQLITE3_STATIC)
         target_link_libraries(
@@ -400,6 +398,12 @@ function (b_add_library NAME)
         "${NAME}"
         LINK_PRIVATE "${CMAKE_THREAD_LIBS_INIT}"
     )
+    if (HAVE_F_NO_EXCEPTIONS)
+        append_target_compiler_flags(
+            "${NAME}"
+            -fno-exceptions
+        )
+    endif ()
 endfunction ()
 
 b_add_library(b)
@@ -521,6 +525,7 @@ add_custom_target(
         "${CMAKE_CURRENT_BINARY_DIR}/RunTest.sh"
 )
 
+add_gtest_test(TestAlloc)
 add_gtest_test(TestAnswerContext)
 add_gtest_test(TestDeserialize)
 add_gtest_test(TestErrorHandler)
@@ -539,3 +544,10 @@ add_dependencies(TestProcess TestProcessChild)
 
 add_executable(ex1 ex/1/main.cc)
 target_link_libraries(ex1 b)
+set_property(
+    TARGET ex1
+    PROPERTY LINKER_LANGUAGE C
+)
+if (HAVE_F_NO_EXCEPTIONS)
+    append_target_compiler_flags(ex1 -fno-exceptions)
+endif ()

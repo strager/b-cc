@@ -60,9 +60,21 @@ b_memdup(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, data);
     B_CHECK_PRECONDITION(eh, out);
+    return b_memdupplus(data, byte_count, 0, out, eh);
+}
+
+B_EXPORT_FUNC
+b_memdupplus(
+        void const *data,
+        size_t byte_count,
+        size_t extra_size,
+        B_OUTPTR void **out,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, data);
+    B_CHECK_PRECONDITION(eh, out);
 
     void *p;
-    if (!b_allocate(byte_count, &p, eh)) {
+    if (!b_allocate(byte_count + extra_size, &p, eh)) {
         return false;
     }
     memcpy(p, data, byte_count);
@@ -78,8 +90,23 @@ b_strdup(
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, string);
     B_CHECK_PRECONDITION(eh, out);
-    return b_memdup(
-        string, strlen(string) + 1, (void **) out, eh);
+    return b_strdupplus(string, 0, out, eh);
+}
+
+B_EXPORT_FUNC
+b_strdupplus(
+        char const *string,
+        size_t extra_size,
+        B_OUTPTR char **out,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, string);
+    B_CHECK_PRECONDITION(eh, out);
+    return b_memdupplus(
+        string,
+        strlen(string) + 1,
+        extra_size,
+        (void **) out,
+        eh);
 }
 
 B_EXPORT_FUNC

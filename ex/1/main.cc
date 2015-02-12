@@ -14,17 +14,15 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <errno.h>
 #include <memory>
 #include <sqlite3.h>
-#include <string>
 #include <sys/stat.h>
-#include <vector>
 
 // HACK(strager)
 #if defined(__APPLE__)
 # define EXTRA_CXXFLAGS "-stdlib=libc++",
-# define EXTRA_LDFLAGS "-stdlib=libc++",
 #elif defined(__linux__)
 # define EXTRA_LDFLAGS "-lpthread", "-ldl",
 #endif
@@ -39,76 +37,86 @@
 # define EXTRA_LDFLAGS
 #endif
 
-static std::string::size_type
-path_extensions_index(
-        std::string path) {
+static char const *
+path_extensions_(
+        B_FilePath const *path) {
     // TODO(strager): Support non-UNIX path separators.
-    std::string::size_type slash_index = path.rfind('/');
-    std::string::size_type file_name_index
-            = slash_index == std::string::npos
-            ? 0
-            : slash_index + 1;
-    std::string::size_type dot_index
-            = path.find('.', file_name_index);
-    if (dot_index == std::string::npos) {
+    char const *end = strchr(path, '\0');
+    char const *slash = strrchr(path, '/');
+    size_t file_name_index
+        = slash ? slash - path + 1 : 0;
+    char const *dot = strchr(path + file_name_index, '.');
+    if (!dot) {
         // No extension.
-        return path.size();
-    } else if (dot_index == file_name_index) {
+        return end;
+    }
+    size_t dot_index = dot - path;
+    if (dot_index == file_name_index) {
         // Dot file.
-        return path.size();
+        return end;
     } else if (dot_index < file_name_index) {
         // No extension, but a dot is in a directory name.
         // Shouldn't happen because we search for the dot
         // starting at the file name.
         B_BUG();
-        return path.size();
+        return end;
     } else {
-        return dot_index;
+        return dot;
     }
 }
 
-static std::string
-path_extensions(
-        std::string path) {
-    return std::string(
-            path,
-            path_extensions_index(path),
-            std::string::npos);
+static char *
+path_extensions_(
+        B_FilePath *path) {
+    return const_cast<char *>(path_extensions_(
+        const_cast<char const *>(path)));
 }
 
-static std::string
-path_drop_extensions(
-        std::string path) {
-    return std::string(
-            path,
-            0,
-            path_extensions_index(path));
+static B_FUNC
+path_replacing_extensions_(
+        B_FilePath const *path,
+        char const *new_extensions,
+        B_OUTPTR B_FilePath **out,
+        B_ErrorHandler const *eh) {
+    size_t new_extensions_length = strlen(new_extensions);
+    char *new_path;
+    if (!b_strdupplus(
+            path, new_extensions_length, &new_path, eh)) {
+        return false;
+    }
+    char *extensions = path_extensions_(new_path);
+    memcpy(
+        extensions,
+        new_extensions,
+        new_extensions_length + 1);
+    *out = new_path;
+    return true;
 }
 
 static B_FUNC
 run_link(
-        std::string const &path,
+        B_FilePath const *,
         B_AnswerContext const *answer_context,
         B_ProcessController *,
         B_ErrorHandler const *eh);
 
 static B_FUNC
 run_c_compile(
-        std::string const &path,
+        B_FilePath const *,
         B_AnswerContext const *answer_context,
         B_ProcessController *,
         B_ErrorHandler const *eh);
 
 static B_FUNC
 run_cc_compile(
-        std::string const &path,
+        B_FilePath const *,
         B_AnswerContext const *answer_context,
         B_ProcessController *,
         B_ErrorHandler const *eh);
 
 static B_FUNC
 check_file(
-        std::string const &path,
+        B_FilePath const *,
         B_AnswerContext const *answer_context,
         B_ErrorHandler const *eh);
 
@@ -129,24 +137,23 @@ dispatch_question(
         return false;
     }
 
-    auto path_raw = static_cast<char const *>(
+    auto path = static_cast<B_FilePath const *>(
         static_cast<void const *>(
             answer_context->question));
-    std::string path(path_raw);
-    std::string extension = path_extensions(path);
-    if (extension == "") {
+    char const *extension = path_extensions_(path);
+    if (strcmp(extension, "") == 0) {
         return run_link(
             path,
             answer_context,
             process_controller,
             eh);
-    } else if (extension == ".c.o") {
+    } else if (strcmp(extension, ".c.o") == 0) {
         return run_c_compile(
             path,
             answer_context,
             process_controller,
             eh);
-    } else if (extension == ".cc.o") {
+    } else if (strcmp(extension, ".cc.o") == 0) {
         return run_cc_compile(
             path,
             answer_context,
@@ -159,11 +166,11 @@ dispatch_question(
 
 static B_FUNC
 run_link(
-        std::string const &exe_path,
+        B_FilePath const *exe_path,
         B_AnswerContext const *answer_context,
         B_ProcessController *process_controller,
         B_ErrorHandler const *eh) {
-    std::vector<std::string> o_paths = {
+    static B_FilePath const *o_paths[] = {
         "ex/1/main.cc.o",
         "src/Alloc.c.o",
         "src/AnswerContext.c.o",
@@ -190,50 +197,63 @@ run_link(
         "src/UUID.c.o",
         "vendor/sqlite-3.8.4.1/sqlite3.c.o",
     };
-    std::vector<B_Question const *> questions;
-    std::transform(
-        o_paths.begin(),
-        o_paths.end(),
-        std::back_inserter(questions),
-        [](
-                const std::string &path) {
-            return static_cast<B_Question const *>(
-                static_cast<void const *>(
-                    path.c_str()));
-        });
-    std::vector<B_QuestionVTable const *>
-        questions_vtables;
-    std::fill_n(
-            std::back_inserter(questions_vtables),
-            questions.size(),
-            b_file_contents_question_vtable());
-    return b_answer_context_need(
+    size_t questions_count
+        = sizeof(o_paths) / sizeof(*o_paths);
+    auto questions
+        = reinterpret_cast<B_Question const **>(o_paths);
+
+    B_QuestionVTable const **questions_vtables;
+    if (!b_allocate(
+            questions_count * sizeof(*questions_vtables),
+            reinterpret_cast<void **>(&questions_vtables),
+            eh)) {
+        return false;
+    }
+    for (size_t i = 0; i < questions_count; ++i) {
+        questions_vtables[i]
+            = b_file_contents_question_vtable();
+    }
+
+    bool ok = b_answer_context_need(
         answer_context,
-        questions.data(),
-        questions_vtables.data(),
-        questions.size(),
+        questions,
+        questions_vtables,
+        questions_count,
         [=](
                 B_Answer *const *,
                 B_ErrorHandler const *eh) {
-            std::vector<char const *> args = {
+            static char const *args_prefix[] = {
                 "clang++",
                 EXTRA_LDFLAGS
                 "-Iinclude",
-                "-o", exe_path.c_str(),
+                "-o",
             };
-            std::transform(
-                o_paths.begin(),
-                o_paths.end(),
-                std::back_inserter(args),
-                [](
-                        const std::string &o_path) {
-                    return o_path.c_str();
-                });
-            args.push_back(nullptr);
+            size_t args_prefix_count = sizeof(args_prefix)
+                / sizeof(*args_prefix);
+
+            size_t args_count
+                = args_prefix_count + questions_count + 2;
+            char const **args;
+            if (!b_allocate(
+                    args_count * sizeof(*args),
+                    reinterpret_cast<void **>(&args),
+                    eh)) {
+                return false;
+            }
+            char const **cur_arg = args;
+            for (size_t i = 0; i < args_prefix_count; ++i) {
+                *cur_arg++ = args_prefix[i];
+            }
+            *cur_arg++ = exe_path;
+            for (size_t i = 0; i < questions_count; ++i) {
+                *cur_arg++ = o_paths[i];
+            }
+            *cur_arg++ = nullptr;
+
             return b_answer_context_exec(
                 answer_context,
                 process_controller,
-                args.data(),
+                args,
                 eh);
         },
         [](
@@ -242,19 +262,26 @@ run_link(
             return true;
         },
         eh);
+
+    (void) b_deallocate(questions_vtables, eh);
+    return ok;
 }
 
 static B_FUNC
 run_c_compile(
-        std::string const &o_path,
+        B_FilePath const *o_path,
         B_AnswerContext const *answer_context,
         B_ProcessController *process_controller,
         B_ErrorHandler const *eh) {
-    std::string c_path
-            = path_drop_extensions(o_path) + ".c";
+    B_FilePath *c_path;
+    if (!path_replacing_extensions_(
+            o_path, ".c", &c_path, eh)) {
+        return false;
+    }
+    // TODO(strager): Clean up c_path properly.
 
     auto question = static_cast<B_Question const *>(
-        static_cast<void const *>(c_path.c_str()));
+        static_cast<void const *>(c_path));
     return b_answer_context_need_one(
         answer_context,
         question,
@@ -271,9 +298,9 @@ run_c_compile(
                 "-D_DARWIN_C_SOURCE",
                 EXTRA_CFLAGS
                 "-Iinclude",
-                "-o", o_path.c_str(),
+                "-o", o_path,
                 "-c",
-                c_path.c_str(),
+                c_path,
                 nullptr,
             };
             return b_answer_context_exec(
@@ -292,16 +319,20 @@ run_c_compile(
 
 static B_FUNC
 run_cc_compile(
-        std::string const &o_path,
+        B_FilePath const *o_path,
         B_AnswerContext const *answer_context,
         B_ProcessController *process_controller,
         B_ErrorHandler const *eh) {
-    std::string cc_path
-            = path_drop_extensions(o_path) + ".cc";
+    B_FilePath *cc_path;
+    if (!path_replacing_extensions_(
+            o_path, ".cc", &cc_path, eh)) {
+        return false;
+    }
+    // TODO(strager): Clean up cc_path properly.
 
     // TODO(strager): Use std::make_unique.
     auto question = static_cast<B_Question const *>(
-        static_cast<void const *>(cc_path.c_str()));
+        static_cast<void const *>(cc_path));
     return b_answer_context_need_one(
         answer_context,
         question,
@@ -315,9 +346,9 @@ run_cc_compile(
                 "-Ivendor/sqlite-3.8.4.1",
                 EXTRA_CXXFLAGS
                 "-Iinclude",
-                "-o", o_path.c_str(),
+                "-o", o_path,
                 "-c",
-                cc_path.c_str(),
+                cc_path,
                 nullptr,
             };
             return b_answer_context_exec(
@@ -336,11 +367,11 @@ run_cc_compile(
 
 static B_FUNC
 check_file(
-        std::string const &path,
+        B_FilePath const *path,
         B_AnswerContext const *answer_context,
         B_ErrorHandler const *eh) {
     struct stat stat_buffer;
-    int rc = stat(path.c_str(), &stat_buffer);
+    int rc = stat(path, &stat_buffer);
     if (rc == -1) {
         switch (errno) {
         case ENOENT:
