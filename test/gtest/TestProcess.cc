@@ -10,7 +10,6 @@
 #include <errno.h>
 #include <gtest/gtest.h>
 #include <list>
-#include <memory>
 #include <sstream>
 #include <stdint.h>
 #include <string.h>
@@ -34,46 +33,56 @@
 #if defined(B_CONFIG_POSIX_SIGNALS)
 class SigactionHolder {
 public:
-    static SigactionHolder
-    sigaction(
+    // Non-copyable.
+    SigactionHolder(
+            SigactionHolder const &) = delete;
+    SigactionHolder &
+    operator=(
+            SigactionHolder const &) = delete;
+
+    SigactionHolder() :
+            armed(false) {
+    }
+
+    ~SigactionHolder() {
+        this->disarm();
+    }
+
+    void
+    arm(
             int signal_number,
             struct sigaction new_action) {
-        struct sigaction action;
-        EXPECT_EQ(0, ::sigaction(
-            signal_number, &new_action, &action))
+        this->disarm();
+
+        int rc;
+        EXPECT_EQ(0, (rc = sigaction(
+            signal_number, &new_action, &this->action)))
             << strerror(errno);
-        return SigactionHolder(signal_number, action);
+        if (rc == 0) {
+            this->signal_number = signal_number;
+            this->armed = true;
+        }
     }
 
-    SigactionHolder() {
-    }
+    void
+    disarm() {
+        if (!this->armed) {
+            return;
+        }
 
-    SigactionHolder(
-            int signal_number,
-            struct sigaction action) :
-            data(new Data{signal_number, action}) {
+        int rc;
+        EXPECT_EQ(0, (rc = sigaction(
+            this->signal_number, &this->action, nullptr)))
+            << strerror(errno);
+        if (rc == 0) {
+            this->armed = false;
+        }
     }
 
 private:
-    struct Data {
-        int signal_number;
-        struct sigaction action;
-    };
-
-    struct Deleter {
-        void
-        operator()(
-                Data *data) {
-            EXPECT_EQ(0, ::sigaction(
-                data->signal_number,
-                &data->action,
-                nullptr))
-                << strerror(errno);
-            delete data;
-        }
-    };
-
-    std::unique_ptr<Data, Deleter> data;
+    bool armed;
+    int signal_number;
+    struct sigaction action;
 };
 #endif
 
@@ -193,7 +202,7 @@ class Tester : public B_ProcessControllerDelegate {
 public:
     class Factory {
     public:
-        virtual std::unique_ptr<Tester>
+        virtual Tester *
         create_tester() const = 0;
 
         virtual const char *
@@ -251,10 +260,9 @@ class PselectInterruptTester : public Tester {
 public:
     class Factory : public Tester::Factory {
     public:
-        std::unique_ptr<Tester>
+        Tester *
         create_tester() const override {
-            return std::unique_ptr<Tester>(
-                new PselectInterruptTester());
+            return new PselectInterruptTester();
         }
 
         const char *
@@ -273,8 +281,7 @@ public:
         action.sa_flags = SA_SIGINFO | SA_NOCLDSTOP;
         action.sa_sigaction = handle_sigchld_;
         EXPECT_EQ(0, sigemptyset(&action.sa_mask));
-        this->sigaction_holder
-            = SigactionHolder::sigaction(SIGCHLD, action);
+        this->sigaction_holder.arm(SIGCHLD, action);
 
         // Block SIGCHLD in case SIGCHLD is received before
         // wait_and_notify is called.
@@ -381,10 +388,9 @@ class KqueueTester : public Tester {
 public:
     class Factory : public Tester::Factory {
     public:
-        std::unique_ptr<Tester>
+        Tester *
         create_tester() const override {
-            return std::unique_ptr<Tester>(
-                new KqueueTester());
+            return new KqueueTester();
         }
 
         const char *
@@ -535,10 +541,12 @@ Testers::Tester::Factory *tester_factories[] = {
 
 }
 
+using Testers::Tester;
+
 class TestProcess : public ::testing::TestWithParam<
-        Testers::Tester::Factory *> {
+        Tester::Factory *> {
 public:
-    std::unique_ptr<Testers::Tester>
+    Tester *
     create_tester() const {
         return this->GetParam()->create_tester();
     }
@@ -552,11 +560,11 @@ INSTANTIATE_TEST_CASE_P(
 TEST_P(TestProcess, SanityCheck) {
     // Make sure the tester isn't doing something insane.
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     B_ProcessManager *manager;
     ASSERT_TRUE(b_process_manager_allocate(
-        tester.get(), &manager, eh));
+        tester, &manager, eh));
     for (size_t i = 0; i < 10; ++i) {
         bool timed_out;
         EXPECT_TRUE(tester->wait_and_notify(
@@ -567,15 +575,16 @@ TEST_P(TestProcess, SanityCheck) {
     }
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+    delete tester;
 }
 
 TEST_P(TestProcess, TrueReturnsPromptly) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     B_ProcessManager *manager;
     ASSERT_TRUE(b_process_manager_allocate(
-        tester.get(), &manager, eh));
+        tester, &manager, eh));
 
     bool exited = false;
     B_ProcessExitStatus exit_status;
@@ -596,15 +605,16 @@ TEST_P(TestProcess, TrueReturnsPromptly) {
     EXPECT_EQ(0, exit_status.code.exit_code);
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+    delete tester;
 }
 
 TEST_P(TestProcess, FalseReturnsPromptly) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     B_ProcessManager *manager;
     ASSERT_TRUE(b_process_manager_allocate(
-        tester.get(), &manager, eh));
+        tester, &manager, eh));
 
     bool exited = false;
     B_ProcessExitStatus exit_status;
@@ -625,6 +635,7 @@ TEST_P(TestProcess, FalseReturnsPromptly) {
     EXPECT_NE(0, exit_status.code.exit_code);
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+    delete tester;
 }
 
 #if defined(B_BUG_25)
@@ -633,11 +644,11 @@ TEST_P(TestProcess, DISABLED_ExecutableNotFound) {
 TEST_P(TestProcess, ExecutableNotFound) {
 #endif
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     B_ProcessManager *manager;
     ASSERT_TRUE(b_process_manager_allocate(
-        tester.get(), &manager, eh));
+        tester, &manager, eh));
     B_ProcessController *controller;
     ASSERT_TRUE(b_process_manager_get_controller(
         manager, &controller, eh));
@@ -663,16 +674,17 @@ TEST_P(TestProcess, ExecutableNotFound) {
         &mock_eh));
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+    delete tester;
 }
 
 #if defined(B_CONFIG_POSIX_SIGNALS)
 TEST_P(TestProcess, KillSIGTERM) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     B_ProcessManager *manager;
     ASSERT_TRUE(b_process_manager_allocate(
-        tester.get(), &manager, eh));
+        tester, &manager, eh));
 
     bool exited = false;
     B_ProcessExitStatus exit_status;
@@ -698,16 +710,17 @@ TEST_P(TestProcess, KillSIGTERM) {
     EXPECT_EQ(SIGTERM, exit_status.signal.signal_number);
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+    delete tester;
 }
 #endif
 
 TEST_P(TestProcess, MultipleTruesInParallel) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     B_ProcessManager *manager;
     ASSERT_TRUE(b_process_manager_allocate(
-        tester.get(), &manager, eh));
+        tester, &manager, eh));
 
     B_ProcessController *controller;
     ASSERT_TRUE(b_process_manager_get_controller(
@@ -750,6 +763,7 @@ TEST_P(TestProcess, MultipleTruesInParallel) {
     }
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+    delete tester;
 }
 
 namespace {
@@ -835,11 +849,11 @@ private:
 
 TEST_P(TestProcess, DeeplyNestedProcessTree) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     B_ProcessManager *manager;
     ASSERT_TRUE(b_process_manager_allocate(
-        tester.get(), &manager, eh));
+        tester, &manager, eh));
 
     B_ProcessController *controller;
     ASSERT_TRUE(b_process_manager_get_controller(
@@ -873,15 +887,16 @@ TEST_P(TestProcess, DeeplyNestedProcessTree) {
     EXPECT_FALSE(timed_out);
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+    delete tester;
 }
 
 TEST_P(TestProcess, VeryBranchyProcessTree) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     B_ProcessManager *manager;
     ASSERT_TRUE(b_process_manager_allocate(
-        tester.get(), &manager, eh));
+        tester, &manager, eh));
 
     B_ProcessController *controller;
     ASSERT_TRUE(b_process_manager_get_controller(
@@ -917,16 +932,17 @@ TEST_P(TestProcess, VeryBranchyProcessTree) {
     EXPECT_FALSE(timed_out);
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+    delete tester;
 }
 
 #if defined(B_CONFIG_POSIX_SIGNALS)
 TEST_P(TestProcess, BasicExecChildHasCleanSignalMask) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     B_ProcessManager *manager;
     ASSERT_TRUE(b_process_manager_allocate(
-        tester.get(), &manager, eh));
+        tester, &manager, eh));
 
     bool exited = false;
     B_ProcessExitStatus exit_status;
@@ -952,11 +968,12 @@ TEST_P(TestProcess, BasicExecChildHasCleanSignalMask) {
     EXPECT_EQ(0, exit_status.code.exit_code);
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+    delete tester;
 }
 
 TEST_P(TestProcess, BasicExecChildDoesNotInheritSigaction) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     // Ignore SIGALRM.  The child process should have
     // SIG_DFL for SIGALRM.
@@ -964,12 +981,12 @@ TEST_P(TestProcess, BasicExecChildDoesNotInheritSigaction) {
     action.sa_flags = 0;
     action.sa_handler = SIG_IGN;
     EXPECT_EQ(0, sigemptyset(&action.sa_mask));
-    auto holder = SigactionHolder::sigaction(
-        SIGALRM, action);
+    SigactionHolder holder;
+    holder.arm(SIGALRM, action);
 
     B_ProcessManager *manager;
     ASSERT_TRUE(b_process_manager_allocate(
-        tester.get(), &manager, eh));
+        tester, &manager, eh));
 
     bool exited = false;
     B_ProcessExitStatus exit_status;
@@ -995,5 +1012,6 @@ TEST_P(TestProcess, BasicExecChildDoesNotInheritSigaction) {
     EXPECT_EQ(0, exit_status.code.exit_code);
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
+    delete tester;
 }
 #endif
