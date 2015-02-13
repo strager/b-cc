@@ -2,5 +2,5 @@
     pthread_cond_{signal,broadcast}: dubious: associated lock is not held by any thread
     Helgrind:Misc
     obj:/usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so
-    fun:_ZN12_GLOBAL__N_124QuestionQueuePthreadCond15signal_enqueuedEv
+    fun:pthread_cond_signal_enqueued_locked_
 }

@@ -343,7 +343,7 @@ function (b_add_library NAME)
         src/Process.c
         src/QuestionAnswer.c
         src/QuestionDispatch.c
-        src/QuestionQueue.cc
+        src/QuestionQueue.c
         src/QuestionQueueRoot.c
         src/QuestionVTableSet.c
         src/RefCount.c
