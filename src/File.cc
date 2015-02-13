@@ -247,7 +247,8 @@ struct FileQuestion :
 
 B_QUESTION_ANSWER_CLASS_DEFINE_VTABLE(
     FileQuestion,
-    B_UUID_LITERAL("B6BD5D3B-DDC1-43B2-832B-2B5836BF78FC"))
+    B_UUID_INITIALIZER(
+        B6BD5D3B, DDC1, 43B2, 832B, 2B5836BF78FC))
 
 struct B_QuestionVTable const *
 b_file_contents_question_vtable(

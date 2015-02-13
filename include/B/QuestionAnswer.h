@@ -365,23 +365,23 @@ private:
     B_ANSWER_CLASS_DEFINE_VTABLE_( \
         B_AnswerClass<question_class_name_::AnswerClass>); \
     B_QUESTION_CLASS_DEFINE_VTABLE_( \
-        (question_class_uuid_), \
         B_QuestionClass< \
                 question_class_name_, \
-                question_class_name_::Object>);
+                question_class_name_::Object>, \
+        question_class_uuid_);
 
-#define B_QUESTION_CLASS_DEFINE_VTABLE_(uuid_, ...) \
+#define B_QUESTION_CLASS_DEFINE_VTABLE_(a_, b_, ...) \
     template<> \
     B_QuestionVTable const \
-    __VA_ARGS__::vtable = { \
-        (uuid_), \
-        &__VA_ARGS__::Class::AnswerClass::vtable, \
-        __VA_ARGS__::answer_, \
-        __VA_ARGS__::equal_, \
-        __VA_ARGS__::replicate_, \
-        __VA_ARGS__::deallocate_, \
-        __VA_ARGS__::serialize_, \
-        __VA_ARGS__::deserialize_, \
+    a_, b_::vtable = { \
+        __VA_ARGS__, \
+        &a_, b_::Class::AnswerClass::vtable, \
+        a_, b_::answer_, \
+        a_, b_::equal_, \
+        a_, b_::replicate_, \
+        a_, b_::deallocate_, \
+        a_, b_::serialize_, \
+        a_, b_::deserialize_, \
     }
 
 #define B_ANSWER_CLASS_DEFINE_VTABLE_(...) \

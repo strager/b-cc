@@ -14,37 +14,37 @@ struct B_UUID {
     uint8_t data[16];
 };
 
-// B_UUID_LITERAL("CE4903AD-73F9-41AE-B56C-578084BC529F")
-// has type 'struct B_UUID'.
-// TODO(strager): Assert length and dashes.
+// B_UUID_INITIALIZER(
+//     CE4903AD, 73F9, 41AE, B56C, 578084BC529F)
+// is an initializer for B_UUID.
+// TODO(strager): Assert length?
 // FIXME(strager): Bytes aren't ordered properly.
-#define B_UUID_LITERAL(x) \
-    (B_COMPOUND_INIT_STRUCT(B_UUID, { \
-\
-        B_UUID_GETHEX8(x, 0), \
-        B_UUID_GETHEX8(x, 2), \
-        B_UUID_GETHEX8(x, 4), \
-        B_UUID_GETHEX8(x, 6), \
-\
-        B_UUID_GETHEX8(x, 9), \
-        B_UUID_GETHEX8(x, 11), \
-        B_UUID_GETHEX8(x, 14), \
-        B_UUID_GETHEX8(x, 16), \
-\
-        B_UUID_GETHEX8(x, 19), \
-        B_UUID_GETHEX8(x, 21), \
-        B_UUID_GETHEX8(x, 24), \
-        B_UUID_GETHEX8(x, 26), \
-\
-        B_UUID_GETHEX8(x, 28), \
-        B_UUID_GETHEX8(x, 30), \
-        B_UUID_GETHEX8(x, 32), \
-        B_UUID_GETHEX8(x, 34), \
-    }))
+#define B_UUID_INITIALIZER(a, b, c, d, e) \
+    B_UUID_INITIALIZER_(0x##a##LL, 0x##b##LL, 0x##c##LL, 0x##d##LL, 0x##e##LL)
 
-#define B_UUID_GETHEX8(string, offset) \
-    ((B_HEX_DIGIT_TO_INT((string)[(offset) + 0]) << 4) \
-    + (B_HEX_DIGIT_TO_INT((string)[(offset) + 1]) << 0))
+#define B_UUID_INITIALIZER_(a, b, c, d, e) \
+    {{ \
+        (a >> 24) & 0xFF, \
+        (a >> 16) & 0xFF, \
+        (a >>  8) & 0xFF, \
+        (a >>  0) & 0xFF, \
+\
+        (b >>  8) & 0xFF, \
+        (b >>  0) & 0xFF, \
+\
+        (c >>  8) & 0xFF, \
+        (c >>  0) & 0xFF, \
+\
+        (d >>  8) & 0xFF, \
+        (d >>  0) & 0xFF, \
+\
+        (e >> 40) & 0xFF, \
+        (e >> 32) & 0xFF, \
+        (e >> 24) & 0xFF, \
+        (e >> 16) & 0xFF, \
+        (e >>  8) & 0xFF, \
+        (e >>  0) & 0xFF, \
+    }}
 
 #if defined(__cplusplus)
 extern "C" {
