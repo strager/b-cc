@@ -6,7 +6,6 @@
 #include <cstring>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <memory>
 
 #if defined(B_CONFIG_POSIX)
 # include <pthread.h>
@@ -30,7 +29,7 @@ class Tester {
 public:
     class Factory {
     public:
-        virtual std::unique_ptr<Tester>
+        virtual Tester *
         create_tester() const = 0;
 
         virtual const char *
@@ -63,10 +62,9 @@ class SingleThreadedTester : public Tester {
 public:
     class Factory : public Tester::Factory {
     public:
-        std::unique_ptr<Tester>
+        Tester *
         create_tester() const override {
-            return std::unique_ptr<Tester>(
-                new SingleThreadedTester());
+            return new SingleThreadedTester();
         }
 
         const char *
@@ -99,10 +97,9 @@ class PthreadCondTester : public Tester {
 public:
     class Factory : public Tester::Factory {
     public:
-        std::unique_ptr<Tester>
+        Tester *
         create_tester() const override {
-            return std::unique_ptr<Tester>(
-                new PthreadCondTester());
+            return new PthreadCondTester();
         }
 
 
@@ -254,10 +251,9 @@ class KqueueTester : public Tester {
 public:
     class Factory : public Tester::Factory {
     public:
-        std::unique_ptr<Tester>
+        Tester *
         create_tester() const override {
-            return std::unique_ptr<Tester>(
-                new KqueueTester());
+            return new KqueueTester();
         }
 
         const char *
@@ -346,10 +342,9 @@ class EventfdTester : public Tester {
 public:
     class Factory : public Tester::Factory {
     public:
-        std::unique_ptr<Tester>
+        Tester *
         create_tester() const override {
-            return std::unique_ptr<Tester>(
-                new EventfdTester());
+            return new EventfdTester();
         }
 
         const char *
@@ -435,10 +430,12 @@ Testers::Tester::Factory *tester_factories[] = {
 
 }
 
+using Testers::Tester;
+
 class TestQuestionQueue : public ::testing::TestWithParam<
         Testers::Tester::Factory *> {
 public:
-    std::unique_ptr<Testers::Tester>
+    Tester *
     create_tester() const {
         return this->GetParam()->create_tester();
     }
@@ -451,16 +448,18 @@ INSTANTIATE_TEST_CASE_P(
 
 TEST_P(TestQuestionQueue, AllocateDeallocate) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     B_QuestionQueue *queue;
     ASSERT_TRUE(tester->queue_allocate(&queue, eh));
     EXPECT_TRUE(b_question_queue_deallocate(queue, eh));
+
+    delete tester;
 }
 
 TEST_P(TestQuestionQueue, EnqueueOneItemSignals) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
     // Must be alive while queue is destructed.
     StrictMock<MockQuestion> question;
@@ -469,31 +468,29 @@ TEST_P(TestQuestionQueue, EnqueueOneItemSignals) {
     EXPECT_CALL(queue_item, deallocate(_))
         .WillOnce(Return(true));
 
-    B_QuestionQueue *queue_raw;
-    ASSERT_TRUE(tester->queue_allocate(&queue_raw, eh));
-    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        queue(queue_raw, eh);
-    queue_raw = nullptr;
+    B_QuestionQueue *queue;
+    ASSERT_TRUE(tester->queue_allocate(&queue, eh));
 
     ASSERT_TRUE(b_question_queue_enqueue(
-        queue.get(),
-        &queue_item,
-        eh));
+        queue, &queue_item, eh));
 
     EXPECT_TRUE(tester->try_consume_event());
+
+    EXPECT_TRUE(b_question_queue_deallocate(queue, eh));
+    delete tester;
 }
 
 TEST_P(TestQuestionQueue, EmptyQueueIsUnsignaled) {
     B_ErrorHandler const *eh = nullptr;
-    auto tester = this->create_tester();
+    Tester *tester = this->create_tester();
 
-    B_QuestionQueue *queue_raw;
-    ASSERT_TRUE(tester->queue_allocate(&queue_raw, eh));
-    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        queue(queue_raw, eh);
-    queue_raw = nullptr;
+    B_QuestionQueue *queue;
+    ASSERT_TRUE(tester->queue_allocate(&queue, eh));
 
     if (!tester->consumes_spurious_events()) {
         EXPECT_FALSE(tester->try_consume_event());
     }
+
+    EXPECT_TRUE(b_question_queue_deallocate(queue, eh));
+    delete tester;
 }
