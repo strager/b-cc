@@ -334,7 +334,7 @@ function (b_add_library NAME)
         src/Database.c
         src/Deserialize.c
         src/Error.c
-        src/File.cc
+        src/File.c
         src/FilePath.c
         src/Log.c
         src/Main.c
