@@ -6,14 +6,8 @@
 #include <B/QuestionAnswer.h>
 #include <B/QuestionQueue.h>
 
-#include <memory>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
-typedef std::unique_ptr<
-        B_QuestionQueueItem,
-        B_QuestionQueueItemDeleter>
-    QueueItemUniquePtr;
 
 // Ensures b_answer_context_need_one enqueues the question
 // on the QuestionQueue exactly once.
@@ -29,11 +23,9 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
     MockRefCounting(needed_question);
     B_AnswerContext answer_context;
 
-    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(B_RETURN_OUTPTR(
-            B_QuestionQueue *,
-            b_question_queue_allocate_single_threaded(
-                &_, eh)), eh);
+    B_QuestionQueue *question_queue;
+    ASSERT_TRUE(b_question_queue_allocate_single_threaded(
+        &question_queue, eh));
 
     answer_context.question = &question;
     answer_context.question_vtable = &MockQuestion::vtable;
@@ -44,7 +36,7 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
         return true;
     };
     answer_context.answer_callback_opaque = nullptr;
-    answer_context.question_queue = question_queue.get();
+    answer_context.question_queue = question_queue;
     answer_context.database = nullptr;
 
     ASSERT_TRUE(b_answer_context_need_one(
@@ -63,13 +55,9 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
         },
         eh));
 
-    QueueItemUniquePtr first_queue_item(B_RETURN_OUTPTR(
-            B_QuestionQueueItem *,
-            b_question_queue_try_dequeue(
-                question_queue.get(),
-                &_,
-                &closed,
-                eh)), eh);
+    B_QuestionQueueItem *first_queue_item;
+    ASSERT_TRUE(b_question_queue_try_dequeue(
+        question_queue, &first_queue_item, &closed, eh));
     ASSERT_NE(nullptr, first_queue_item);
     EXPECT_FALSE(closed);
 
@@ -78,15 +66,17 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
         &MockQuestion::vtable,
         first_queue_item->question_vtable);
 
-    QueueItemUniquePtr second_queue_item(B_RETURN_OUTPTR(
-            B_QuestionQueueItem *,
-            b_question_queue_try_dequeue(
-                question_queue.get(),
-                &_,
-                &closed,
-                eh)), eh);
+    EXPECT_TRUE(b_question_queue_item_object_deallocate(
+        first_queue_item, eh));
+
+    B_QuestionQueueItem *second_queue_item;
+    ASSERT_TRUE(b_question_queue_try_dequeue(
+        question_queue, &second_queue_item, &closed, eh));
     ASSERT_EQ(nullptr, second_queue_item);
     EXPECT_FALSE(closed);
+
+    EXPECT_TRUE(b_question_queue_deallocate(
+        question_queue, eh));
 }
 
 // Ensures calling b_answer_context_need_one's enqueued
@@ -104,11 +94,9 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
     MockRefCounting(answer);
     B_AnswerContext answer_context;
 
-    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(B_RETURN_OUTPTR(
-            B_QuestionQueue *,
-            b_question_queue_allocate_single_threaded(
-                &_, eh)), eh);
+    B_QuestionQueue *question_queue;
+    ASSERT_TRUE(b_question_queue_allocate_single_threaded(
+        &question_queue, eh));
 
     answer_context.question = &question;
     answer_context.question_vtable = &MockQuestion::vtable;
@@ -119,7 +107,7 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
         return true;
     };
     answer_context.answer_callback_opaque = nullptr;
-    answer_context.question_queue = question_queue.get();
+    answer_context.question_queue = question_queue;
     answer_context.database = nullptr;
 
     size_t need_callback_called = 0;
@@ -143,35 +131,36 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
         eh));
 
     bool closed;
-    QueueItemUniquePtr queue_item(B_RETURN_OUTPTR(
-            B_QuestionQueueItem *,
-            b_question_queue_try_dequeue(
-                question_queue.get(),
-                &_,
-                &closed,
-                eh)), eh);
+    B_QuestionQueueItem *queue_item;
+    ASSERT_TRUE(b_question_queue_try_dequeue(
+        question_queue, &queue_item, &closed, eh));
     ASSERT_NE(nullptr, queue_item);
     EXPECT_FALSE(closed);
 
     EXPECT_EQ(&needed_question, queue_item->question);
     EXPECT_EQ(
-        &MockQuestion::vtable,
-        queue_item->question_vtable);
+        &MockQuestion::vtable, queue_item->question_vtable);
     ASSERT_NE(nullptr, queue_item->answer_callback);
     EXPECT_EQ(0U, need_callback_called);
 
     ASSERT_TRUE(B_RETAIN(&answer, eh));
     ASSERT_TRUE(queue_item->answer_callback(
-        &answer,
-        queue_item.get(),
-        eh));
+        &answer, queue_item, eh));
     EXPECT_EQ(1U, need_callback_called);
+
+    EXPECT_TRUE(b_question_queue_item_object_deallocate(
+        queue_item, eh));
+
+    EXPECT_TRUE(b_question_queue_deallocate(
+        question_queue, eh));
 }
 
 // Ensures calling the enqueued item answer_callback-s of
 // two b_answer_context_need_one calls with an answer calls
 // the b_answer_context_need_one success callback.
-TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
+TEST(
+        TestAnswerContext,
+        AnswerSuccessSuccessCallsNeedCallbacks) {
     B_ErrorHandler const *eh = nullptr;
 
     // Must be alive while question_queue is destructed.
@@ -187,11 +176,9 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
     MockRefCounting(answer_2);
     B_AnswerContext answer_context;
 
-    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(B_RETURN_OUTPTR(
-            B_QuestionQueue *,
-            b_question_queue_allocate_single_threaded(
-                &_, eh)), eh);
+    B_QuestionQueue *question_queue;
+    ASSERT_TRUE(b_question_queue_allocate_single_threaded(
+        &question_queue, eh));
 
     answer_context.question = &question;
     answer_context.question_vtable = &MockQuestion::vtable;
@@ -202,7 +189,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
         return true;
     };
     answer_context.answer_callback_opaque = nullptr;
-    answer_context.question_queue = question_queue.get();
+    answer_context.question_queue = question_queue;
     answer_context.database = nullptr;
 
     size_t need_callback_1_called = 0;
@@ -247,13 +234,9 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
 
     {
         bool closed;
-        QueueItemUniquePtr queue_item_1(B_RETURN_OUTPTR(
-                B_QuestionQueueItem *,
-                b_question_queue_try_dequeue(
-                    question_queue.get(),
-                    &_,
-                    &closed,
-                    eh)), eh);
+        B_QuestionQueueItem *queue_item_1;
+        ASSERT_TRUE(b_question_queue_try_dequeue(
+            question_queue, &queue_item_1, &closed, eh));
         ASSERT_NE(nullptr, queue_item_1);
         EXPECT_FALSE(closed);
 
@@ -280,21 +263,18 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
         }
         EXPECT_EQ(0U, *queue_item_1_need_callback_called);
         ASSERT_TRUE(queue_item_1->answer_callback(
-            queue_item_1_answer,
-            queue_item_1.get(),
-            eh));
+            queue_item_1_answer, queue_item_1, eh));
         EXPECT_EQ(1U, *queue_item_1_need_callback_called);
+
+        EXPECT_TRUE(b_question_queue_item_object_deallocate(
+            queue_item_1, eh));
     }
 
     {
         bool closed;
-        QueueItemUniquePtr queue_item_2(B_RETURN_OUTPTR(
-                B_QuestionQueueItem *,
-                b_question_queue_try_dequeue(
-                    question_queue.get(),
-                    &_,
-                    &closed,
-                    eh)), eh);
+        B_QuestionQueueItem *queue_item_2;
+        ASSERT_TRUE(b_question_queue_try_dequeue(
+            question_queue, &queue_item_2, &closed, eh));
         ASSERT_NE(nullptr, queue_item_2);
         EXPECT_FALSE(closed);
 
@@ -321,17 +301,23 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallbacks) {
         }
         EXPECT_EQ(0U, *queue_item_2_need_callback_called);
         ASSERT_TRUE(queue_item_2->answer_callback(
-            queue_item_2_answer,
-            queue_item_2.get(),
-            eh));
+            queue_item_2_answer, queue_item_2, eh));
         EXPECT_EQ(1U, *queue_item_2_need_callback_called);
+
+        EXPECT_TRUE(b_question_queue_item_object_deallocate(
+            queue_item_2, eh));
     }
+
+    EXPECT_TRUE(b_question_queue_deallocate(
+        question_queue, eh));
 }
 
 // Ensures calling the enqueued item answer_callback-s of a
 // b_answer_context_need call with an answer calls the
 // b_answer_context_need success callback.
-TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
+TEST(
+        TestAnswerContext,
+        AnswerSuccessSuccessCallsNeedCallback) {
     B_ErrorHandler const *eh = nullptr;
 
     // Must be alive while question_queue is destructed.
@@ -347,11 +333,9 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
     MockRefCounting(answer_2);
     B_AnswerContext answer_context;
 
-    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(B_RETURN_OUTPTR(
-            B_QuestionQueue *,
-            b_question_queue_allocate_single_threaded(
-                &_, eh)), eh);
+    B_QuestionQueue *question_queue;
+    ASSERT_TRUE(b_question_queue_allocate_single_threaded(
+        &question_queue, eh));
 
     answer_context.question = &question;
     answer_context.question_vtable = &MockQuestion::vtable;
@@ -362,7 +346,7 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
         return true;
     };
     answer_context.answer_callback_opaque = nullptr;
-    answer_context.question_queue = question_queue.get();
+    answer_context.question_queue = question_queue;
     answer_context.database = nullptr;
 
     B_Question const *needed_questions[2] = {
@@ -398,13 +382,9 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
 
     {
         bool closed;
-        QueueItemUniquePtr queue_item_1(B_RETURN_OUTPTR(
-                B_QuestionQueueItem *,
-                b_question_queue_try_dequeue(
-                    question_queue.get(),
-                    &_,
-                    &closed,
-                    eh)), eh);
+        B_QuestionQueueItem *queue_item_1;
+        ASSERT_TRUE(b_question_queue_try_dequeue(
+            question_queue, &queue_item_1, &closed, eh));
         ASSERT_NE(nullptr, queue_item_1);
         EXPECT_FALSE(closed);
 
@@ -426,21 +406,18 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
         }
         EXPECT_EQ(0U, need_callback_called);
         ASSERT_TRUE(queue_item_1->answer_callback(
-            queue_item_1_answer,
-            queue_item_1.get(),
-            eh));
+            queue_item_1_answer, queue_item_1, eh));
         EXPECT_EQ(0U, need_callback_called);
+
+        EXPECT_TRUE(b_question_queue_item_object_deallocate(
+            queue_item_1, eh));
     }
 
     {
         bool closed;
-        QueueItemUniquePtr queue_item_2(B_RETURN_OUTPTR(
-                B_QuestionQueueItem *,
-                b_question_queue_try_dequeue(
-                    question_queue.get(),
-                    &_,
-                    &closed,
-                    eh)), eh);
+        B_QuestionQueueItem *queue_item_2;
+        ASSERT_TRUE(b_question_queue_try_dequeue(
+            question_queue, &queue_item_2, &closed, eh));
         ASSERT_NE(nullptr, queue_item_2);
         EXPECT_FALSE(closed);
 
@@ -462,11 +439,15 @@ TEST(TestAnswerContext, AnswerSuccessSuccessCallsNeedCallback) {
         }
         EXPECT_EQ(0U, need_callback_called);
         ASSERT_TRUE(queue_item_2->answer_callback(
-            queue_item_2_answer,
-            queue_item_2.get(),
-            eh));
+            queue_item_2_answer, queue_item_2, eh));
         EXPECT_EQ(1U, need_callback_called);
+
+        EXPECT_TRUE(b_question_queue_item_object_deallocate(
+            queue_item_2, eh));
     }
+
+    EXPECT_TRUE(b_question_queue_deallocate(
+        question_queue, eh));
 }
 
 // Ensures calling b_answer_context_need_one's enqueued
@@ -482,11 +463,9 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
     MockRefCounting(needed_question);
     B_AnswerContext answer_context;
 
-    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(B_RETURN_OUTPTR(
-            B_QuestionQueue *,
-            b_question_queue_allocate_single_threaded(
-                &_, eh)), eh);
+    B_QuestionQueue *question_queue;
+    ASSERT_TRUE(b_question_queue_allocate_single_threaded(
+        &question_queue, eh));
 
     answer_context.question = &question;
     answer_context.question_vtable = &MockQuestion::vtable;
@@ -497,7 +476,7 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
         return true;
     };
     answer_context.answer_callback_opaque = nullptr;
-    answer_context.question_queue = question_queue.get();
+    answer_context.question_queue = question_queue;
     answer_context.database = nullptr;
 
     size_t need_callback_called = 0;
@@ -520,28 +499,27 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
         eh));
 
     bool closed;
-    QueueItemUniquePtr queue_item(B_RETURN_OUTPTR(
-            B_QuestionQueueItem *,
-            b_question_queue_try_dequeue(
-                question_queue.get(),
-                &_,
-                &closed,
-                eh)), eh);
+    B_QuestionQueueItem *queue_item;
+    ASSERT_TRUE(b_question_queue_try_dequeue(
+        question_queue, &queue_item, &closed, eh));
     ASSERT_NE(nullptr, queue_item);
     EXPECT_FALSE(closed);
 
     EXPECT_EQ(&needed_question, queue_item->question);
     EXPECT_EQ(
-        &MockQuestion::vtable,
-        queue_item->question_vtable);
+        &MockQuestion::vtable, queue_item->question_vtable);
     ASSERT_NE(nullptr, queue_item->answer_callback);
     EXPECT_EQ(0U, need_callback_called);
 
     ASSERT_TRUE(queue_item->answer_callback(
-        nullptr,
-        queue_item.get(),
-        eh));
+        nullptr, queue_item, eh));
     EXPECT_EQ(1U, need_callback_called);
+
+    EXPECT_TRUE(b_question_queue_item_object_deallocate(
+        queue_item, eh));
+
+    EXPECT_TRUE(b_question_queue_deallocate(
+        question_queue, eh));
 }
 
 // Ensures calling b_answer_context_success_answer calls the
@@ -556,11 +534,9 @@ TEST(TestAnswerContext, SuccessAnswerCallsContextCallback) {
     MockRefCounting(answer);
     B_AnswerContext answer_context;
 
-    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(B_RETURN_OUTPTR(
-            B_QuestionQueue *,
-            b_question_queue_allocate_single_threaded(
-                &_, eh)), eh);
+    B_QuestionQueue *question_queue;
+    ASSERT_TRUE(b_question_queue_allocate_single_threaded(
+        &question_queue, eh));
 
     size_t answer_callback_called = 0;
     auto answer_callback = [&](
@@ -582,7 +558,7 @@ TEST(TestAnswerContext, SuccessAnswerCallsContextCallback) {
     };
     answer_context.answer_callback_opaque
         = &answer_callback;
-    answer_context.question_queue = question_queue.get();
+    answer_context.question_queue = question_queue;
     answer_context.database = nullptr;
 
     EXPECT_EQ(0U, answer_callback_called);
@@ -591,6 +567,9 @@ TEST(TestAnswerContext, SuccessAnswerCallsContextCallback) {
         &answer,
         eh));
     EXPECT_EQ(1U, answer_callback_called);
+
+    EXPECT_TRUE(b_question_queue_deallocate(
+        question_queue, eh));
 }
 
 // Ensures calling b_answer_context_success_answer calls the
@@ -610,11 +589,9 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
             SetArgPointee<0>(&answer),
             Return(true)));
 
-    std::unique_ptr<B_QuestionQueue, B_QuestionQueueDeleter>
-        question_queue(B_RETURN_OUTPTR(
-            B_QuestionQueue *,
-            b_question_queue_allocate_single_threaded(
-                &_, eh)), eh);
+    B_QuestionQueue *question_queue;
+    ASSERT_TRUE(b_question_queue_allocate_single_threaded(
+        &question_queue, eh));
 
     size_t answer_callback_called = 0;
     auto answer_callback = [&](
@@ -636,7 +613,7 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
     };
     answer_context.answer_callback_opaque
         = &answer_callback;
-    answer_context.question_queue = question_queue.get();
+    answer_context.question_queue = question_queue;
     answer_context.database = nullptr;
 
     EXPECT_EQ(0U, answer_callback_called);
@@ -644,4 +621,7 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
         &answer_context,
         eh));
     EXPECT_EQ(1U, answer_callback_called);
+
+    EXPECT_TRUE(b_question_queue_deallocate(
+        question_queue, eh));
 }
