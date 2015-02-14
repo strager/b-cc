@@ -357,7 +357,6 @@ function (b_add_library NAME)
         include/B/Assert.h
         include/B/Base.h
         include/B/Config.h
-        include/B/CXX.h
         include/B/Database.h
         include/B/Deserialize.h
         include/B/Errno.h

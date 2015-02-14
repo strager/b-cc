@@ -79,7 +79,6 @@ b_strndup(
 #endif
 
 #if defined(__cplusplus)
-# include <B/CXX.h>
 # include <B/Error.h>
 
 # include <cstddef>

@@ -45,19 +45,4 @@ b_question_vtable_set_look_up(
 }
 #endif
 
-#if defined(__cplusplus)
-# include <B/CXX.h>
-
-struct B_QuestionVTableSetDeleter :
-        public B_Deleter {
-    using B_Deleter::B_Deleter;
-
-    void
-    operator()(B_QuestionVTableSet *vtables) {
-        (void) b_question_vtable_set_deallocate(
-            vtables, this->error_handler);
-    }
-};
-#endif
-
 #endif

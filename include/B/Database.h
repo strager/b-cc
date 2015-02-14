@@ -101,19 +101,4 @@ b_database_recheck_all(
 }
 #endif
 
-#if defined(__cplusplus)
-# include <B/CXX.h>
-
-struct B_DatabaseDeleter :
-        public B_Deleter {
-    using B_Deleter::B_Deleter;
-
-    void
-    operator()(B_Database *database) {
-        (void) b_database_close(
-            database, this->error_handler);
-    }
-};
-#endif
-
 #endif

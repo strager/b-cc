@@ -167,30 +167,4 @@ b_question_queue_finalize_root(
 }
 #endif
 
-#if defined(__cplusplus)
-# include <B/CXX.h>
-
-struct B_QuestionQueueDeleter :
-        public B_Deleter {
-    using B_Deleter::B_Deleter;
-
-    void
-    operator()(B_QuestionQueue *queue) {
-        (void) b_question_queue_deallocate(
-            queue, this->error_handler);
-    }
-};
-
-struct B_QuestionQueueItemDeleter :
-        public B_Deleter {
-    using B_Deleter::B_Deleter;
-
-    void
-    operator()(B_QuestionQueueItem *queue_item) {
-        (void) b_question_queue_item_object_deallocate(
-            queue_item, this->error_handler);
-    }
-};
-#endif
-
 #endif
