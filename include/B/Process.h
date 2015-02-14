@@ -224,11 +224,15 @@ b_process_controller_exec_basic(
         char const *const *args,
         TExitCallback callback,
         struct B_ErrorHandler const *eh) {
-    TExitCallback *heap_callback = nullptr;
-
-    if (!b_new(&heap_callback, eh, std::move(callback))) {
-        goto fail;
+    TExitCallback *heap_callback;
+    if (!b_allocate(
+            sizeof(*heap_callback),
+            reinterpret_cast<void **>(&heap_callback),
+            eh)) {
+        return false;
     }
+    new (heap_callback) TExitCallback(
+        static_cast<TExitCallback &&>(callback));
 
     B_ProcessExitCallback *real_callback;
     real_callback = [](
@@ -238,7 +242,8 @@ b_process_controller_exec_basic(
         auto heap_callback
             = static_cast<TExitCallback *>(opaque);
         bool ok = (*heap_callback)(exit_status, eh);
-        (void) b_delete(heap_callback, eh);
+        heap_callback->~TExitCallback();
+        (void) b_deallocate(heap_callback, eh);
         return ok;
     };
 
@@ -255,7 +260,8 @@ b_process_controller_exec_basic(
 
 fail:
     if (heap_callback) {
-        (void) b_delete(heap_callback, eh);
+        heap_callback->~TExitCallback();
+        (void) b_deallocate(heap_callback, eh);
     }
     return false;
 }

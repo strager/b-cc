@@ -177,9 +177,8 @@ struct B_NeedCallbacks {
         if (!self->completed_callback(answers, eh)) {
             return false;
         }
-        if (!b_delete(self, eh)) {
-            return false;
-        }
+        self->~B_NeedCallbacks();
+        (void) b_deallocate(self, eh);
         return true;
     }
 
@@ -193,9 +192,8 @@ struct B_NeedCallbacks {
         if (!self->cancelled_callback(eh)) {
             return false;
         }
-        if (!b_delete(self, eh)) {
-            return false;
-        }
+        self->~B_NeedCallbacks();
+        (void) b_deallocate(self, eh);
         return true;
     }
 };
@@ -209,19 +207,25 @@ b_answer_context_need(
         B_Question const *const *questions,
         B_QuestionVTable const *const *questions_vtables,
         size_t questions_count,
-        TCompletedCallback const &completed_callback,
-        TCancelledCallback const &cancelled_callback,
+        TCompletedCallback completed_callback,
+        TCancelledCallback cancelled_callback,
         B_ErrorHandler const *eh) {
     B_NeedCallbacks<
         TCompletedCallback, TCancelledCallback> *callbacks;
-    if (!b_new(
-            &callbacks,
-            eh,
-            completed_callback,
-            cancelled_callback)) {
+    if (!b_allocate(
+            sizeof(*callbacks),
+            reinterpret_cast<void **>(&callbacks),
+            eh)) {
         return false;
     }
+    new (callbacks) B_NeedCallbacks<
+            TCompletedCallback, TCancelledCallback>(
+        static_cast<TCompletedCallback &&>(
+            completed_callback),
+        static_cast<TCancelledCallback &&>(
+            cancelled_callback));
 
+    // TODO(strager): Deallocate callbacks on failure.
     return b_answer_context_need(
         answer_context,
         questions,

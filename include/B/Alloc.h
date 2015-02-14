@@ -78,43 +78,4 @@ b_strndup(
 }
 #endif
 
-#if defined(__cplusplus)
-# include <B/Error.h>
-
-# include <cstddef>
-# include <memory>
-# include <new>
-
-template<typename T, class ...TArgs>
-B_FUNC
-b_new(
-        B_OUTPTR T **out,
-        struct B_ErrorHandler const *eh,
-        TArgs &&...args) {
-    B_CHECK_PRECONDITION(eh, out);
-
-    T *p;
-    if (!b_allocate(
-            sizeof(T),
-            reinterpret_cast<void **>(&p),
-            eh)) {
-        return false;
-    }
-
-    new (p) T(std::forward<TArgs>(args)...);  // Call ctor.
-
-    *out = p;
-    return true;
-}
-
-template<typename T, class ...TArgs>
-B_FUNC
-b_delete(T *p, struct B_ErrorHandler const *eh) {
-    B_CHECK_PRECONDITION(eh, p);
-
-    p->~T();  // Call dtor.
-    return b_deallocate(p, eh);
-}
-#endif
-
 #endif
