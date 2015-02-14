@@ -391,155 +391,210 @@ else ()
     set_property(TARGET b_shared PROPERTY OUTPUT_NAME b)
 endif ()
 
-set(VENDOR_GMOCK vendor/gmock-1.7.0)
-if (STATIC_ANALYSIS)
-    add_empty_c_library(b_gmock STATIC)
-else ()
-    add_library(
-        b_gmock
-        STATIC
-        "${VENDOR_GMOCK}/gtest/src/gtest-all.cc"
-        "${VENDOR_GMOCK}/src/gmock-all.cc"
-        "${VENDOR_GMOCK}/src/gmock_main.cc"
+check_cxx_source_compiles("
+int
+main() {
+    return ([]() -> int {
+        return 1;
+    })();
+}
+" HAVE_CXX11_LAMBDAS)
 
-        "${VENDOR_GMOCK}/gtest/include/gtest/gtest-death-test.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/gtest-message.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/gtest-param-test.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/gtest-printers.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/gtest-spi.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/gtest-test-part.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/gtest-typed-test.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/gtest.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/gtest_pred_impl.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/gtest_prod.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-death-test-internal.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-filepath.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-internal.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-linked_ptr.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-param-util-generated.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-param-util.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-port.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-string.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-tuple.h"
-        "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-type-util.h"
-        "${VENDOR_GMOCK}/gtest/src/gtest-internal-inl.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock-actions.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock-cardinalities.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock-generated-actions.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock-generated-function-mockers.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock-generated-matchers.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock-generated-nice-strict.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock-matchers.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock-more-actions.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock-more-matchers.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock-spec-builders.h"
-        "${VENDOR_GMOCK}/include/gmock/gmock.h"
-        "${VENDOR_GMOCK}/include/gmock/internal/gmock-generated-internal-utils.h"
-        "${VENDOR_GMOCK}/include/gmock/internal/gmock-internal-utils.h"
-        "${VENDOR_GMOCK}/include/gmock/internal/gmock-port.h"
-    )
+check_cxx_source_compiles("
+struct A {
+    int a;
+};
+
+struct B : public A {
+    B() :
+            A{1} {
+    }
+};
+
+int
+main() {
+}
+" HAVE_CXX11_BASE_BRACE_INITIALIZATION)
+
+set(BUILD_TESTS True)
+if (NOT HAVE_CXX11_LAMBDAS)
+    set(BUILD_TESTS False)
 endif ()
-target_include_directories(
-    b_gmock
-    PUBLIC
-        "${VENDOR_GMOCK}/gtest/include"
-        "${VENDOR_GMOCK}/include"
-    PRIVATE "${VENDOR_GMOCK}/gtest" "${VENDOR_GMOCK}"
+if (NOT HAVE_CXX11_BASE_BRACE_INITIALIZATION)
+    set(BUILD_TESTS False)
+endif ()
+set(
+    FORCE_BUILD_TESTS
+    False
+    CACHE
+    BOOL
+    "Force the test suite to be built"
 )
-set_property(
-    TARGET b_gmock
-    APPEND_STRING
-    PROPERTY COMPILE_FLAGS
-    " -Wno-missing-field-initializers"
-)
+if (FORCE_BUILD_TESTS)
+    set(BUILD_TESTS True)
+endif ()
 
-# Test for some C++11 features used by gmock.
-check_cxx_source_compiles("
-template<typename T1, typename T2>
-struct Foo {
-};
+if (BUILD_TESTS)
+    set(VENDOR_GMOCK vendor/gmock-1.7.0)
+    if (STATIC_ANALYSIS)
+        add_empty_c_library(b_gmock STATIC)
+    else ()
+        add_library(
+            b_gmock
+            STATIC
+            "${VENDOR_GMOCK}/gtest/src/gtest-all.cc"
+            "${VENDOR_GMOCK}/src/gmock-all.cc"
+            "${VENDOR_GMOCK}/src/gmock_main.cc"
 
-template<typename... T>
-struct Bar {
-    typedef Foo<T...> MyFoo;
-};
-
-int main() {
-}
-" HAVE_CXX11_VARIADIC_TEMPLATE_FORWARDING)
-check_cxx_source_compiles("
-#include <initializer_list>
-int main() {
-}
-" HAVE_INITIALIZER_LIST_HEADER)
-if (
-        NOT HAVE_CXX11_VARIADIC_TEMPLATE_FORWARDING
-        OR NOT HAVE_INITIALIZER_LIST_HEADER
-)
-    foreach (
-            PROPERTY
-            COMPILE_DEFINITIONS
-            INTERFACE_COMPILE_DEFINITIONS
-    )
-        set_property(
-            TARGET b_gmock
-            APPEND
-            PROPERTY "${PROPERTY}"
-            GTEST_LANG_CXX11=0
+            "${VENDOR_GMOCK}/gtest/include/gtest/gtest-death-test.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/gtest-message.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/gtest-param-test.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/gtest-printers.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/gtest-spi.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/gtest-test-part.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/gtest-typed-test.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/gtest.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/gtest_pred_impl.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/gtest_prod.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-death-test-internal.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-filepath.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-internal.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-linked_ptr.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-param-util-generated.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-param-util.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-port.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-string.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-tuple.h"
+            "${VENDOR_GMOCK}/gtest/include/gtest/internal/gtest-type-util.h"
+            "${VENDOR_GMOCK}/gtest/src/gtest-internal-inl.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock-actions.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock-cardinalities.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock-generated-actions.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock-generated-function-mockers.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock-generated-matchers.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock-generated-nice-strict.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock-matchers.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock-more-actions.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock-more-matchers.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock-spec-builders.h"
+            "${VENDOR_GMOCK}/include/gmock/gmock.h"
+            "${VENDOR_GMOCK}/include/gmock/internal/gmock-generated-internal-utils.h"
+            "${VENDOR_GMOCK}/include/gmock/internal/gmock-internal-utils.h"
+            "${VENDOR_GMOCK}/include/gmock/internal/gmock-port.h"
         )
-    endforeach ()
-endif ()
+    endif ()
+    target_include_directories(
+        b_gmock
+        PUBLIC
+            "${VENDOR_GMOCK}/gtest/include"
+            "${VENDOR_GMOCK}/include"
+        PRIVATE "${VENDOR_GMOCK}/gtest" "${VENDOR_GMOCK}"
+    )
+    set_property(
+        TARGET b_gmock
+        APPEND_STRING
+        PROPERTY COMPILE_FLAGS
+        " -Wno-missing-field-initializers"
+    )
 
-add_library(
-    b_mocks
-    STATIC
-    test/gtest/Mocks.cc
+    # Test for some C++11 features used by gmock.
+    check_cxx_source_compiles("
+    template<typename T1, typename T2>
+    struct Foo {
+    };
 
-    test/gtest/Mocks.h
-)
-target_link_libraries(b_mocks LINK_PRIVATE b b_gmock)
+    template<typename... T>
+    struct Bar {
+        typedef Foo<T...> MyFoo;
+    };
 
-add_custom_command(
-    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/RunTest.sh"
-    COMMAND
-        cmake
-        -E copy
-        "${CMAKE_CURRENT_SOURCE_DIR}/scripts/RunTest.sh"
-        "${CMAKE_CURRENT_BINARY_DIR}/RunTest.sh"
-    DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/scripts/RunTest.sh"
-    COMMENT "Copying RunTest.sh"
-)
-add_custom_target(
-    TestWrapper
-    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/RunTest.sh"
-    SOURCES
-        "${CMAKE_CURRENT_BINARY_DIR}/RunTest.sh"
-)
+    int main() {
+    }
+    " HAVE_CXX11_VARIADIC_TEMPLATE_FORWARDING)
+    check_cxx_source_compiles("
+#include <initializer_list>
+    int main() {
+    }
+    " HAVE_INITIALIZER_LIST_HEADER)
+    if (
+            NOT HAVE_CXX11_VARIADIC_TEMPLATE_FORWARDING
+            OR NOT HAVE_INITIALIZER_LIST_HEADER
+    )
+        foreach (
+                PROPERTY
+                COMPILE_DEFINITIONS
+                INTERFACE_COMPILE_DEFINITIONS
+        )
+            set_property(
+                TARGET b_gmock
+                APPEND
+                PROPERTY "${PROPERTY}"
+                GTEST_LANG_CXX11=0
+            )
+        endforeach ()
+    endif ()
 
-add_gtest_test(TestAlloc)
-add_gtest_test(TestAnswerContext)
-add_gtest_test(TestDeserialize)
-add_gtest_test(TestErrorHandler)
-add_gtest_test(TestFile)
-add_gtest_test(TestMain)
-add_gtest_test(TestMisc)
-add_gtest_test(TestProcess)
-add_gtest_test(TestQuestionDispatch)
-add_gtest_test(TestQuestionQueue)
-add_gtest_test(TestSerialize)
-add_gtest_test(TestUUID)
+    add_library(
+        b_mocks
+        STATIC
+        test/gtest/Mocks.cc
 
-add_executable(TestProcessChild
-               test/gtest/TestProcessChild.c)
-add_dependencies(TestProcess TestProcessChild)
+        test/gtest/Mocks.h
+    )
+    target_link_libraries(b_mocks LINK_PRIVATE b b_gmock)
 
-add_executable(ex1 ex/1/main.cc)
-target_link_libraries(ex1 b)
-set_property(
-    TARGET ex1
-    PROPERTY LINKER_LANGUAGE C
-)
-if (HAVE_F_NO_EXCEPTIONS)
-    append_target_compiler_flags(ex1 -fno-exceptions)
+    add_custom_command(
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/RunTest.sh"
+        COMMAND
+            cmake
+            -E copy
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/RunTest.sh"
+            "${CMAKE_CURRENT_BINARY_DIR}/RunTest.sh"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/RunTest.sh"
+        COMMENT "Copying RunTest.sh"
+    )
+    add_custom_target(
+        TestWrapper
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/RunTest.sh"
+        SOURCES
+            "${CMAKE_CURRENT_BINARY_DIR}/RunTest.sh"
+    )
+
+    add_gtest_test(TestAlloc)
+    add_gtest_test(TestAnswerContext)
+    add_gtest_test(TestDeserialize)
+    add_gtest_test(TestErrorHandler)
+    add_gtest_test(TestFile)
+    add_gtest_test(TestMain)
+    add_gtest_test(TestMisc)
+    add_gtest_test(TestProcess)
+    add_gtest_test(TestQuestionDispatch)
+    add_gtest_test(TestQuestionQueue)
+    add_gtest_test(TestSerialize)
+    add_gtest_test(TestUUID)
+
+    add_executable(TestProcessChild
+                   test/gtest/TestProcessChild.c)
+    add_dependencies(TestProcess TestProcessChild)
+
+    add_executable(ex1 ex/1/main.cc)
+    target_link_libraries(ex1 b)
+    set_property(
+        TARGET ex1
+        PROPERTY LINKER_LANGUAGE C
+    )
+    if (HAVE_F_NO_EXCEPTIONS)
+        append_target_compiler_flags(ex1 -fno-exceptions)
+    endif ()
+else ()
+    message(WARNING "
+The b test suite relies on certain compiler features.  These
+features are not supported by the configured compiler.  The
+test suite has been disabled.
+")
+    add_test(
+        NAME TestsNotSupported
+        COMMAND sh -c "echo 'Tests are not supported' && exit 1"
+    )
 endif ()

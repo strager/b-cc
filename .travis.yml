@@ -1,32 +1,74 @@
 env:
-    - CC=gcc-4.8 CXX=g++-4.8 apt_packages="g++-4.8 libstdc++-4.8-dev"
-    - CC=gcc-4.8 CXX=g++-4.8 apt_packages="g++-4.8 libstdc++-4.9-dev"
-    - CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++-4.8-dev"
-    - CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++-4.9-dev"
-    - CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.8-dev"
-    - CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.8-dev"
-    - CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.9-dev"
+    - test=false CC=gcc-4.4 CXX=g++-4.4 apt_packages="g++-4.4 libstdc++6-4.4-dev"
+    - test=false CC=gcc-4.4 CXX=g++-4.4 apt_packages="g++-4.4 libstdc++6-4.6-dev"
+    - test=false CC=gcc-4.4 CXX=g++-4.4 apt_packages="g++-4.4 libstdc++6-4.7-dev"
+    - test=false CC=gcc-4.4 CXX=g++-4.4 apt_packages="g++-4.4 libstdc++-4.8-dev"
+    - test=false CC=gcc-4.4 CXX=g++-4.4 apt_packages="g++-4.4 libstdc++-4.9-dev"
+
+    - test=false CC=gcc-4.6 CXX=g++-4.6 apt_packages="g++-4.6 libstdc++6-4.4-dev"
+    - test=false CC=gcc-4.6 CXX=g++-4.6 apt_packages="g++-4.6 libstdc++6-4.6-dev"
+    - test=false CC=gcc-4.6 CXX=g++-4.6 apt_packages="g++-4.6 libstdc++6-4.7-dev"
+    - test=false CC=gcc-4.6 CXX=g++-4.6 apt_packages="g++-4.6 libstdc++-4.8-dev"
+    - test=false CC=gcc-4.6 CXX=g++-4.6 apt_packages="g++-4.6 libstdc++-4.9-dev"
+
+    - test=true CC=gcc-4.7 CXX=g++-4.7 apt_packages="g++-4.7 libstdc++6-4.4-dev"
+    - test=true CC=gcc-4.7 CXX=g++-4.7 apt_packages="g++-4.7 libstdc++6-4.6-dev"
+    - test=true CC=gcc-4.7 CXX=g++-4.7 apt_packages="g++-4.7 libstdc++6-4.7-dev"
+    - test=true CC=gcc-4.7 CXX=g++-4.7 apt_packages="g++-4.7 libstdc++-4.8-dev"
+    - test=true CC=gcc-4.7 CXX=g++-4.7 apt_packages="g++-4.7 libstdc++-4.9-dev"
+
+    - test=true CC=gcc-4.8 CXX=g++-4.8 apt_packages="g++-4.8 libstdc++6-4.4-dev"
+    - test=true CC=gcc-4.8 CXX=g++-4.8 apt_packages="g++-4.8 libstdc++6-4.6-dev"
+    - test=true CC=gcc-4.8 CXX=g++-4.8 apt_packages="g++-4.8 libstdc++6-4.7-dev"
+    - test=true CC=gcc-4.8 CXX=g++-4.8 apt_packages="g++-4.8 libstdc++-4.8-dev"
+    - test=true CC=gcc-4.8 CXX=g++-4.8 apt_packages="g++-4.8 libstdc++-4.9-dev"
+
+    - test=true CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++6-4.4-dev"
+    - test=true CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++6-4.6-dev"
+    - test=true CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++6-4.7-dev"
+    - test=true CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++-4.8-dev"
+    - test=true CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++-4.9-dev"
+
+    - test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++6-4.4-dev"
+    - test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++6-4.6-dev"
+    - test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++6-4.7-dev"
+    - test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.8-dev"
+    # Buggy; max_align_t is undefined by clang but used by
+    # <cstddef>.
+    #- test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.9-dev"
+
+    - test=true CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++6-4.4-dev"
+    - test=true CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++6-4.6-dev"
+    - test=true CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++6-4.7-dev"
+    - test=true CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.8-dev"
+    - test=true CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.9-dev"
+
 before_install:
     - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
     - sudo add-apt-repository ppa:h-rayflood/llvm -y
     - sudo apt-get update -qq
+
 install:
     - sudo apt-get install cmake valgrind $apt_packages
+
 before_script:
     - echo "$CC" && "$CC" --version
     - echo "$CXX" && "$CXX" --version
     - export VALGRIND_FLAGS="--suppressions=$PWD/valgrind.supp --error-exitcode=1"
+
 script:
-    - make test $makeflags
-    - make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"
-    - make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"
+    - make $makeflags
+    - if "${test}"; then make test; fi
+    - if "${test}"; then make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"; fi
+    - if "${test}"; then make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"; fi
 
     # Now with optimizations!
     - export CFLAGS='-O3'
     - export CXXFLAGS="$CFLAGS"
     - make clean
-    - make test
-    - make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"
-    - make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"
+    - make $makeflags
+    - if "${test}"; then make test; fi
+    - if "${test}"; then make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"; fi
+    - if "${test}"; then make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"; fi
 
     # TODO(strager): DRD (valgrind tool) crashes on vfork (posix_spawn).
