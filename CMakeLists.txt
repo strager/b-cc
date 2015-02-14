@@ -156,10 +156,13 @@ endif ()
 
 check_c_compiler_flag(-std=c11 HAVE_STD_C11)
 check_c_compiler_flag(-std=c1x HAVE_STD_C1X)
+check_c_compiler_flag(-std=gnu99 HAVE_STD_GNU99)
 if (HAVE_STD_C11)
     append_with_space(CMAKE_C_FLAGS -std=c11)
 elseif (HAVE_STD_C1X)
     append_with_space(CMAKE_C_FLAGS -std=c1x)
+elseif (HAVE_STD_GNU99)
+    append_with_space(CMAKE_C_FLAGS -std=gnu99)
 endif ()
 
 check_cxx_compiler_flag(-std=c++11 HAVE_STD_CXX11)
