@@ -4,10 +4,10 @@
 #include <B/File.h>
 #include <B/Error.h>
 
-#include <cstdint>
 #include <cstdio>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <stdint.h>
 #include <string>
 
 using namespace testing;
