@@ -57,11 +57,11 @@ endfunction ()
 
 function (append_target_compiler_flags TARGET)
     set(FLAGS "")
-    append_With_space(FLAGS "${ARGN}")
+    append_with_space(FLAGS "${ARGN}")
     set_property(
         TARGET "${TARGET}"
         APPEND_STRING
-        PROPERTY COMPILE_FLAGS "${FLAGS}"
+        PROPERTY COMPILE_FLAGS " ${FLAGS}"
     )
 endfunction ()
 
