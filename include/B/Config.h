@@ -78,4 +78,11 @@
 # define B_CONFIG_CXX_STATIC_ASSERT
 #endif
 
+#if (defined(__GNUC__) && defined(__GNUC_MINOR__) \
+        && __GNUC__ > 4 \
+        || (__GNUC__ == 4 && __GNUC_MINOR__ >= 4)) \
+    || defined(__clang__)
+# define B_CONFIG_WARN_UNUSED_RESULT
+#endif
+
 #endif

@@ -50,6 +50,7 @@ enum Enum {
     A,
 };
 int main() {
+    return 0;
 }
 " HAVE_PEDANTIC_ALLOWING_TRAILING_COMMAS -Werror -pedantic)
     if (HAVE_PEDANTIC_ALLOWING_TRAILING_COMMAS)
@@ -96,18 +97,19 @@ main() {
 " HAVE_ATTRIBUTE_WARN_UNUSED_RESULT)
 if (HAVE_ATTRIBUTE_WARN_UNUSED_RESULT)
     check_c_source_compiles("
-__attribute__((warn_unused_result)) int
-foo(void) {
-    return 1;
-}
-int
-main() {
-    (void) foo();
-    return 0;
-}
+__attribute__((warn_unused_result)) int foo(void) { return 1; } int main() { (void) foo(); return 0; }
 " HAVE_SUPPRESSABLE_ATTRIBUTE_WARN_UNUSED_RESULT)
     if (NOT HAVE_SUPPRESSABLE_ATTRIBUTE_WARN_UNUSED_RESULT)
-        append_compiler_flags(-Wno-unused-result)
+        check_c_compiler_flag(
+            -Wno-unused-result
+            HAVE_W_NO_UNUSED_RESULT
+        )
+        if (HAVE_W_NO_UNUSED_RESULT)
+            append_compiler_flags(-Wno-unused-result)
+        else ()
+            # Config.h hopefully should not define
+            # B_CONFIG_WARN_UNUSED_RESULT in this case.
+        endif ()
     endif ()
 endif ()
 
