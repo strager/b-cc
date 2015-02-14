@@ -82,20 +82,21 @@ process_manager_check_locked_(
 static struct B_ProcessExitStatus
 exit_status_from_waitpid_status_(
         int waitpid_status) {
+    // N.B. We can't use initializers here because older
+    // compilers (like GCC 4.4) don't support initializers
+    // with anonymous struct fields.
     if (WIFEXITED(waitpid_status)) {
-        return (struct B_ProcessExitStatus) {
-            .type = B_PROCESS_EXIT_STATUS_CODE,
-            .code = {
-                .exit_code = WEXITSTATUS(waitpid_status),
-            },
-        };
+        struct B_ProcessExitStatus exit_status;
+        exit_status.type = B_PROCESS_EXIT_STATUS_CODE;
+        exit_status.code.exit_code
+            = WEXITSTATUS(waitpid_status);
+        return exit_status;
     } else if (WIFSIGNALED(waitpid_status)) {
-        return (struct B_ProcessExitStatus) {
-            .type = B_PROCESS_EXIT_STATUS_SIGNAL,
-            .signal = {
-                .signal_number = WTERMSIG(waitpid_status),
-            },
-        };
+        struct B_ProcessExitStatus exit_status;
+        exit_status.type = B_PROCESS_EXIT_STATUS_SIGNAL;
+        exit_status.signal.signal_number
+            = WTERMSIG(waitpid_status);
+        return exit_status;
     } else {
         B_ASSERT(!WIFSTOPPED(waitpid_status));
         B_BUG();
