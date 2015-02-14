@@ -16,7 +16,6 @@
 #include <cstdio>
 #include <cstring>
 #include <errno.h>
-#include <memory>
 #include <sqlite3.h>
 #include <sys/stat.h>
 
@@ -404,19 +403,13 @@ main(
     auto initial_question = static_cast<B_Question *>(
         static_cast<void *>(const_cast<char *>("ex1")));
 
-    B_QuestionVTableSet *question_vtable_set_raw;
+    B_QuestionVTableSet *question_vtable_set;
     if (!b_question_vtable_set_allocate(
-            &question_vtable_set_raw,
-            eh)) {
+            &question_vtable_set, eh)) {
         return 1;
     }
-    std::unique_ptr<
-            B_QuestionVTableSet,
-            B_QuestionVTableSetDeleter>
-        question_vtable_set(question_vtable_set_raw, eh);
-    question_vtable_set_raw = nullptr;
     if (!b_question_vtable_set_add(
-            question_vtable_set.get(),
+            question_vtable_set,
             b_file_contents_question_vtable(),
             eh)) {
         return 1;
@@ -432,7 +425,7 @@ main(
         return 1;
     }
     if (!b_database_recheck_all(
-            database, question_vtable_set.get(), eh)) {
+            database, question_vtable_set, eh)) {
         return 1;
     }
 
