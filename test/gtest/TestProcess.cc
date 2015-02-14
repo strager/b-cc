@@ -452,6 +452,7 @@ public:
                     return false;
                 }
             }
+            *timed_out = false;
         }
         return true;
     }
