@@ -123,11 +123,51 @@ exec_basic_(
         eh));
 }
 
+template<typename T>
+static std::vector<T>
+vec_() {
+    return std::vector<T>();
+}
+
+template<typename T>
+static std::vector<T>
+vec_(
+        T a) {
+    std::vector<T> v;
+    v.push_back(a);
+    return v;
+}
+
+template<typename T>
+static std::vector<T>
+vec_(
+        T a,
+        T b) {
+    std::vector<T> v;
+    v.push_back(a);
+    v.push_back(b);
+    return v;
+}
+
+template<typename T>
+static std::vector<T>
+vec_(
+        T a,
+        T b,
+        T c) {
+    std::vector<T> v;
+    v.push_back(a);
+    v.push_back(b);
+    v.push_back(c);
+    return v;
+}
+
 #if defined(B_CONFIG_POSIX_SIGNALS)
-static std::string
+static char const *
 test_process_child_path_() {
-    return dirname(get_executable_path())
+    static std::string path = dirname(get_executable_path())
         + "/TestProcessChild";
+    return path.c_str();
 }
 #endif
 
@@ -584,7 +624,11 @@ TEST_P(TestProcess, TrueReturnsPromptly) {
 
     bool exited = false;
     B_ProcessExitStatus exit_status;
-    exec_basic_(manager, {"true"}, &exited, &exit_status);
+    exec_basic_(
+        manager,
+        vec_("true"),
+        &exited,
+        &exit_status);
 
     bool timed_out;
     EXPECT_TRUE(tester->wait_and_notify_until(
@@ -610,7 +654,11 @@ TEST_P(TestProcess, FalseReturnsPromptly) {
 
     bool exited = false;
     B_ProcessExitStatus exit_status;
-    exec_basic_(manager, {"false"}, &exited, &exit_status);
+    exec_basic_(
+        manager,
+        vec_("false"),
+        &exited,
+        &exit_status);
 
     bool timed_out;
     EXPECT_TRUE(tester->wait_and_notify_until(
@@ -678,7 +726,7 @@ TEST_P(TestProcess, KillSIGTERM) {
     B_ProcessExitStatus exit_status;
     exec_basic_(
         manager,
-        {"sh", "-c", "kill -TERM $$"},
+        vec_("sh", "-c", "kill -TERM $$"),
         &exited,
         &exit_status);
 
@@ -848,13 +896,16 @@ TEST_P(TestProcess, DeeplyNestedProcessTree) {
     success.code.exit_code = 0;
 
     ProcessTree process_tree(
-        controller, success, {"true"}, {});
+        controller,
+        success,
+        vec_("true"),
+        vec_<ProcessTree>());
     for (size_t i = 0; i < 50; ++i) {
         process_tree = ProcessTree(
             controller,
             success,
-            {"true"},
-            {std::move(process_tree)});
+            vec_("true"),
+            vec_(process_tree));
     }
 
     ASSERT_TRUE(process_tree.exec(eh));
@@ -891,16 +942,19 @@ TEST_P(TestProcess, VeryBranchyProcessTree) {
     success.code.exit_code = 0;
 
     ProcessTree leaf_process_tree(
-        controller, success, {"true"}, {});
+        controller,
+        success,
+        vec_("true"),
+        vec_<ProcessTree>());
     ProcessTree branch_process_tree(
         controller,
         success,
-        {"true"},
+        vec_("true"),
         std::vector<ProcessTree>(10, leaf_process_tree));
     ProcessTree process_tree(
         controller,
         success,
-        {"true"},
+        vec_("true"),
         std::vector<ProcessTree>(10, branch_process_tree));
     ASSERT_TRUE(process_tree.exec(eh));
 
@@ -932,8 +986,9 @@ TEST_P(TestProcess, BasicExecChildHasCleanSignalMask) {
     B_ProcessExitStatus exit_status;
     exec_basic_(
         manager,
-        {test_process_child_path_().c_str(),
-            "BasicExecChildHasCleanSignalMask"},
+        vec_(
+            test_process_child_path_(),
+            "BasicExecChildHasCleanSignalMask"),
         &exited,
         &exit_status);
 
@@ -972,8 +1027,9 @@ TEST_P(TestProcess, BasicExecChildDoesNotInheritSigaction) {
     B_ProcessExitStatus exit_status;
     exec_basic_(
         manager,
-        {test_process_child_path_().c_str(),
-            "BasicExecChildDoesNotInheritSigaction"},
+        vec_(
+            test_process_child_path_(),
+            "BasicExecChildDoesNotInheritSigaction"),
         &exited,
         &exit_status);
 
