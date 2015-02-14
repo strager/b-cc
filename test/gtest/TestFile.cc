@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <stdint.h>
 #include <string>
 
 using namespace testing;
@@ -168,7 +167,7 @@ TEST(TestFile, AnswerFileWithOneOfEveryByte) {
     {
         FILE *file = fopen(file_path.c_str(), "w");
         ASSERT_NE(nullptr, file);
-        for (size_t i = 0; i <= UINT8_MAX; ++i) {
+        for (size_t i = 0x00; i <= 0xFF; ++i) {
             uint8_t byte = static_cast<uint8_t>(i);
             ASSERT_EQ(
                 static_cast<size_t>(1),
