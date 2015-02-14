@@ -6,7 +6,6 @@
 #include <B/Private/Thread.h>
 #include <B/Process.h>
 
-#include <chrono>
 #include <errno.h>
 #include <gtest/gtest.h>
 #include <list>
@@ -86,18 +85,17 @@ private:
 };
 #endif
 
-template<typename TDuration>
-static struct timespec
-duration_to_timespec_(
-        TDuration duration) {
-    using namespace std::chrono;
+typedef uint64_t Nanoseconds;
+enum {
+    NS_PER_S = 1000 * 1000 * 1000,
+};
 
-    auto ns = duration_cast<nanoseconds>(duration);
-    auto s = duration_cast<seconds>(ns);  // Truncates.
+static struct timespec
+nanoseconds_to_timespec_(
+        Nanoseconds duration) {
     struct timespec time;
-    time.tv_sec = s.count();
-    time.tv_nsec = duration_cast<nanoseconds>(ns - s)
-        .count();
+    time.tv_sec = duration / NS_PER_S;
+    time.tv_nsec = duration % NS_PER_S;
     return time;
 }
 
@@ -224,7 +222,7 @@ public:
     virtual B_FUNC
     wait_and_notify(
             B_ProcessManager *,
-            std::chrono::nanoseconds timeout,
+            Nanoseconds timeout,
             B_OUT bool *timed_out,
             B_ErrorHandler const *) = 0;
 
@@ -235,7 +233,7 @@ public:
     B_FUNC
     wait_and_notify_until(
             B_ProcessManager *manager,
-            std::chrono::nanoseconds timeout,
+            Nanoseconds timeout,
             B_OUT bool *timed_out,
             TCallback const &callback,
             B_ErrorHandler const *eh) {
@@ -315,7 +313,7 @@ public:
     B_FUNC
     wait_and_notify(
             B_ProcessManager *manager,
-            std::chrono::nanoseconds timeout_ns,
+            Nanoseconds timeout_ns,
             bool *timed_out,
             B_ErrorHandler const *eh) override {
         // Unblock SIGCHLD during select.  In other words,
@@ -325,7 +323,7 @@ public:
         EXPECT_EQ(0, sigdelset(&mask, SIGCHLD));
 
         struct timespec timeout
-            = duration_to_timespec_(timeout_ns);
+            = nanoseconds_to_timespec_(timeout_ns);
         int rc = pselect(
             0, nullptr, nullptr, nullptr, &timeout, &mask);
         if (rc == -1) {
@@ -416,11 +414,11 @@ public:
     B_FUNC
     wait_and_notify(
             B_ProcessManager *manager,
-            std::chrono::nanoseconds timeout_ns,
+            Nanoseconds timeout_ns,
             bool *timed_out,
             B_ErrorHandler const *eh) override {
         struct timespec timeout
-            = duration_to_timespec_(timeout_ns);
+            = nanoseconds_to_timespec_(timeout_ns);
         struct kevent events[10];
         int rc = kevent(
             this->kqueue,
@@ -568,10 +566,7 @@ TEST_P(TestProcess, SanityCheck) {
     for (size_t i = 0; i < 10; ++i) {
         bool timed_out;
         EXPECT_TRUE(tester->wait_and_notify(
-            manager,
-            std::chrono::nanoseconds::zero(),
-            &timed_out,
-            eh));
+            manager, 0, &timed_out, eh));
     }
 
     EXPECT_TRUE(b_process_manager_deallocate(manager, eh));
@@ -592,13 +587,9 @@ TEST_P(TestProcess, TrueReturnsPromptly) {
 
     bool timed_out;
     EXPECT_TRUE(tester->wait_and_notify_until(
-        manager,
-        std::chrono::seconds(1),
-        &timed_out,
-        [&exited]() {
+        manager, 1 * NS_PER_S, &timed_out, [&exited]() {
             return exited;
-        },
-        eh));
+        }, eh));
     EXPECT_FALSE(timed_out);
     EXPECT_TRUE(exited);
     EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
@@ -622,13 +613,9 @@ TEST_P(TestProcess, FalseReturnsPromptly) {
 
     bool timed_out;
     EXPECT_TRUE(tester->wait_and_notify_until(
-        manager,
-        std::chrono::seconds(1),
-        &timed_out,
-        [&exited]() {
+        manager, 1 * NS_PER_S, &timed_out, [&exited]() {
             return exited;
-        },
-        eh));
+        }, eh));
     EXPECT_FALSE(timed_out);
     EXPECT_TRUE(exited);
     EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
@@ -696,13 +683,9 @@ TEST_P(TestProcess, KillSIGTERM) {
 
     bool timed_out;
     EXPECT_TRUE(tester->wait_and_notify_until(
-        manager,
-        std::chrono::seconds(1),
-        &timed_out,
-        [&exited]() {
+        manager, 1 * NS_PER_S, &timed_out, [&exited]() {
             return exited;
-        },
-        eh));
+        }, eh));
     EXPECT_FALSE(timed_out);
     EXPECT_TRUE(exited);
     EXPECT_EQ(
@@ -749,7 +732,7 @@ TEST_P(TestProcess, MultipleTruesInParallel) {
     bool timed_out;
     EXPECT_TRUE(tester->wait_and_notify_until(
         manager,
-        std::chrono::seconds(1),
+        1 * NS_PER_S,
         &timed_out,
         [&exited_count, process_count]() {
             return exited_count >= process_count;
@@ -878,7 +861,7 @@ TEST_P(TestProcess, DeeplyNestedProcessTree) {
     bool timed_out;
     EXPECT_TRUE(tester->wait_and_notify_until(
         manager,
-        std::chrono::seconds(1),
+        1 * NS_PER_S,
         &timed_out,
         [&process_tree]() {
             return process_tree.fully_exited();
@@ -923,7 +906,7 @@ TEST_P(TestProcess, VeryBranchyProcessTree) {
     bool timed_out;
     EXPECT_TRUE(tester->wait_and_notify_until(
         manager,
-        std::chrono::seconds(1),
+        1 * NS_PER_S,
         &timed_out,
         [&process_tree]() {
             return process_tree.fully_exited();
@@ -955,13 +938,9 @@ TEST_P(TestProcess, BasicExecChildHasCleanSignalMask) {
 
     bool timed_out;
     EXPECT_TRUE(tester->wait_and_notify_until(
-        manager,
-        std::chrono::seconds(1),
-        &timed_out,
-        [&exited]() {
+        manager, 1 * NS_PER_S, &timed_out, [&exited]() {
             return exited;
-        },
-        eh));
+        }, eh));
     EXPECT_FALSE(timed_out);
     EXPECT_TRUE(exited);
     EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
@@ -999,13 +978,9 @@ TEST_P(TestProcess, BasicExecChildDoesNotInheritSigaction) {
 
     bool timed_out;
     EXPECT_TRUE(tester->wait_and_notify_until(
-        manager,
-        std::chrono::seconds(1),
-        &timed_out,
-        [&exited]() {
+        manager, 1 * NS_PER_S, &timed_out, [&exited]() {
             return exited;
-        },
-        eh));
+        }, eh));
     EXPECT_FALSE(timed_out);
     EXPECT_TRUE(exited);
     EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
