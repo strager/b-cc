@@ -185,31 +185,6 @@ add_definitions(-D_POSIX_SOURCE -D_POSIX_C_SOURCE=200112L)
 # Required if _POSIX_SOURCE is defined.
 add_definitions(-D_DARWIN_C_SOURCE)
 
-# These checks must come after checking for -std=c++11.
-# Otherwise, we may pick a really old libc++ without C++11
-# support instead of a modern libstdc++.
-set(CXX_SOURCE "
-#include <limits>
-#include <string>
-int main() {
-}
-")
-check_cxx_source_compiles_with_flags(
-    "${CXX_SOURCE}"
-    HAVE_STDLIB_LIBCXX
-    -stdlib=libc++
-)
-check_cxx_source_compiles_with_flags(
-    "${CXX_SOURCE}"
-    HAVE_STDLIB_LIBSTDCXX
-    -stdlib=libstdc++
-)
-if (HAVE_STDLIB_LIBCXX)
-    append_with_space(CMAKE_CXX_FLAGS -stdlib=libc++)
-elseif (HAVE_STDLIB_LIBSTDCXX)
-    append_with_space(CMAKE_CXX_FLAGS -stdlib=libstdc++)
-endif ()
-
 check_c_compiler_flag(-fPIC HAVE_F_PIC)
 if (HAVE_F_PIC)
     append_compiler_flags(-fPIC)
@@ -478,6 +453,7 @@ set_property(
     " -Wno-missing-field-initializers"
 )
 
+# Test for some C++11 features used by gmock.
 check_cxx_source_compiles("
 template<typename T1, typename T2>
 struct Foo {
@@ -491,13 +467,27 @@ struct Bar {
 int main() {
 }
 " HAVE_CXX11_VARIADIC_TEMPLATE_FORWARDING)
-if (NOT HAVE_CXX11_VARIADIC_TEMPLATE_FORWARDING)
-    set_property(
-        TARGET b_gmock
-        APPEND
-        PROPERTY COMPILE_DEFINITIONS
-        GTEST_LANG_CXX11=0
+check_cxx_source_compiles("
+#include <initializer_list>
+int main() {
+}
+" HAVE_INITIALIZER_LIST_HEADER)
+if (
+        NOT HAVE_CXX11_VARIADIC_TEMPLATE_FORWARDING
+        OR NOT HAVE_INITIALIZER_LIST_HEADER
+)
+    foreach (
+            PROPERTY
+            COMPILE_DEFINITIONS
+            INTERFACE_COMPILE_DEFINITIONS
     )
+        set_property(
+            TARGET b_gmock
+            APPEND
+            PROPERTY "${PROPERTY}"
+            GTEST_LANG_CXX11=0
+        )
+    endforeach ()
 endif ()
 
 add_library(
