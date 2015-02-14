@@ -70,4 +70,12 @@
 # define B_CONFIG_BROKEN_PSELECT
 #endif
 
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+# define B_CONFIG_C_STATIC_ASSERT
+#endif
+
+#if defined(__cplusplus) && __cplusplus >= 201103L
+# define B_CONFIG_CXX_STATIC_ASSERT
+#endif
+
 #endif
