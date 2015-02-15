@@ -15,7 +15,7 @@ TEST(TestErrorHandler, RaiseCallsErrorHandler)
     };
     TestErrorHandler_ error_handler([](
             B_ErrorHandler const *eh,
-            B_Error error) {
+            B_Error error) -> B_ErrorHandlerResult {
         static_cast<TestErrorHandler_ const *>(eh)
             ->call_count += 1;
         EXPECT_EQ(EINVAL, error.errno_value);

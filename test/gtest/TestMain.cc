@@ -61,7 +61,7 @@ TEST(TestMain, CallbackCalledForInitialQuestion) {
                 struct B_AnswerContext const *
                     answer_context,
                 void *opaque,
-                struct B_ErrorHandler const *eh) {
+                struct B_ErrorHandler const *eh) -> bool {
             auto &closure
                 = *static_cast<Closure *>(opaque);
             closure.called_count += 1;

@@ -32,7 +32,7 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
     answer_context.answer_callback = [](
             B_Answer *,
             void *,
-            B_ErrorHandler const *) {
+            B_ErrorHandler const *) -> bool {
         return true;
     };
     answer_context.answer_callback_opaque = nullptr;
@@ -45,12 +45,12 @@ TEST(TestAnswerContext, NeedOneEnqueues) {
         &MockQuestion::vtable,
         [](
                 B_TRANSFER B_Answer *,
-                B_ErrorHandler const *) {
+                B_ErrorHandler const *) -> bool {
             ADD_FAILURE();
             return true;
         },
         [](
-                B_ErrorHandler const *) {
+                B_ErrorHandler const *) -> bool {
             return true;
         },
         eh));
@@ -103,7 +103,7 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
     answer_context.answer_callback = [](
             B_Answer *,
             void *,
-            B_ErrorHandler const *) {
+            B_ErrorHandler const *) -> bool {
         return true;
     };
     answer_context.answer_callback_opaque = nullptr;
@@ -117,14 +117,14 @@ TEST(TestAnswerContext, AnswerSuccessCallsNeedCallback) {
         &MockQuestion::vtable,
         [&](
                 B_TRANSFER B_Answer *cur_answer,
-                B_ErrorHandler const *cur_eh) {
+                B_ErrorHandler const *cur_eh) -> bool {
             need_callback_called += 1;
             EXPECT_EQ(&answer, cur_answer);
             EXPECT_EQ(eh, cur_eh);
             return true;
         },
         [](
-                B_ErrorHandler const *) {
+                B_ErrorHandler const *) -> bool {
             ADD_FAILURE();
             return true;
         },
@@ -185,7 +185,7 @@ TEST(
     answer_context.answer_callback = [](
             B_Answer *,
             void *,
-            B_ErrorHandler const *) {
+            B_ErrorHandler const *) -> bool {
         return true;
     };
     answer_context.answer_callback_opaque = nullptr;
@@ -199,14 +199,14 @@ TEST(
         &MockQuestion::vtable,
         [&](
                 B_TRANSFER B_Answer *cur_answer,
-                B_ErrorHandler const *cur_eh) {
+                B_ErrorHandler const *cur_eh) -> bool {
             need_callback_1_called += 1;
             EXPECT_EQ(&answer_1, cur_answer);
             EXPECT_EQ(eh, cur_eh);
             return true;
         },
         [](
-                B_ErrorHandler const *) {
+                B_ErrorHandler const *) -> bool {
             ADD_FAILURE();
             return true;
         },
@@ -219,14 +219,14 @@ TEST(
         &MockQuestion::vtable,
         [&](
                 B_TRANSFER B_Answer *cur_answer,
-                B_ErrorHandler const *cur_eh) {
+                B_ErrorHandler const *cur_eh) -> bool {
             need_callback_2_called += 1;
             EXPECT_EQ(&answer_2, cur_answer);
             EXPECT_EQ(eh, cur_eh);
             return true;
         },
         [](
-                B_ErrorHandler const *) {
+                B_ErrorHandler const *) -> bool {
             ADD_FAILURE();
             return true;
         },
@@ -342,7 +342,7 @@ TEST(
     answer_context.answer_callback = [](
             B_Answer *,
             void *,
-            B_ErrorHandler const *) {
+            B_ErrorHandler const *) -> bool {
         return true;
     };
     answer_context.answer_callback_opaque = nullptr;
@@ -366,7 +366,7 @@ TEST(
         2,
         [&](
                 B_TRANSFER B_Answer *const *cur_answers,
-                B_ErrorHandler const *cur_eh) {
+                B_ErrorHandler const *cur_eh) -> bool {
             need_callback_called += 1;
             EXPECT_EQ(&answer_1, cur_answers[0]);
             EXPECT_EQ(&answer_2, cur_answers[1]);
@@ -374,7 +374,7 @@ TEST(
             return true;
         },
         [](
-                B_ErrorHandler const *) {
+                B_ErrorHandler const *) -> bool {
             ADD_FAILURE();
             return true;
         },
@@ -472,7 +472,7 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
     answer_context.answer_callback = [](
             B_Answer *,
             void *,
-            B_ErrorHandler const *) {
+            B_ErrorHandler const *) -> bool {
         return true;
     };
     answer_context.answer_callback_opaque = nullptr;
@@ -486,12 +486,12 @@ TEST(TestAnswerContext, AnswerErrorCallsNeedCallback) {
         &MockQuestion::vtable,
         [](
                 B_TRANSFER B_Answer *,
-                B_ErrorHandler const *) {
+                B_ErrorHandler const *) -> bool {
             ADD_FAILURE();
             return true;
         },
         [&](
-                B_ErrorHandler const *cur_eh) {
+                B_ErrorHandler const *cur_eh) -> bool {
             need_callback_called += 1;
             EXPECT_EQ(eh, cur_eh);
             return true;
@@ -541,7 +541,7 @@ TEST(TestAnswerContext, SuccessAnswerCallsContextCallback) {
     size_t answer_callback_called = 0;
     auto answer_callback = [&](
             B_Answer *cur_answer,
-            B_ErrorHandler const *cur_eh) {
+            B_ErrorHandler const *cur_eh) -> bool {
         answer_callback_called += 1;
         EXPECT_EQ(&answer, cur_answer);
         EXPECT_EQ(eh, cur_eh);
@@ -552,7 +552,7 @@ TEST(TestAnswerContext, SuccessAnswerCallsContextCallback) {
     answer_context.answer_callback = [](
             B_Answer *answer,
             void *opaque,
-            B_ErrorHandler const *eh) {
+            B_ErrorHandler const *eh) -> bool {
         return (*static_cast<decltype(answer_callback) *>(
             opaque))(answer, eh);
     };
@@ -596,7 +596,7 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
     size_t answer_callback_called = 0;
     auto answer_callback = [&](
             B_Answer *cur_answer,
-            B_ErrorHandler const *cur_eh) {
+            B_ErrorHandler const *cur_eh) -> bool {
         answer_callback_called += 1;
         EXPECT_EQ(&answer, cur_answer);
         EXPECT_EQ(eh, cur_eh);
@@ -607,7 +607,7 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
     answer_context.answer_callback = [](
             B_Answer *answer,
             void *opaque,
-            B_ErrorHandler const *eh) {
+            B_ErrorHandler const *eh) -> bool {
         return (*static_cast<decltype(answer_callback) *>(
             opaque))(answer, eh);
     };

@@ -220,7 +220,7 @@ run_link(
         questions_count,
         [=](
                 B_Answer *const *,
-                B_ErrorHandler const *eh) {
+                B_ErrorHandler const *eh) -> bool {
             static char const *args_prefix[] = {
                 "clang++",
                 EXTRA_LDFLAGS
@@ -287,7 +287,7 @@ run_c_compile(
         b_file_contents_question_vtable(),
         [=](
                 B_Answer *,
-                B_ErrorHandler const *eh) {
+                B_ErrorHandler const *eh) -> bool {
             char const *command[] = {
                 "clang",
                 "-std=c99",
@@ -338,7 +338,7 @@ run_cc_compile(
         b_file_contents_question_vtable(),
         [=](
                 B_Answer *,
-                B_ErrorHandler const *eh) {
+                B_ErrorHandler const *eh) -> bool {
             char const *command[] = {
                 "clang++",
                 "-std=c++11",

@@ -42,7 +42,7 @@ MockRefCounting(
 
     EXPECT_CALL(self, deallocate(_))
         .WillRepeatedly(Invoke([&self](
-                B_ErrorHandler const *eh) {
+                B_ErrorHandler const *eh) -> bool {
             bool should_deallocate = false;
             if (!B_RELEASE(
                     &self,
@@ -57,7 +57,7 @@ MockRefCounting(
     EXPECT_CALL(self, replicate(_, _))
         .WillRepeatedly(Invoke([&self](
                 NonMock **out,
-                B_ErrorHandler const *eh) {
+                B_ErrorHandler const *eh) -> bool {
             if (!B_RETAIN(&self, eh)) {
                 return false;
             }
