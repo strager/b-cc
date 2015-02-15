@@ -17,7 +17,8 @@
 #endif
 
 // Clang's -Wconditional-uninitialized is a bit strict.
-#if defined(__clang__)
+#if defined(__clang__) && defined(__clang_major__) \
+    && __clang_major__ >= 3
 # define B_BEGIN_IGNORE_CONDITIONAL_UNINITIALIZED \
     _Pragma("GCC diagnostic push") \
     _Pragma("GCC diagnostic ignored \"-Wconditional-uninitialized\"")

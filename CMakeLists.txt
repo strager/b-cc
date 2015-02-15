@@ -175,6 +175,29 @@ elseif (HAVE_STD_CXX0X)
     append_with_space(CMAKE_CXX_FLAGS -std=c++0x)
 endif ()
 
+check_c_source_compiles("
+struct a {
+    union { int a; int b; };
+};
+int
+main() {
+}
+" HAVE_ANONYMOUS_UNIONS)
+if (NOT HAVE_ANONYMOUS_UNIONS)
+    check_c_source_compiles_with_flags("
+    struct a {
+        union { int a; int b; };
+    };
+    int
+    main() {
+    }
+    " HAVE_ANONYMOUS_UNIONS_WITH_W_NO_GNU -Wno-gnu)
+    if (HAVE_ANONYMOUS_UNIONS_WITH_W_NO_GNU)
+        append_with_space(CMAKE_C_FLAGS -Wno-gnu)
+        append_with_space(CMAKE_CXX_FLAGS -Wno-gnu)
+    endif ()
+endif ()
+
 # For glibc.  Without this, many definitions (functions,
 # macros, structs, etc.) are missing from headers when
 # compiling with a non-GNU -std.
@@ -268,6 +291,32 @@ main() {
             APPEND_STRING
             PROPERTY COMPILE_FLAGS
             " -Wno-array-bounds"
+        )
+    endif ()
+
+    # Older versions of Clang don't like mixing side effects
+    # and casts.
+    check_cxx_source_compiles("
+int
+main() {
+    int i = 0;
+    (int) (i = 1);
+    return i;
+}
+" HAVE_NO_UNUSED_VALUE_AFTER_CAST)
+    check_c_compiler_flag(
+        -Wno-unused-value
+        HAVE_W_NO_UNUSED_VALUE
+    )
+    if (
+            NOT HAVE_NO_UNUSED_VALUE_AFTER_CAST
+            AND HAVE_W_NO_UNUSED_VALUE
+    )
+        set_property(
+            TARGET b_sqlite3
+            APPEND_STRING
+            PROPERTY COMPILE_FLAGS
+            " -Wno-unused-value"
         )
     endif ()
 
