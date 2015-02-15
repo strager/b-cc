@@ -5,6 +5,12 @@ env:
     - test=false CC=gcc-4.4 CXX=g++-4.4 apt_packages="g++-4.4 libstdc++-4.8-dev"
     - test=false CC=gcc-4.4 CXX=g++-4.4 apt_packages="g++-4.4 libstdc++-4.9-dev"
 
+    - test=false CC=gcc-4.5 CXX=g++-4.5 apt_packages="g++-4.5 libstdc++6-4.4-dev"
+    - test=false CC=gcc-4.5 CXX=g++-4.5 apt_packages="g++-4.5 libstdc++6-4.6-dev"
+    - test=false CC=gcc-4.5 CXX=g++-4.5 apt_packages="g++-4.5 libstdc++6-4.7-dev"
+    - test=false CC=gcc-4.5 CXX=g++-4.5 apt_packages="g++-4.5 libstdc++-4.8-dev"
+    - test=false CC=gcc-4.5 CXX=g++-4.5 apt_packages="g++-4.5 libstdc++-4.9-dev"
+
     - test=false CC=gcc-4.6 CXX=g++-4.6 apt_packages="g++-4.6 libstdc++6-4.4-dev"
     - test=false CC=gcc-4.6 CXX=g++-4.6 apt_packages="g++-4.6 libstdc++6-4.6-dev"
     - test=false CC=gcc-4.6 CXX=g++-4.6 apt_packages="g++-4.6 libstdc++6-4.7-dev"
@@ -29,13 +35,29 @@ env:
     - test=true CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++-4.8-dev"
     - test=true CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++-4.9-dev"
 
+    - test=false CC=clang-2.9 CXX=clang++-2.9 apt_packages="clang-2.9 libstdc++6-4.4-dev"
+    - test=false CC=clang-2.9 CXX=clang++-2.9 apt_packages="clang-2.9 libstdc++6-4.6-dev"
+    - test=false CC=clang-2.9 CXX=clang++-2.9 apt_packages="clang-2.9 libstdc++6-4.7-dev"
+    - test=false CC=clang-2.9 CXX=clang++-2.9 apt_packages="clang-2.9 libstdc++-4.8-dev"
+    - test=false CC=clang-2.9 CXX=clang++-2.9 apt_packages="clang-2.9 libstdc++-4.9-dev"
+
+    - test=false CC=clang-3.0 CXX=clang++-3.0 apt_packages="clang-3.0 libstdc++6-4.4-dev"
+    - test=false CC=clang-3.0 CXX=clang++-3.0 apt_packages="clang-3.0 libstdc++6-4.6-dev"
+    - test=false CC=clang-3.0 CXX=clang++-3.0 apt_packages="clang-3.0 libstdc++6-4.7-dev"
+    - test=false CC=clang-3.0 CXX=clang++-3.0 apt_packages="clang-3.0 libstdc++-4.8-dev"
+    - test=false CC=clang-3.0 CXX=clang++-3.0 apt_packages="clang-3.0 libstdc++-4.9-dev"
+
+    - test=true CC=clang-3.1 CXX=clang++-3.1 apt_packages="clang-3.1 libstdc++6-4.4-dev"
+    - test=true CC=clang-3.1 CXX=clang++-3.1 apt_packages="clang-3.1 libstdc++6-4.6-dev"
+    - test=true CC=clang-3.1 CXX=clang++-3.1 apt_packages="clang-3.1 libstdc++6-4.7-dev"
+    - test=true CC=clang-3.1 CXX=clang++-3.1 apt_packages="clang-3.1 libstdc++-4.8-dev"
+    - test=true CC=clang-3.1 CXX=clang++-3.1 apt_packages="clang-3.1 libstdc++-4.9-dev"
+
     - test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++6-4.4-dev"
     - test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++6-4.6-dev"
     - test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++6-4.7-dev"
     - test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.8-dev"
-    # Buggy; max_align_t is undefined by clang but used by
-    # <cstddef>.
-    #- test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.9-dev"
+    - test=true CC=clang-3.3 CXX=clang++-3.3 apt_packages="clang-3.3 libstdc++-4.9-dev"
 
     - test=true CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++6-4.4-dev"
     - test=true CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++6-4.6-dev"
@@ -43,9 +65,23 @@ env:
     - test=true CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.8-dev"
     - test=true CC=clang-3.4 CXX=clang++-3.4 apt_packages="clang-3.4 libstdc++-4.9-dev"
 
+    - test=true CC=clang-3.5 CXX=clang++-3.5 apt_packages="clang-3.5 libstdc++6-4.4-dev"
+    - test=true CC=clang-3.5 CXX=clang++-3.5 apt_packages="clang-3.5 libstdc++6-4.6-dev"
+    - test=true CC=clang-3.5 CXX=clang++-3.5 apt_packages="clang-3.5 libstdc++6-4.7-dev"
+    - test=true CC=clang-3.5 CXX=clang++-3.5 apt_packages="clang-3.5 libstdc++-4.8-dev"
+    - test=true CC=clang-3.5 CXX=clang++-3.5 apt_packages="clang-3.5 libstdc++-4.9-dev"
+
+matrix:
+    allow_failures:
+        # Clang 3.1's C++11 support is immature.
+        - env: test=true CC=clang-3.1 CXX=clang++-3.1 apt_packages="clang-3.1 libstdc++-4.8-dev"
+        - env: test=true CC=clang-3.1 CXX=clang++-3.1 apt_packages="clang-3.1 libstdc++-4.9-dev"
+
 before_install:
-    - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+    - sudo add-apt-repository ppa:h-rayflood/gcc-lower -y
     - sudo add-apt-repository ppa:h-rayflood/llvm -y
+    - sudo add-apt-repository ppa:h-rayflood/llvm-upper -y
+    - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
     - sudo apt-get update -qq
 
 install:
