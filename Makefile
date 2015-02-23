@@ -41,6 +41,8 @@ scan_build_flags := $(addprefix -enable-checker ,\
 # alpha.core.PointerArithm # Noisy in gtest macros.
 # alpha.deadcode.UnreachableCode # Noisy false positives.
 
+python_versions := 2.7 3.0 3.1 3.2 3.3 3.4
+
 # List of all goals defined by this Makefile.
 real_goals := \
 	$(outdir)/.exists \
@@ -50,7 +52,9 @@ real_goals := \
 	clang-static-analysis \
 	clean \
 	configure \
-	test
+	test \
+	test-python \
+	$(foreach v,$(python_versions),test-python$(v))
 
 # Goals given but unrecognized by this Makefile.  Will be
 # passed to child invocations of 'make'.
@@ -88,6 +92,26 @@ build: $(out_dir)/Makefile
 test: build $(out_dir)/.exists
 	cd $(out_dir) && B_RUN_TEST_PREFIX="$(run_with)" \
 		ctest --output-on-failure
+
+.PHONY: test-python%
+test-python%: build $(out_dir)/.exists
+	B_DLL_PATH=$$(cat $(out_dir)/dll_path.txt) && \
+		export B_DLL_PATH && \
+		cd python && \
+		$(run_with) \
+		$(subst test-,,$(@)) \
+		-m unittest \
+		discover \
+		--start-directory b/test/ \
+		--pattern '*.py' \
+		--verbose
+
+.PHONY: test-python
+test-python:
+	@echo Supported targets:
+	@for v in $(python_versions); do \
+	    echo "test-python$${v}"; \
+	done
 
 $(out_dir)/.exists:
 	@mkdir -p $(out_dir)/

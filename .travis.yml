@@ -66,7 +66,7 @@ before_install:
     - bash -x -c 'for i in {0..5}; do if sudo apt-get update -qq; then exit 0; fi; sleep 5; done; exit 1'
 
 install:
-    - sudo apt-get install cmake valgrind $apt_packages
+    - sudo apt-get install cmake python2.7 python3.2 valgrind $apt_packages
 
 before_script:
     - echo "$CC" && "$CC" --version
@@ -78,6 +78,8 @@ script:
     - if "${test}"; then make test; fi
     - if "${test}"; then make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"; fi
     - if "${test}"; then make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"; fi
+    - make test-python2.7
+    - make test-python3.2
 
     # Now with optimizations!
     - export CFLAGS='-O3'
@@ -87,5 +89,7 @@ script:
     - if "${test}"; then make test; fi
     - if "${test}"; then make test run_with="valgrind --tool=memcheck --leak-check=full $VALGRIND_FLAGS"; fi
     - if "${test}"; then make test run_with="valgrind --tool=helgrind $VALGRIND_FLAGS"; fi
+    - make test-python2.7
+    - make test-python3.2
 
     # TODO(strager): DRD (valgrind tool) crashes on vfork (posix_spawn).

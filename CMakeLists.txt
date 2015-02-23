@@ -442,6 +442,15 @@ else ()
     set_property(TARGET b_shared PROPERTY OUTPUT_NAME b)
 endif ()
 
+# dll_path.txt is read by various scripts where libb needs
+# to be loaded dynamically. See Makefile.
+get_target_property(B_LIBRARY_PATH b_shared LOCATION)
+file(
+    WRITE
+    "${CMAKE_CURRENT_BINARY_DIR}/dll_path.txt"
+    "${B_LIBRARY_PATH}"
+)
+
 check_cxx_source_compiles("
 int
 main() {

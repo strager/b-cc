@@ -425,6 +425,7 @@ retry_create_function:
 
     // See NOTE[schema].
     static char const create_table_query[] = ""
+        // TODO(strager): Add UNIQUE constraints.
         "CREATE TABLE IF NOT EXISTS dependencies(\n"
         "    from_question_uuid BLOB NOT NULL,\n"
         "    from_question_data BLOB NOT NULL,\n"
