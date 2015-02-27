@@ -178,14 +178,26 @@ b_serialize_8_be(
 }
 
 B_EXPORT_FUNC
+b_serialize_bytes(
+        struct B_ByteSink *sink,
+        uint8_t const *data,
+        size_t data_size,
+        struct B_ErrorHandler const *eh) {
+    B_CHECK_PRECONDITION(eh, sink);
+    B_CHECK_PRECONDITION(eh, data);
+    return sink->write_bytes(sink, data, data_size, eh);
+}
+
+B_EXPORT_FUNC
 b_serialize_data_and_size_8_be(
         struct B_ByteSink *sink,
         uint8_t const *data,
         size_t data_size,
         struct B_ErrorHandler const *eh) {
     B_CHECK_PRECONDITION(eh, sink);
+    B_CHECK_PRECONDITION(eh, data);
     if (!b_serialize_8_be(sink, data_size, eh)) {
         return false;
     }
-    return sink->write_bytes(sink, data, data_size, eh);
+    return b_serialize_bytes(sink, data, data_size, eh);
 }
