@@ -22,7 +22,6 @@ b_dup_args(
         B_OUTPTR char const *const **,
         struct B_ErrorHandler const *);
 
-
 #if defined(__cplusplus)
 }
 #endif

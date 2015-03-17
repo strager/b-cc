@@ -102,7 +102,6 @@ public:
             return new PthreadCondTester();
         }
 
-
         const char *
         get_type_string() const override {
             return "pthread_cond";
