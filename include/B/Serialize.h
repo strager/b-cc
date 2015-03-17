@@ -133,21 +133,4 @@ b_serialize_data_and_size_8_be(
 }
 #endif
 
-#if defined(__cplusplus)
-# include <string>
-
-// FIXME(strager): std::string does not use b_allocate.
-inline B_FUNC
-b_serialize_data_and_size_8_be(
-        struct B_ByteSink *sink,
-        std::string const &data,
-        struct B_ErrorHandler const *eh) {
-    return b_serialize_data_and_size_8_be(
-        sink,
-        reinterpret_cast<uint8_t const *>(data.c_str()),
-        data.size(),
-        eh);
-}
-#endif
-
 #endif

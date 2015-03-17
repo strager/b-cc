@@ -97,30 +97,4 @@ b_deserialize_data_and_size_8_be(
 }
 #endif
 
-#if defined(__cplusplus)
-# include <B/Alloc.h>
-
-# include <string>
-
-// FIXME(strager): std::string does not use b_allocate.
-inline B_FUNC
-b_deserialize_data_and_size_8_be(
-        struct B_ByteSource *source,
-        std::string *data,
-        struct B_ErrorHandler const *eh) {
-    uint8_t *raw_data;
-    size_t data_size;
-    if (!b_deserialize_data_and_size_8_be(
-            source, &raw_data, &data_size, eh)) {
-        return false;
-    }
-    data->assign(
-        reinterpret_cast<char *>(raw_data), data_size);
-    if (!b_deallocate(raw_data, eh)) {
-        return false;
-    }
-    return true;
-}
-#endif
-
 #endif
