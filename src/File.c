@@ -250,7 +250,6 @@ file_answer_deserialize_(
     return file_answer_from_sum_hash_(sum_hash, out, eh);
 }
 
-uint64_t const sum_hash;
 static struct B_AnswerVTable const
 file_answer_vtable_ = {
     .equal = file_answer_equal_,
