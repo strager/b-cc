@@ -36,14 +36,6 @@ b_question_queue_allocate_single_threaded(
         B_OUTPTR struct B_QuestionQueue **,
         struct B_ErrorHandler const *);
 
-// Creates a QuestionQueue which will signal the given
-// pthread_cond_t when b_question_queue_enqueue is called.
-B_EXPORT_FUNC
-b_question_queue_allocate_with_pthread_cond(
-        B_BORROWED void *pthread_cond,  // pthread_cond_t *
-        B_OUTPTR struct B_QuestionQueue **,
-        struct B_ErrorHandler const *);
-
 // Creates a QuestionQueue which will signal the given Linux
 // eventfd when b_question_queue_enqueue is called.  Calling
 // b_question_queue_try_dequeue does not remove the event

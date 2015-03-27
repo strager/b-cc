@@ -7,10 +7,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#if defined(B_CONFIG_POSIX)
-# include <pthread.h>
-#endif
-
 #if defined(B_CONFIG_KQUEUE)
 # include <sys/event.h>
 #endif
@@ -91,159 +87,6 @@ public:
         return true;
     }
 };
-
-#if defined(B_CONFIG_PTHREAD)
-class PthreadCondTester : public Tester {
-public:
-    class Factory : public Tester::Factory {
-    public:
-        Tester *
-        create_tester() const override {
-            return new PthreadCondTester();
-        }
-
-        const char *
-        get_type_string() const override {
-            return "pthread_cond";
-        }
-    };
-
-    PthreadCondTester() :
-            signaled(false),
-            started(false),
-            stop(false) {
-        int rc;
-        rc = pthread_mutex_init(&this->lock, nullptr);
-        EXPECT_EQ(0, rc) << strerror(rc);
-        rc = pthread_cond_init(&this->cond, nullptr);
-        EXPECT_EQ(0, rc) << strerror(rc);
-
-        rc = pthread_create(
-            &this->thread,
-            nullptr,
-            PthreadCondTester::thread_body,
-            this);
-        EXPECT_EQ(0, rc) << strerror(rc);
-
-        // Wait for thread to say it's started.
-        rc = pthread_mutex_lock(&this->lock);
-        EXPECT_EQ(0, rc) << strerror(rc);
-        while (!this->started) {
-            rc = pthread_cond_wait(
-                &this->cond, &this->lock);
-            EXPECT_EQ(0, rc) << strerror(rc);
-        }
-        rc = pthread_mutex_unlock(&this->lock);
-        EXPECT_EQ(0, rc) << strerror(rc);
-    }
-
-    ~PthreadCondTester() {
-        int rc;
-
-        rc = pthread_mutex_lock(&this->lock);
-        EXPECT_EQ(0, rc) << strerror(rc);
-        this->stop = true;
-        rc = pthread_cond_signal(&this->cond);
-        EXPECT_EQ(0, rc) << strerror(rc);
-        rc = pthread_mutex_unlock(&this->lock);
-        EXPECT_EQ(0, rc) << strerror(rc);
-
-        rc = pthread_join(this->thread, nullptr);
-        EXPECT_EQ(0, rc) << strerror(rc);
-
-        rc = pthread_cond_destroy(&this->cond);
-        EXPECT_EQ(0, rc) << strerror(rc);
-        rc = pthread_mutex_destroy(&this->lock);
-        EXPECT_EQ(0, rc) << strerror(rc);
-    }
-
-    B_FUNC
-    queue_allocate(
-            B_OUTPTR B_QuestionQueue **out,
-            B_ErrorHandler const *eh) override {
-        return b_question_queue_allocate_with_pthread_cond(
-            &this->cond, out, eh);
-    }
-
-    bool
-    consumes_spurious_events() override {
-        return true;
-    }
-
-    bool
-    try_consume_event() override {
-        bool signaled = this->raw_try_consume_event();
-        if (!signaled) {
-            // Try again after sleeping a bit.
-            usleep(20 * 1000);
-            signaled = this->raw_try_consume_event();
-            if (!signaled) {
-                // Once more.
-                usleep(1000 * 1000);
-                signaled = this->raw_try_consume_event();
-            }
-        }
-        return signaled;
-    }
-
-private:
-    bool
-    raw_try_consume_event() {
-        bool signaled;
-        int rc;
-
-        rc = pthread_mutex_lock(&this->lock);
-        EXPECT_EQ(0, rc) << strerror(rc);
-
-        signaled = this->signaled;
-        this->signaled = false;
-
-        rc = pthread_mutex_unlock(&this->lock);
-        EXPECT_EQ(0, rc) << strerror(rc);
-
-        return signaled;
-    }
-
-    static void *
-    thread_body(
-            void *opaque) {
-        int rc;
-
-        PthreadCondTester *self
-            = static_cast<PthreadCondTester *>(opaque);
-        EXPECT_NE(nullptr, self);
-
-        rc = pthread_mutex_lock(&self->lock);
-        EXPECT_EQ(0, rc) << strerror(rc);
-
-        self->started = true;
-        rc = pthread_cond_signal(&self->cond);
-        EXPECT_EQ(0, rc) << strerror(rc);
-
-        while (!self->stop) {
-            rc = pthread_cond_wait(
-                &self->cond, &self->lock);
-            EXPECT_EQ(0, rc) << strerror(rc);
-
-            // Signal unconditionally.  This is correct
-            // because we are testing that the condition
-            // variable was signaled.
-            self->signaled = true;
-        }
-        rc = pthread_mutex_unlock(&self->lock);
-        EXPECT_EQ(0, rc) << strerror(rc);
-
-        return nullptr;
-    }
-
-    pthread_mutex_t lock;
-    pthread_cond_t cond;
-    pthread_t thread;
-    bool signaled;
-    bool started;
-    bool stop;
-};
-#endif
 
 #if defined(B_CONFIG_KQUEUE)
 class KqueueTester : public Tester {
@@ -416,9 +259,6 @@ std::ostream &operator<<(
 
 Testers::Tester::Factory *tester_factories[] = {
     new Testers::SingleThreadedTester::Factory(),
-#if defined(B_CONFIG_PTHREAD)
-    new Testers::PthreadCondTester::Factory(),
-#endif
 #if defined(B_CONFIG_KQUEUE)
     new Testers::KqueueTester::Factory(),
 #endif
