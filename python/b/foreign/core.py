@@ -2,7 +2,6 @@ import ctypes
 import ctypes.util
 import os
 import os.path
-import types
 
 def find_libb_path():
     env_var = 'B_DLL_PATH'
