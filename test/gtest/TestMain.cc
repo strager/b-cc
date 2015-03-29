@@ -28,9 +28,6 @@ TEST(TestMain, CallbackCalledForInitialQuestion) {
         nullptr,
         &database,
         eh));
-    B_QuestionVTableSet *vtable_set;
-    ASSERT_TRUE(b_question_vtable_set_allocate(
-        &vtable_set, eh));
 
     StrictMock<MockQuestion> question;
     MockRefCounting(question);
@@ -77,7 +74,5 @@ TEST(TestMain, CallbackCalledForInitialQuestion) {
     EXPECT_EQ(static_cast<size_t>(1), closure.called_count);
     ASSERT_TRUE(b_main_deallocate(main, eh));
 
-    ASSERT_TRUE(b_question_vtable_set_deallocate(
-        vtable_set, eh));
     ASSERT_TRUE(b_database_close(database, eh));
 }
