@@ -63,7 +63,7 @@ before_install:
     - sudo add-apt-repository ppa:h-rayflood/llvm-upper -y
     - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
     # apt-get update is flaky on Travis, so try a few times.
-    - set +e; set -x; for i in {0..5}; do if sudo apt-get update -qq; then exit 0; fi; sleep 5; done; exit 1
+    - bash -x -c 'for i in {0..5}; do if sudo apt-get update -qq; then exit 0; fi; sleep 5; done; exit 1'
 
 install:
     - sudo apt-get install cmake valgrind $apt_packages
