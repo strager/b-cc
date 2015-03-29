@@ -72,6 +72,7 @@ TEST(TestMain, CallbackCalledForInitialQuestion) {
         &closure,
         eh));
     EXPECT_EQ(static_cast<size_t>(1), closure.called_count);
+    EXPECT_EQ(returned_answer, &answer);
     ASSERT_TRUE(b_main_deallocate(main, eh));
 
     ASSERT_TRUE(b_database_close(database, eh));
