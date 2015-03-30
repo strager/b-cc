@@ -193,13 +193,9 @@ class _PythonNativeMixin(abc.ABC):
 
     @classmethod
     def _deallocate(cls, pointer):
-        return cls.from_pointer(pointer) \
-            .__deallocate(pointer)
-
-    def __deallocate(self, pointer):
-        assert ctypes.cast(pointer, ctypes.c_void_p).value \
-            == id(self)
-        decref(self)
+        object = cls.from_pointer(pointer)
+        decref(object)  # Undo incref in from_pointer.
+        decref(object)  # Desired decref.
 
 class Question(_PythonNativeMixin, QuestionBase, abc.ABC):
     @staticmethod

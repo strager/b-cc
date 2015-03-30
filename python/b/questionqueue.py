@@ -64,6 +64,7 @@ class QuestionQueue(object):
             self.__pointer,
             question_queue_item.to_pointer(),
         )
+        incref(question_queue_item)
 
     def try_dequeue(self):
         assert not self.__deallocated
@@ -186,35 +187,43 @@ class NativeQuestionQueueItem(
 class QuestionQueueItem(QuestionQueueItemBase, abc.ABC):
     def __init__(self, question):
         self.__question = question
-
+        self.__question_pointer \
+            = self.__question.to_pointer()
         foreign_queue_item = foreign.QuestionQueueItem(
             deallocate=foreign.QuestionQueueItemDeallocate(
                 self.__raw_deallocate,
             ),
-            question=self.__question.to_pointer(),
+            question=self.__question_pointer,
             question_vtable
                 =self.__question.vtable_pointer(),
             answer_callback=foreign.AnswerCallback(
                 self.__raw_answer_callback,
             ),
         )
+        # Prevent reference cycles (self pointing to itself
+        # through C) by constructing a py_object via a cast.
+        weak_self_pointer = ctypes.cast(
+            ctypes.c_void_p(id(self)),
+            ctypes.py_object,
+        )
         self.__queue_item_pointer = ctypes.pointer(
             _PythonForeignQuestionQueueItem(
                 foreign_queue_item=foreign_queue_item,
-                python_queue_item=ctypes.py_object(self),
+                python_queue_item=weak_self_pointer,
             ),
         )
+        self.__deallocated = False
 
     @classmethod
-    def __raw_deallocate(cls, queue_item, eh):
+    def __raw_deallocate(cls, queue_item_pointer, eh):
         def f():
-            queue_item_pointer = ctypes.cast(
-                queue_item,
+            queue_item = ctypes.cast(
+                queue_item_pointer,
                 ctypes.POINTER(
                     _PythonForeignQuestionQueueItem,
                 ),
-            )
-            decref(queue_item_pointer[0].python_queue_item)
+            )[0].python_queue_item
+            decref(queue_item)
         return wrap_eh(f, eh)
 
     @classmethod
@@ -244,6 +253,7 @@ class QuestionQueueItem(QuestionQueueItemBase, abc.ABC):
 
     @property
     def question(self):
+        assert not self.__deallocated
         return self.__question
 
     @abc.abstractmethod
@@ -251,11 +261,17 @@ class QuestionQueueItem(QuestionQueueItemBase, abc.ABC):
         pass
 
     def to_pointer(self):
-        incref(self)
+        assert not self.__deallocated
         return ctypes.cast(
             self.__queue_item_pointer,
             ctypes.POINTER(foreign.QuestionQueueItem),
         )
+
+    def __del__(self):
+        if self.__deallocated:
+            return
+        self.__deallocated = True
+        self.__question._deallocate(self.__question_pointer)
 
 class _PythonForeignQuestionQueueItem(ctypes.Structure):
     _fields_ = [
