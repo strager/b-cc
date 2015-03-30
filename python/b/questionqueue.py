@@ -2,6 +2,7 @@ from b.foreign.call import call_with_eh
 from b.foreign.call import wrap_eh
 from b.foreign.ref import decref
 from b.foreign.ref import incref
+from b.foreign.util import weak_py_object
 from b.native import NativeObject
 from b.question import QuestionBase
 import b.abc as abc
@@ -200,16 +201,10 @@ class QuestionQueueItem(QuestionQueueItemBase, abc.ABC):
                 self.__raw_answer_callback,
             ),
         )
-        # Prevent reference cycles (self pointing to itself
-        # through C) by constructing a py_object via a cast.
-        weak_self_pointer = ctypes.cast(
-            ctypes.c_void_p(id(self)),
-            ctypes.py_object,
-        )
         self.__queue_item_pointer = ctypes.pointer(
             _PythonForeignQuestionQueueItem(
                 foreign_queue_item=foreign_queue_item,
-                python_queue_item=weak_self_pointer,
+                python_queue_item=weak_py_object(self),
             ),
         )
         self.__deallocated = False
