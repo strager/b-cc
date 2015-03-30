@@ -29,7 +29,8 @@ class _YieldReturnValue(object):
 
     def __repr__(self):
         return '{}({})'.format(
-            self.__class__.__name__, repr(self.__value))
+            self.__class__.__name__, repr(self.__value),
+        )
 
 # TODO(strager): Make this thread-safe.
 class Future(object):
@@ -117,7 +118,8 @@ class _Looper(object):
         while True:
             try:
                 result = self.__current_generator.send(
-                    value)
+                    value,
+                )
             except StopIteration:
                 # Implicit gen_return(None) after every gen
                 # function.
@@ -147,7 +149,8 @@ class _Looper(object):
                 return
             else:
                 self.__generator_stack.append(
-                    self.__current_generator)
+                    self.__current_generator,
+                )
                 self.__current_generator = result
                 value = None
                 # Keep looping.
