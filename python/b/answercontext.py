@@ -21,12 +21,14 @@ class AnswerContext(object):
         pointer,
         question,
         process_controller,
+        owns_pointer,
     ):
         if token is not self.__token:
             raise Exception('Use create or from_pointer')
         self.__pointer = pointer
         self.__question = question
         self.__process_controller = process_controller
+        self.__owns_pointer = owns_pointer
 
     @classmethod
     def create(
@@ -37,29 +39,15 @@ class AnswerContext(object):
         database,
         process_controller,
     ):
-        # FIXME(strager): This still retains the question
-        # for too long.
-        answer_class = question.answer_class()
-        def raw_answer_callback(
-            answer_pointer,
-            _opaque,
-            eh,
-        ):
-            def f():
-                answer = answer_class.from_pointer(
-                    answer_pointer,
-                )
-                answer_callback(answer)
-            return wrap_eh(f, eh)
-        # TODO(strager): Don't leak answer_callback.
-        incref(answer_callback)
         answer_context_value = foreign.AnswerContext(
-            # FIXME(strager): This leaks the question.
             question=question.to_pointer(),
             question_vtable=question.vtable_pointer(),
-            answer_callback=foreign.AnswerCallback(
-                raw_answer_callback,
-            ),
+            answer_callback
+                =cls.__raw_answer_callback_factory(
+                    self_weak=dealloc
+                    answer_class=question.answer_class(),
+                    answer_callback=answer_callback,
+                ),
             answer_callback_opaque=ctypes.c_void_p(),
             question_queue=question_queue.to_pointer(),
             database=database.to_pointer()
@@ -71,7 +59,37 @@ class AnswerContext(object):
             pointer=ctypes.pointer(answer_context_value),
             question=question,
             process_controller=process_controller,
+            owns_pointer=True,
         )
+
+    @staticmethod
+    def __raw_answer_callback_factory(
+        self_weak,
+        answer_class,
+        answer_callback,
+    ):
+        '''
+        Returns a foreign.AnswerCallback which calls the
+        given answer_callback with an AnswerBase object.
+
+        This is a separate method to minimize the number of
+        objects retained.
+        '''
+        def raw_answer_callback(
+            answer_pointer,
+            _opaque,
+            eh,
+        ):
+            def f():
+                answer = answer_class.from_pointer(
+                    answer_pointer,
+                )
+                try:
+                    answer_callback(answer)
+                finally:
+                    self_weak.value.__deallocate()
+            return wrap_eh(f, eh)
+        return foreign.AnswerCallback(raw_answer_callback)
 
     @classmethod
     def from_pointer(cls, pointer, process_controller):
@@ -87,6 +105,7 @@ class AnswerContext(object):
             pointer=pointer,
             question=question,
             process_controller=process_controller,
+            owns_pointer=False,
         )
 
     @property
@@ -150,6 +169,18 @@ class AnswerContext(object):
             answer_context=self.__pointer,
         )
         yield gen_return(None)
+
+    def __dealloc(self):
+        assert self.__owns_pointer
+        self.__question._deallocate(
+            self.__pointer[0].question,
+        )
+        self.__pointer = None
+
+    def __del__(self):
+        print('__del__({})'.format(self))
+        if self.__owns_pointer:
+            self.__dealloc()
 
 class _NeedCallbacks(object):
     def __init__(self, future, questions):
