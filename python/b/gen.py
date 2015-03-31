@@ -38,11 +38,28 @@ class Future(object):
         self.__callbacks = []
         self.__callback_caller = None
 
+    @property
+    def is_resolved(self):
+        return self.__callback_caller is not None
+
+    def get_resolved_value(self):
+        if not self.is_resolved:
+            raise Exception('Future not yet resolved')
+        return_value = []
+        def resolve(value):
+            return_value.append(value)
+        def cancel():
+            raise StopIteration()
+        def throw(ex):
+            raise ex
+        self.add_callbacks(resolve, cancel, throw)
+        return return_value[0]
+
     def add_callbacks(
-            self,
-            resolve_callback,
-            cancel_callback,
-            throw_callback,
+        self,
+        resolve_callback,
+        cancel_callback,
+        throw_callback,
     ):
         if resolve_callback is None \
                 or cancel_callback is None \

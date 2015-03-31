@@ -2,6 +2,7 @@
 Portable (and slow) implementations of incref and decref.
 '''
 import collections
+import gc
 import os.path
 import sys
 import traceback
@@ -68,6 +69,9 @@ def _print_traceback(tb, out):
         out.write(item)
 
 def dump_leaked_objects(out=sys.stderr):
+    print('gc.collect() = {}'.format(gc.collect()))
+    print('gc.collect() = {}'.format(gc.collect()))
+    print('gc.collect() = {}'.format(gc.collect()))
     out.write('{} objects leaked:\n'.format(len(_objects)))
     for (object, refcount) in _objects.items():
         out.write(' - {} (+{})\n'.format(

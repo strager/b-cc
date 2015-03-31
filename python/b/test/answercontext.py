@@ -17,13 +17,13 @@ class TestAnswerContext(unittest.TestCase):
 
         question_queue = QuestionQueue.single_threaded()
 
-        answer_context = AnswerContext.create(
-            question=question,
-            answer_callback=lambda _answer: None,
-            question_queue=question_queue,
-            database=None,
-            process_controller=None,
-        )
+        (answer_context, _answer_future) \
+            = AnswerContext.create(
+                question=question,
+                question_queue=question_queue,
+                database=None,
+                process_controller=None,
+            )
 
         future = answer_context.gen_need([needed_question])
         gen.loop(future)
@@ -56,13 +56,13 @@ class TestAnswerContext(unittest.TestCase):
 
         question_queue = QuestionQueue.single_threaded()
 
-        answer_context = AnswerContext.create(
-            question=question,
-            answer_callback=lambda _answer: None,
-            question_queue=question_queue,
-            database=None,
-            process_controller=None,
-        )
+        (answer_context, _answer_future) \
+            = AnswerContext.create(
+                question=question,
+                question_queue=question_queue,
+                database=None,
+                process_controller=None,
+            )
 
         need_callback_answers = []
         future = answer_context.gen_need([needed_question])
@@ -99,13 +99,13 @@ class TestAnswerContext(unittest.TestCase):
 
         question_queue = QuestionQueue.single_threaded()
 
-        answer_context = AnswerContext.create(
-            question=question,
-            answer_callback=lambda _answer: None,
-            question_queue=question_queue,
-            database=None,
-            process_controller=None,
-        )
+        (answer_context, _answer_future) \
+            = AnswerContext.create(
+                question=question,
+                question_queue=question_queue,
+                database=None,
+                process_controller=None,
+            )
 
         need_callback_1_answers = []
         future_1 = answer_context.gen_need([
@@ -187,13 +187,13 @@ class TestAnswerContext(unittest.TestCase):
 
         question_queue = QuestionQueue.single_threaded()
 
-        answer_context = AnswerContext.create(
-            question=question,
-            answer_callback=lambda _answer: None,
-            question_queue=question_queue,
-            database=None,
-            process_controller=None,
-        )
+        (answer_context, _answer_future) \
+            = AnswerContext.create(
+                question=question,
+                question_queue=question_queue,
+                database=None,
+                process_controller=None,
+            )
 
         need_callback_answers = []
         future = answer_context.gen_need([needed_question])
@@ -226,21 +226,20 @@ class TestAnswerContext(unittest.TestCase):
 
         question_queue = QuestionQueue.single_threaded()
 
-        answer_callback_answers = []
-        def answer_callback(answer):
-            answer_callback_answers.append(answer)
-        answer_context = AnswerContext.create(
-            question=question,
-            answer_callback=answer_callback,
-            question_queue=question_queue,
-            database=None,
-            process_controller=None,
-        )
+        (answer_context, answer_future) \
+            = AnswerContext.create(
+                question=question,
+                question_queue=question_queue,
+                database=None,
+                process_controller=None,
+            )
 
-        self.assertEqual([], answer_callback_answers)
         gen.loop(answer_context.gen_success_answer(answer))
-        self.assertEqual(1, len(answer_callback_answers))
-        self.assertIs(answer, answer_callback_answers[0])
+        self.assertTrue(answer_future.is_resolved)
+        self.assertIs(
+            answer,
+            answer_future.get_resolved_value(),
+        )
 
 if __name__ == '__main__':
     unittest.main()

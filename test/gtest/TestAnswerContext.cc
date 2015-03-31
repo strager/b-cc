@@ -583,7 +583,6 @@ TEST(TestAnswerContext, SuccessCallsContextCallback) {
     StrictMock<MockAnswer> answer;
     MockRefCounting(answer);
     B_AnswerContext answer_context;
-
     EXPECT_CALL(question, query_answer(_, _))
         .WillOnce(DoAll(
             SetArgPointee<0>(&answer),

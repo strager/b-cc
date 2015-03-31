@@ -2,6 +2,7 @@ from b.foreign.call import call_with_eh
 from b.foreign.call import wrap_eh
 from b.foreign.ref import incref
 from b.foreign.util import format_pointer
+from b.foreign.util import weak_py_object
 from b.gen import Future
 from b.gen import gen_return
 from b.question import QuestionBase
@@ -18,14 +19,14 @@ class AnswerContext(object):
     def __init__(
         self,
         token,
-        pointer,
+        pointer_factory,
         question,
         process_controller,
         owns_pointer,
     ):
         if token is not self.__token:
             raise Exception('Use create or from_pointer')
-        self.__pointer = pointer
+        self.__pointer = pointer_factory(self)
         self.__question = question
         self.__process_controller = process_controller
         self.__owns_pointer = owns_pointer
@@ -34,39 +35,54 @@ class AnswerContext(object):
     def create(
         cls,
         question,
-        answer_callback,
         question_queue,
         database,
         process_controller,
     ):
-        answer_context_value = foreign.AnswerContext(
-            question=question.to_pointer(),
-            question_vtable=question.vtable_pointer(),
-            answer_callback
-                =cls.__raw_answer_callback_factory(
-                    self_weak=dealloc
-                    answer_class=question.answer_class(),
-                    answer_callback=answer_callback,
-                ),
-            answer_callback_opaque=ctypes.c_void_p(),
-            question_queue=question_queue.to_pointer(),
-            database=database.to_pointer()
-                if database
-                else None,
-        )
-        return cls(
+        '''
+        Returns a pair of (AnswerContext, Future). The
+        Future is resolved when gen_success,
+        gen_success_answer, or gen_error is called.
+        '''
+        answer_future = Future()
+        def pointer_factory(self):
+            question_pointer = question.to_pointer()
+            try:
+                return ctypes.pointer(foreign.AnswerContext(
+                    question=question_pointer,
+                    question_vtable
+                        =question.vtable_pointer(),
+                    answer_callback
+                        =cls.__raw_answer_callback_factory(
+                            self=self,
+                            answer_class
+                                =question.answer_class(),
+                            future=answer_future,
+                        ),
+                    answer_callback_opaque
+                        =ctypes.c_void_p(),
+                    question_queue
+                        =question_queue.to_pointer(),
+                    database=database.to_pointer()
+                        if database
+                        else None,
+                ))
+            finally:
+                question._deallocate(question_pointer)
+        ac = cls(
             token=cls.__token,
-            pointer=ctypes.pointer(answer_context_value),
+            pointer_factory=pointer_factory,
             question=question,
             process_controller=process_controller,
             owns_pointer=True,
         )
+        return (ac, answer_future)
 
     @staticmethod
     def __raw_answer_callback_factory(
-        self_weak,
+        self,
         answer_class,
-        answer_callback,
+        future,
     ):
         '''
         Returns a foreign.AnswerCallback which calls the
@@ -75,6 +91,8 @@ class AnswerContext(object):
         This is a separate method to minimize the number of
         objects retained.
         '''
+        self_list = [self]
+        del self
         def raw_answer_callback(
             answer_pointer,
             _opaque,
@@ -84,10 +102,11 @@ class AnswerContext(object):
                 answer = answer_class.from_pointer(
                     answer_pointer,
                 )
+                self = self_list.pop()
                 try:
-                    answer_callback(answer)
+                    future.resolve(answer)
                 finally:
-                    self_weak.value.__deallocate()
+                    self.__dealloc()
             return wrap_eh(f, eh)
         return foreign.AnswerCallback(raw_answer_callback)
 
@@ -102,7 +121,7 @@ class AnswerContext(object):
         )
         return cls(
             token=cls.__token,
-            pointer=pointer,
+            pointer_factory=lambda self: pointer,
             question=question,
             process_controller=process_controller,
             owns_pointer=False,
@@ -123,28 +142,35 @@ class AnswerContext(object):
         question_vtable_pointers \
             = (POINTER(foreign.QuestionVTable)
                 * len(questions))()
-        for (i, question) in enumerate(questions):
-            question_pointers[i] = question.to_pointer()
-            question_vtable_pointers[i] \
-                = question.vtable_pointer()
+        try:
+            for (i, question) in enumerate(questions):
+                question_pointers[i] = question.to_pointer()
+                question_vtable_pointers[i] \
+                    = question.vtable_pointer()
 
-        future = Future()
-        callbacks = _NeedCallbacks(
-            future=future,
-            questions=questions,
-        )
+            future = Future()
+            callbacks = _NeedCallbacks(
+                future=future,
+                questions=questions,
+            )
 
-        call_with_eh(
-            foreign.answer_context_need,
-            answer_context=self.__pointer,
-            questions=question_pointers,
-            question_vtables=question_vtable_pointers,
-            questions_count=len(questions),
-            completed_callback=callbacks.completed_callback,
-            cancelled_callback=callbacks.cancelled_callback,
-            callback_opaque=None,
-        )
-        result = yield future
+            call_with_eh(
+                foreign.answer_context_need,
+                answer_context=self.__pointer,
+                questions=question_pointers,
+                question_vtables=question_vtable_pointers,
+                questions_count=len(questions),
+                completed_callback
+                    =callbacks.completed_callback,
+                cancelled_callback
+                    =callbacks.cancelled_callback,
+                callback_opaque=None,
+            )
+            result = yield future
+        finally:
+            pass
+            #for (i, question) in enumerate(questions):
+            #    question._dealloate(question_pointers[i])
         del callbacks
         yield gen_return(result)
 
@@ -172,9 +198,9 @@ class AnswerContext(object):
 
     def __dealloc(self):
         assert self.__owns_pointer
-        self.__question._deallocate(
-            self.__pointer[0].question,
-        )
+        #self.__question._deallocate(
+        #    self.__pointer[0].question,
+        #)
         self.__pointer = None
 
     def __del__(self):
@@ -235,4 +261,3 @@ class _NeedCallbacks(object):
 
     def __del__(self):
         logger.debug('del {}'.format(repr(self)))
-
