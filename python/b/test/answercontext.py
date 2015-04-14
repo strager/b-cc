@@ -6,6 +6,20 @@ import b.gen as gen
 import unittest
 
 class TestAnswerContext(unittest.TestCase):
+    def test_allocate_deallocate(self):
+        question = MockQuestion()
+        needed_question = MockQuestion()
+
+        question_queue = QuestionQueue.single_threaded()
+
+        (_answer_context, _answer_future) \
+            = AnswerContext.create(
+                question=question,
+                question_queue=question_queue,
+                database=None,
+                process_controller=None,
+            )
+
     def test_need_one_enqueues(self):
         '''
         Ensures b_answer_context_need_one enqueues the
@@ -25,8 +39,12 @@ class TestAnswerContext(unittest.TestCase):
                 process_controller=None,
             )
 
+        import sys
+        print('Before: {}'.format(sys.getrefcount(needed_question)))
         future = answer_context.gen_need([needed_question])
         gen.loop(future)
+        print('After: {}'.format(sys.getrefcount(needed_question)))
+        return
 
         (first_queue_item, closed) \
             = question_queue.try_dequeue()

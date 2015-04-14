@@ -168,9 +168,10 @@ class AnswerContext(object):
             )
             result = yield future
         finally:
-            pass
-            #for (i, question) in enumerate(questions):
-            #    question._dealloate(question_pointers[i])
+            for (i, question) in enumerate(questions):
+                p = question_pointers[i]
+                if p:
+                    question._deallocate(p)
         del callbacks
         yield gen_return(result)
 
