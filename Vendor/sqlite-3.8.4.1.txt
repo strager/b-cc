@@ -1,0 +1,3 @@
+Home page: https://sqlite.org/
+Download page: https://sqlite.org/download.html
+Download link: https://sqlite.org/2014/sqlite-amalgamation-3080401.zip
