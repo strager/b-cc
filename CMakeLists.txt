@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 enable_testing()
 
 add_subdirectory(Examples/JoinFiles)
+add_subdirectory(Test/PrivateUnit)
 add_subdirectory(Test/Unit)
 add_subdirectory(Vendor/gmock-1.7.0)
 add_subdirectory(Vendor/sqlite-3.8.4.1)

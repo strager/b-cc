@@ -119,30 +119,6 @@ b_answer_future_check_callbacks_(
   B_UNREACHABLE();
 }
 
-static B_WUR B_FUNC bool
-b_answer_future_resolve_one_(
-    B_BORROW struct B_AnswerFuture *future,
-    size_t answer_entry_index,
-    B_TRANSFER struct B_IAnswer *answer,
-    B_OUT struct B_Error *e) {
-  B_PRECONDITION(future);
-  B_PRECONDITION(
-    answer_entry_index < future->answer_entry_count);
-  B_PRECONDITION(answer);
-  B_OUT_PARAMETER(e);
-
-  struct B_AnswerFutureAnswerEntry *entry
-    = &future->answer_entries[answer_entry_index];
-  B_PRECONDITION(entry->state == B_FUTURE_PENDING);
-  entry->state = B_FUTURE_RESOLVED;
-  entry->result.answer = answer;
-  if (!b_answer_future_check_callbacks_(
-      future, &(struct B_Error) {})) {
-    B_NYI();
-  }
-  return true;
-}
-
 static B_WUR B_FUNC size_t
 b_answer_future_size_(
     size_t answer_count) {
@@ -204,13 +180,18 @@ b_answer_future_resolve(
     B_TRANSFER struct B_IAnswer *answer,
     B_OUT struct B_Error *e) {
   B_PRECONDITION(future);
+  B_PRECONDITION(future->answer_entry_count == 1);
   B_PRECONDITION(answer);
   B_OUT_PARAMETER(e);
 
-  B_ASSERT(future->answer_entry_count == 1);
-  if (!b_answer_future_resolve_one_(
-      future, 0, answer, e)) {
-    return false;
+  struct B_AnswerFutureAnswerEntry *entry
+    = &future->answer_entries[0];
+  B_PRECONDITION(entry->state == B_FUTURE_PENDING);
+  entry->state = B_FUTURE_RESOLVED;
+  entry->result.answer = answer;
+  if (!b_answer_future_check_callbacks_(
+      future, &(struct B_Error) {})) {
+    B_NYI();
   }
   return true;
 }
@@ -220,8 +201,20 @@ b_answer_future_fail(
     B_BORROW struct B_AnswerFuture *future,
     struct B_Error error,
     B_OUT struct B_Error *e) {
-  B_NYI();
-  return false;
+  B_PRECONDITION(future);
+  B_PRECONDITION(future->answer_entry_count == 1);
+  B_OUT_PARAMETER(e);
+
+  struct B_AnswerFutureAnswerEntry *entry
+    = &future->answer_entries[0];
+  B_PRECONDITION(entry->state == B_FUTURE_PENDING);
+  entry->state = B_FUTURE_FAILED;
+  entry->result.error = error;
+  if (!b_answer_future_check_callbacks_(
+      future, &(struct B_Error) {})) {
+    B_NYI();
+  }
+  return true;
 }
 
 B_WUR B_EXPORT_FUNC bool
