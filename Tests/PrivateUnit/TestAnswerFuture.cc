@@ -162,3 +162,25 @@ TEST(TestAnswerFuture, ResolvedPostCallback) {
   b_answer_future_release(future);
   EXPECT_EQ(1U, callback_called);
 }
+
+TEST(TestAnswerFuture, UnresolvedJoin) {
+  struct B_Error e;
+
+  struct B_AnswerFuture *futures[2];
+  ASSERT_TRUE(b_answer_future_allocate_one(
+    &b_dummy_answer_vtable_, &futures[0], &e));
+  ASSERT_TRUE(b_answer_future_allocate_one(
+    &b_dummy_answer_vtable_, &futures[1], &e));
+
+  struct B_AnswerFuture *joined_future;
+  ASSERT_TRUE(b_answer_future_join(
+    futures, 2, &joined_future, &e));
+  b_answer_future_release(joined_future);
+
+  e.posix_error = EINVAL;
+  ASSERT_TRUE(b_answer_future_fail(futures[0], e, &e));
+  b_answer_future_release(futures[0]);
+  e.posix_error = EINVAL;
+  ASSERT_TRUE(b_answer_future_fail(futures[1], e, &e));
+  b_answer_future_release(futures[1]);
+}

@@ -440,6 +440,7 @@ b_answer_future_join_child_callback_(
       closure->parent_future, &(struct B_Error) {})) {
     B_NYI();
   }
+  b_answer_future_release(closure->parent_future);
   return true;
 }
 
@@ -491,12 +492,16 @@ b_answer_future_join(
       future->answer_entries[entry_index + j].answer_vtable
         = futures[i]->answer_entries[j].answer_vtable;
     }
+    // We must retain before adding the callback, because
+    // the callback may be called immediately.
+    b_answer_future_retain(future);
     if (!b_answer_future_add_callback(
         futures[i],
         b_answer_future_join_child_callback_,
         &closure,
         sizeof(closure),
         e)) {
+      b_answer_future_release(future);
       goto fail;
     }
     entry_index += futures[i]->answer_entry_count;
