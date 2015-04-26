@@ -41,6 +41,7 @@ add_library(
   PrivateHeaders/B/Private/AnswerContext.h
   PrivateHeaders/B/Private/AnswerFuture.h
   PrivateHeaders/B/Private/Assertions.h
+  PrivateHeaders/B/Private/Config.h
   PrivateHeaders/B/Private/Database.h
   PrivateHeaders/B/Private/Log.h
   PrivateHeaders/B/Private/Math.h

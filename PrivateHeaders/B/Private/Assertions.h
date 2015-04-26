@@ -1,6 +1,7 @@
 #pragma once
 
 #include <B/Attributes.h>
+#include <B/Private/Config.h>
 
 #include <assert.h>
 #include <stddef.h>
@@ -28,6 +29,15 @@
   do { \
     B_BUG(); \
   } while (0)
+
+#if B_CONFIG_C_STATIC_ASSERT
+# define B_STATIC_ASSERT(_cond, _message) \
+  _Static_assert(_cond, _message)
+#else
+# define B_STATIC_ASSERT(_cond, _message) \
+  extern void b_static_assert_failure_( \
+    int _[(_cond) ? 1 : -1])
+#endif
 
 B_WUR B_EXPORT_FUNC void
 b_scribble(
