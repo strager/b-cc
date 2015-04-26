@@ -10,15 +10,12 @@
 #include <stdio.h>
 #include <string.h>
 
-static B_WUR B_FUNC bool
+static B_WUR B_FUNC void
 b_file_question_deallocate_(
-    B_TRANSFER struct B_IQuestion *question,
-    struct B_Error *e) {
+    B_TRANSFER struct B_IQuestion *question) {
   B_PRECONDITION(question);
-  B_OUT_PARAMETER(e);
 
   b_deallocate(question);
-  return true;
 }
 
 static B_WUR B_FUNC bool
@@ -135,15 +132,12 @@ b_file_question_deserialize_(
   return true;
 }
 
-static B_WUR B_FUNC bool
+static B_WUR B_FUNC void
 b_file_answer_deallocate_(
-    B_TRANSFER struct B_IAnswer *answer,
-    struct B_Error *e) {
+    B_TRANSFER struct B_IAnswer *answer) {
   B_PRECONDITION(answer);
-  B_OUT_PARAMETER(e);
 
   b_deallocate(answer);
-  return true;
 }
 
 static B_WUR B_FUNC bool

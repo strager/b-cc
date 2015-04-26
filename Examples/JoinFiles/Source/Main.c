@@ -144,10 +144,7 @@ build_joined_(
     return false;
   }
   for (size_t i = 0; i < PATH_COUNT_; ++i) {
-    if (!vtables[i]->deallocate(questions[i], e)) {
-      // TODO(strager): Clean up properly.
-      return false;
-    }
+    vtables[i]->deallocate(questions[i]);
     vtables[i] = b_file_question_vtable();
   }
   if (!b_answer_future_add_callback(
@@ -250,9 +247,7 @@ main(
       &e)) {
     handle_error_(e);
   }
-  if (!b_file_question_vtable()->deallocate(question, &e)) {
-    handle_error_(e);
-  }
+  b_file_question_vtable()->deallocate(question);
 
   bool keep_going = true;
   while (keep_going) {

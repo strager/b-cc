@@ -1004,8 +1004,7 @@ question_answer_matches_locked_(
     goto done;
   }
   // question is unused; deallocate.
-  (void) question_vtable->deallocate(
-    question, &(struct B_Error) {});
+  question_vtable->deallocate(question);
   question = NULL;
   if (!b_answer_serialize_to_memory(
       answer,
@@ -1016,8 +1015,7 @@ question_answer_matches_locked_(
     goto fail;
   }
   // answer is unused; deallocate.
-  (void) question_vtable->answer_vtable->deallocate(
-    answer, &(struct B_Error) {});
+  question_vtable->answer_vtable->deallocate(answer);
 
   // Get stored answer.  Invalidates question_data.
   void const *answer_data;
@@ -1042,8 +1040,7 @@ done:
   }
   if (question) {
     B_ASSERT(question_vtable);
-    (void) question_vtable->deallocate(
-      question, &(struct B_Error) {});
+    question_vtable->deallocate(question);
   }
 
   // TODO(strager): Do something with e.

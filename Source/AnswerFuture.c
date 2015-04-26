@@ -380,8 +380,7 @@ b_answer_future_release(
       case B_FUTURE_FAILED:
         break;
       case B_FUTURE_RESOLVED:
-        (void) e->answer_vtable->deallocate(
-          e->answer, &(struct B_Error) {});
+        e->answer_vtable->deallocate(e->answer);
         break;
       }
     }

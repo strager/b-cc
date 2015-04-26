@@ -203,8 +203,7 @@ b_answer_context_succeed(
 
 fail:
   if (answer) {
-    (void) ac->question_vtable->answer_vtable->deallocate(
-      answer, &(struct B_Error) {});
+    ac->question_vtable->answer_vtable->deallocate(answer);
   }
   return false;
 }

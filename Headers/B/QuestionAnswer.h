@@ -16,9 +16,8 @@ struct B_IQuestion;
 struct B_IAnswer;
 
 struct B_AnswerVTable {
-  B_WUR B_FUNC bool (*deallocate)(
-      B_TRANSFER struct B_IAnswer *,
-      struct B_Error *);
+  B_WUR B_FUNC void (*deallocate)(
+      B_TRANSFER struct B_IAnswer *);
 
   B_WUR B_FUNC bool (*replicate)(
       B_BORROW struct B_IAnswer const *,
@@ -45,9 +44,8 @@ struct B_QuestionVTable {
       B_OPTIONAL_OUT_TRANSFER struct B_IAnswer **,
       struct B_Error *);
 
-  B_WUR B_FUNC bool (*deallocate)(
-      B_TRANSFER struct B_IQuestion *,
-      struct B_Error *);
+  B_WUR B_FUNC void (*deallocate)(
+      B_TRANSFER struct B_IQuestion *);
 
   B_WUR B_FUNC bool (*serialize)(
       B_BORROW struct B_IQuestion const *,
