@@ -10,3 +10,4 @@ function (ADD_UNIT_TEST NAME)
 endfunction ()
 
 ADD_UNIT_TEST(TestSerialize)
+ADD_UNIT_TEST(TestUUID)
