@@ -127,9 +127,7 @@ b_byte_sink_in_memory_release(
   if (!storage->data) {
     return true;
   }
-  if (!b_deallocate(storage->data, e)) {
-    return false;
-  }
+  b_deallocate(storage->data);
   return true;
 }
 
@@ -454,6 +452,6 @@ b_deserialize_data_and_size_8_be(
   return true;
 
 fail:
-  (void) b_deallocate(buffer, &(struct B_Error) {});
+  b_deallocate(buffer);
   return false;
 }

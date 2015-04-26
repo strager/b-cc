@@ -102,8 +102,7 @@ b_answer_future_check_callbacks_(
             &(struct B_Error) {})) {
           B_NYI();
         }
-        (void) b_deallocate(
-          callback_entry, &(struct B_Error) {});
+        b_deallocate(callback_entry);
       }
       B_SLIST_INIT(&future->callbacks);
       return true;
@@ -386,7 +385,7 @@ b_answer_future_release(
         break;
       }
     }
-    (void) b_deallocate(future, &(struct B_Error) {});
+    b_deallocate(future);
   }
 }
 

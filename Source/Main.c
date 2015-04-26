@@ -176,9 +176,8 @@ b_main_deallocate(
   B_PRECONDITION(main);
   B_OUT_PARAMETER(e);
 
-  bool ok = true;
-  ok = b_deallocate(main, e) && ok;
-  return ok;
+  b_deallocate(main);
+  return true;
 }
 
 B_WUR B_EXPORT_FUNC bool

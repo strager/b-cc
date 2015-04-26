@@ -17,9 +17,7 @@ b_file_question_deallocate_(
   B_PRECONDITION(question);
   B_OUT_PARAMETER(e);
 
-  if (!b_deallocate(question, e)) {
-    return false;
-  }
+  b_deallocate(question);
   return true;
 }
 
@@ -122,7 +120,7 @@ b_file_question_deserialize_(
   }
   if (!b_deserialize_bytes(
       source, length, (uint8_t *) path, e)) {
-    (void) b_deallocate(path, &(struct B_Error) {});
+    b_deallocate(path);
     return false;
   }
   for (size_t i = 0; i < length; ++i) {
@@ -144,9 +142,7 @@ b_file_answer_deallocate_(
   B_PRECONDITION(answer);
   B_OUT_PARAMETER(e);
 
-  if (!b_deallocate(answer, e)) {
-    return false;
-  }
+  b_deallocate(answer);
   return true;
 }
 
@@ -199,7 +195,7 @@ b_file_answer_deserialize_(
     return false;
   }
   if (!b_deserialize_8_be(source, hash, e)) {
-    (void) b_deallocate(hash, &(struct B_Error) {});
+    b_deallocate(hash);
     return false;
   }
   *out = (struct B_IAnswer *) hash;

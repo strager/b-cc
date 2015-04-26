@@ -65,15 +65,12 @@ b_reallocate(
   return true;
 }
 
-B_WUR B_EXPORT_FUNC bool
+B_WUR B_EXPORT_FUNC void
 b_deallocate(
-    B_TRANSFER void *memory,
-    B_OUT struct B_Error *e) {
+    B_TRANSFER void *memory) {
   B_PRECONDITION(memory);
-  B_OUT_PARAMETER(e);
 
   free(memory);
-  return true;
 }
 
 B_WUR B_EXPORT_FUNC bool

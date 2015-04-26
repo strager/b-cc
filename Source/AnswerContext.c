@@ -38,7 +38,7 @@ b_answer_context_allocate(
       question_vtable->answer_vtable,
       &ac->answer_future,
       e)) {
-    (void) b_deallocate(ac, &(struct B_Error) {});
+    b_deallocate(ac);
     return false;
   }
   *out = ac;
@@ -60,9 +60,7 @@ b_answer_context_deallocate(
   B_PRECONDITION(
     state == B_FUTURE_RESOLVED || state == B_FUTURE_FAILED);
   b_answer_future_release(ac->answer_future);
-  if (!b_deallocate(ac, e)) {
-    return false;
-  }
+  b_deallocate(ac);
   return true;
 }
 
@@ -170,7 +168,7 @@ done:
         // TODO(strager)
       }
     }
-    (void) b_deallocate(futures, &(struct B_Error) {});
+    b_deallocate(futures);
   }
   return ok;
 

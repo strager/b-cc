@@ -277,7 +277,7 @@ b_database_close(
   if (database->handle) {
     (void) sqlite3_close(database->handle);
   }
-  (void) b_deallocate(database, &(struct B_Error) {});
+  b_deallocate(database);
   return true;
 }
 
@@ -560,12 +560,10 @@ record_answer_locked_(
 
 fail:
   if (question_buffer.data) {
-    (void) b_deallocate(
-      question_buffer.data, &(struct B_Error) {});
+    b_deallocate(question_buffer.data);
   }
   if (answer_buffer.data) {
-    (void) b_deallocate(
-      answer_buffer.data, &(struct B_Error) {});
+    b_deallocate(answer_buffer.data);
   }
   return false;
 }
@@ -607,12 +605,10 @@ insert_answer_locked_(
 done_no_reset:
   (void) sqlite3_clear_bindings(stmt);
   if (need_free_question_data) {
-    (void) b_deallocate(
-      question_data.data, &(struct B_Error) {});
+    b_deallocate(question_data.data);
   }
   if (need_free_answer_data) {
-    (void) b_deallocate(
-      answer_data.data, &(struct B_Error) {});
+    b_deallocate(answer_data.data);
   }
   return ok;
 }
@@ -666,12 +662,10 @@ record_dependency_locked_(
 
 fail:
   if (from_buffer.data) {
-    (void) b_deallocate(
-      from_buffer.data, &(struct B_Error) {});
+    b_deallocate(from_buffer.data);
   }
   if (to_buffer.data) {
-    (void) b_deallocate(
-      to_buffer.data, &(struct B_Error) {});
+    b_deallocate(to_buffer.data);
   }
   return false;
 }
@@ -733,12 +727,10 @@ insert_dependency_locked_(
 done_no_reset:
   (void) sqlite3_clear_bindings(stmt);
   if (need_free_from_data) {
-    (void) b_deallocate(
-      from_data.data, &(struct B_Error) {});
+    b_deallocate(from_data.data);
   }
   if (need_free_to_data) {
-    (void) b_deallocate(
-      to_data.data, &(struct B_Error) {});
+    b_deallocate(to_data.data);
   }
   return ok;
 }
@@ -847,8 +839,7 @@ done_reset:
 done_no_reset:
   (void) sqlite3_clear_bindings(stmt);
   if (need_free_question_buffer) {
-    (void) b_deallocate(
-      question_buffer.data, &(struct B_Error) {});
+    b_deallocate(question_buffer.data);
   }
   return ok;
 }
@@ -927,7 +918,7 @@ bind_buffer_(
 static void
 deallocate_buffer_data_(
     B_TRANSFER void *data) {
-  (void) b_deallocate(data, &(struct B_Error) {});
+  b_deallocate(data);
 }
 
 // NOTE[b_question_answer_matches]:
@@ -1047,8 +1038,7 @@ question_answer_matches_locked_(
 
 done:
   if (actual_answer_data.data) {
-    (void) b_deallocate(
-      actual_answer_data.data, &(struct B_Error) {});
+    b_deallocate(actual_answer_data.data);
   }
   if (question) {
     B_ASSERT(question_vtable);
