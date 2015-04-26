@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <string.h>
 
-_Static_assert(
+B_STATIC_ASSERT(
   offsetof(struct B_ByteSourceInMemory, super) == 0,
   "B_ByteSourceInMemory::super must be the first member");
 
