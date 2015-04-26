@@ -26,3 +26,33 @@ if (HAVE_W_NO_MAIN)
     PROPERTY COMPILE_OPTIONS -Wno-main
   )
 endif ()
+
+add_custom_command(
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/TestJoinFiles.py"
+  COMMAND
+  cmake
+  -E copy
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tests/TestJoinFiles.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/TestJoinFiles.py"
+  DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tests/TestJoinFiles.py"
+  COMMENT "Copying TestJoinFiles.py"
+)
+add_custom_target(
+  TestJoinFiles
+  ALL
+  DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/TestJoinFiles.py"
+  SOURCES
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tests/TestJoinFiles.py"
+)
+add_dependencies(TestJoinFiles b_JoinFiles)
+add_test(
+  NAME TestJoinFiles
+  COMMAND "${CMAKE_CURRENT_BINARY_DIR}/TestJoinFiles.py"
+)
+set_property(
+  TEST TestJoinFiles
+  APPEND PROPERTY
+  ENVIRONMENT
+  JOIN_FILES_EXE=$<TARGET_FILE:b_JoinFiles>
+)

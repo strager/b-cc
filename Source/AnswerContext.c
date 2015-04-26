@@ -9,6 +9,9 @@
 #include <B/Private/Memory.h>
 #include <B/QuestionAnswer.h>
 
+#include <errno.h>
+#include <stdio.h>
+
 B_WUR B_EXPORT_FUNC bool
 b_answer_context_allocate(
     B_BORROW struct B_Database *database,
@@ -193,7 +196,15 @@ b_answer_context_succeed(
     goto fail;
   }
   if (!answer) {
-    B_NYI();
+    fprintf(
+      stderr,
+      "b_answer_context_succeed called, but query_answer "
+      "returned NULL. Assuming b_answer_context_fail.\n");
+    if (!b_answer_context_fail(
+        ac, (struct B_Error) {.posix_error=ENOENT}, e)) {
+      goto fail;
+    }
+    return true;
   }
   if (!b_answer_context_succeed_answer(
       ac, answer, e)) {
@@ -233,6 +244,14 @@ b_answer_context_fail(
     B_TRANSFER struct B_AnswerContext *ac,
     struct B_Error error,
     B_OUT struct B_Error *e) {
-  B_NYI();
-  return false;
+  B_PRECONDITION(ac);
+  B_OUT_PARAMETER(e);
+
+  if (!b_answer_future_fail(ac->answer_future, error, e)) {
+    return false;
+  }
+  if (!b_answer_context_deallocate(ac, e)) {
+    return false;
+  }
+  return true;
 }

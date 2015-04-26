@@ -109,14 +109,32 @@ join_callback_(
     B_OUT struct B_Error *e) {
   struct B_AnswerContext *ac
     = *(struct B_AnswerContext *const *) callback_data;
-  struct B_Error error;
-  if (!join_files_(ac, &error)) {
-    if (!b_answer_context_fail(ac, error, e)) {
+  enum B_AnswerFutureState state;
+  if (!b_answer_future_state(answer_future, &state, e)) {
+    return false;
+  }
+  switch (state) {
+  default:
+    // BUG!
+    abort();
+  case B_FUTURE_RESOLVED:
+    {
+      struct B_Error error;
+      if (!join_files_(ac, &error)) {
+        if (!b_answer_context_fail(ac, error, e)) {
+          return false;
+        }
+        return true;
+      }
+      return true;
+    }
+  case B_FUTURE_FAILED:
+    if (!b_answer_context_fail(
+        ac, (struct B_Error) {.posix_error = ENOENT}, e)) {
       return false;
     }
     return true;
   }
-  return true;
 }
 
 static bool
