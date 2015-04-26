@@ -1,0 +1,32 @@
+env:
+  - test=true CC=gcc-4.4 CXX=g++-4.4 apt_packages="gcc-4.4 libstdc++6-4.4-dev"
+  - test=true CC=gcc-4.9 CXX=g++-4.9 apt_packages="g++-4.9 libstdc++-4.9-dev"
+  - test=true CC=clang-2.9 CXX=clang++-2.9 apt_packages="clang-2.9 libstdc++6-4.4-dev"
+  - test=true CC=clang-3.5 CXX=clang++-3.5 apt_packages="clang-3.5 libstdc++-4.9-dev"
+
+before_install:
+  - sudo add-apt-repository ppa:h-rayflood/gcc-lower -y
+  - sudo add-apt-repository ppa:h-rayflood/llvm -y
+  - sudo add-apt-repository ppa:h-rayflood/llvm-upper -y
+  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+  # apt-get update is flaky on Travis, so try a few times.
+  - bash -x -c 'for i in {0..5}; do if sudo apt-get update -qq; then exit 0; fi; sleep 5; done; exit 1'
+
+install:
+  - sudo apt-get install valgrind $apt_packages
+
+  # Travis runs Ubuntu 12.04, but 12.04 does not have CMake
+  # 3.x. Run the CMake's custom installer to install CMake
+  # 3.2.2. Don't care too much about security or integrity,
+  # since we're running in a VM and this is a lame open
+  # source project anyway. =]
+  - curl -q -o cmake-install.sh http://www.cmake.org/files/v3.2/cmake-3.2.2-Linux-x86_64.sh
+  - sudo sh cmake-install.sh --exclude-subdir --prefix=/usr/local
+
+  - export CORE_CFLAGS="-Wall -Werror"
+
+script:
+  - mkdir Build
+  - (cd Build && cmake -DCMAKE_C_FLAGS="${CORE_CFLAGS}" -DCMAKE_CXX_FLAGS="${CORE_CFLAGS}" ..)
+  - (cd Build && make)
+  - (cd Build && ctest)
