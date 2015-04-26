@@ -1,5 +1,6 @@
 #include <B/Error.h>
 #include <B/Main.h>
+#include <B/Memory.h>
 #include <B/Private/AnswerContext.h>
 #include <B/Private/Assertions.h>
 #include <B/Private/Database.h>

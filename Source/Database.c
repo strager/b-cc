@@ -3,6 +3,7 @@
 
 #include <B/Database.h>
 #include <B/Error.h>
+#include <B/Memory.h>
 #include <B/Private/Assertions.h>
 #include <B/Private/Log.h>
 #include <B/Private/Memory.h>
@@ -10,7 +11,6 @@
 #include <B/Private/SQLite3.h>
 #include <B/QuestionAnswer.h>
 #include <B/UUID.h>
-//#include <B/Serialize.h>
 
 #include <errno.h>
 #include <sqlite3.h>
