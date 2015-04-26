@@ -109,6 +109,7 @@ b_answer_future_check_callbacks_(
       return true;
     }
   }
+  B_UNREACHABLE();
 }
 
 static B_WUR B_FUNC bool
@@ -342,6 +343,7 @@ b_answer_future_add_callback(
     }
     return true;
   }
+  B_UNREACHABLE();
 }
 
 B_WUR B_EXPORT_FUNC void
