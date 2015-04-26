@@ -472,6 +472,10 @@ b_answer_future_join(
     goto fail;
   }
   b_answer_future_initialize_(future, answer_entry_count);
+  b_answer_future_dump_(
+    future,
+    __builtin_return_address(0),
+    "b_answer_future_join");
   // Add to each child future a callback which propagates
   // answers to the parent.
   size_t entry_index = 0;
