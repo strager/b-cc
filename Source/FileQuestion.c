@@ -1,5 +1,6 @@
 #include <B/Error.h>
 #include <B/FileQuestion.h>
+#include <B/Memory.h>
 #include <B/Private/Assertions.h>
 #include <B/Private/Memory.h>
 #include <B/QuestionAnswer.h>

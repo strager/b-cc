@@ -1,6 +1,7 @@
 #define B_DEBUG_ANSWER_FUTURE_ 0
 
 #include <B/AnswerFuture.h>
+#include <B/Memory.h>
 #include <B/Private/AnswerFuture.h>
 #include <B/Private/Assertions.h>
 #include <B/Private/Log.h>

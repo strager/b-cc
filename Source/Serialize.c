@@ -1,4 +1,5 @@
 #include <B/Error.h>
+#include <B/Memory.h>
 #include <B/Private/Assertions.h>
 #include <B/Private/Math.h>
 #include <B/Private/Memory.h>

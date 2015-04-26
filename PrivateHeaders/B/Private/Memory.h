@@ -31,10 +31,6 @@ b_reallocate(
     B_OUT_TRANSFER void **,
     B_OUT struct B_Error *);
 
-B_WUR B_EXPORT_FUNC void
-b_deallocate(
-    B_TRANSFER void *);
-
 B_WUR B_EXPORT_FUNC bool
 b_strdup(
     B_BORROW char const *,

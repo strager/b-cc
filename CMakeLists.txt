@@ -2,7 +2,22 @@ cmake_minimum_required(VERSION 3.0)
 enable_testing()
 
 add_subdirectory(Examples/JoinFiles)
+add_subdirectory(Test/Unit)
+add_subdirectory(Vendor/gmock-1.7.0)
 add_subdirectory(Vendor/sqlite-3.8.4.1)
+
+# Omissions from CMakeLists.txt of gmock and gtest.
+target_include_directories(
+  gmock
+  INTERFACE
+  ${gmock_SOURCE_DIR}/include
+  ${gtest_SOURCE_DIR}/include
+)
+target_include_directories(
+  gtest
+  INTERFACE
+  ${gtest_SOURCE_DIR}/include
+)
 
 project(b)
 
@@ -15,6 +30,7 @@ add_library(
   Headers/B/Error.h
   Headers/B/FileQuestion.h
   Headers/B/Main.h
+  Headers/B/Memory.h
   Headers/B/QuestionAnswer.h
   Headers/B/Serialize.h
   Headers/B/UUID.h
