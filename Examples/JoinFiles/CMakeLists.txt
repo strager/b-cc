@@ -16,3 +16,13 @@ if (HAVE_STD_C99)
     PROPERTY COMPILE_OPTIONS -std=c99
   )
 endif ()
+
+# TODO(#29): Kill with fire.
+check_c_compiler_flag(-Wno-main HAVE_W_NO_MAIN)
+if (HAVE_W_NO_MAIN)
+  set_property(
+    TARGET b_JoinFiles
+    APPEND
+    PROPERTY COMPILE_OPTIONS -Wno-main
+  )
+endif ()

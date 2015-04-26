@@ -76,6 +76,16 @@ if (HAVE_STD_C99)
   )
 endif ()
 
+# TODO(#29): Kill with fire.
+check_c_compiler_flag(-Wno-main HAVE_W_NO_MAIN)
+if (HAVE_W_NO_MAIN)
+  set_property(
+    TARGET b
+    APPEND
+    PROPERTY COMPILE_OPTIONS -Wno-main
+  )
+endif ()
+
 target_compile_definitions(
   b
   PRIVATE
