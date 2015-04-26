@@ -18,26 +18,33 @@
 # include <stdio.h>
 #endif
 
+// Force maximum alignment.
+// TODO(strager): Vector types (SSE, NEON)?
+// TODO(strager): Float types (long double, complex)?
+union B_UserData_ {
+  uint8_t bytes[1];
+  char char_padding;
+  long long_padding;
+  long long long_long_padding;
+  void *pointer_padding;
+  void (*function_padding)(void);
+};
+
 struct B_AnswerFutureCallbackEntry {
   B_SLIST_ENTRY(B_AnswerFutureCallbackEntry) link;
   B_AnswerFutureCallback *callback;
-  union {
-    char user_data[1];
-    // Force alignment of user_data to max of various types.
-    long long_padding;
-    long long long_long_padding;
-    void *pointer_padding;
-    void (*function_padding)(void);
-  };
+  union B_UserData_ user_data;
+};
+
+union B_AnswerOrError_ {
+  struct B_IAnswer *answer;
+  struct B_Error error;
 };
 
 struct B_AnswerFutureAnswerEntry {
   struct B_AnswerVTable const *answer_vtable;
   enum B_AnswerFutureState state;
-  union {
-    struct B_IAnswer *answer;
-    struct B_Error error;
-  };
+  union B_AnswerOrError_ result;
 };
 
 struct B_AnswerFuture {
@@ -99,7 +106,7 @@ b_answer_future_check_callbacks_(
           temp_entry) {
         if (!callback_entry->callback(
             future,
-            callback_entry->user_data,
+            callback_entry->user_data.bytes,
             &(struct B_Error) {})) {
           B_NYI();
         }
@@ -128,7 +135,7 @@ b_answer_future_resolve_one_(
     = &future->answer_entries[answer_entry_index];
   B_PRECONDITION(entry->state == B_FUTURE_PENDING);
   entry->state = B_FUTURE_RESOLVED;
-  entry->answer = answer;
+  entry->result.answer = answer;
   if (!b_answer_future_check_callbacks_(
       future, &(struct B_Error) {})) {
     B_NYI();
@@ -292,7 +299,7 @@ b_answer_future_answer(
     return false;
   }
   B_PRECONDITION(index < future->answer_entry_count);
-  *out = future->answer_entries[index].answer;
+  *out = future->answer_entries[index].result.answer;
   return true;
 }
 
@@ -318,7 +325,7 @@ b_answer_future_add_callback(
       // TODO(strager): Check for overflow.
       size_t entry_size = offsetof(
         struct B_AnswerFutureCallbackEntry,
-        user_data[callback_data_size]);
+        user_data.bytes[callback_data_size]);
       struct B_AnswerFutureCallbackEntry *entry;
       if (!b_allocate(entry_size, (void **) &entry, e)) {
         return false;
@@ -329,7 +336,7 @@ b_answer_future_add_callback(
         // .user_data
       };
       memcpy(
-        entry->user_data,
+        entry->user_data.bytes,
         callback_data,
         callback_data_size);
       B_SLIST_INSERT_HEAD(&future->callbacks, entry, link);
@@ -383,7 +390,7 @@ b_answer_future_release(
       case B_FUTURE_FAILED:
         break;
       case B_FUTURE_RESOLVED:
-        e->answer_vtable->deallocate(e->answer);
+        e->answer_vtable->deallocate(e->result.answer);
         break;
       }
     }
@@ -422,13 +429,15 @@ b_answer_future_join_child_callback_(
       B_NYI();  // B_BUG();?
     case B_FUTURE_FAILED:
       parent->state = B_FUTURE_FAILED;
-      parent->error = child->error;
+      parent->result.error = child->result.error;
       break;
     case B_FUTURE_RESOLVED:
       parent->state = B_FUTURE_RESOLVED;
-      parent->error = child->error;
+      parent->result.error = child->result.error;
       if (!child->answer_vtable->replicate(
-          child->answer, &parent->answer, e)) {
+          child->result.answer,
+          &parent->result.answer,
+          e)) {
         B_NYI();
       }
       break;
