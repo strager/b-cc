@@ -9,5 +9,6 @@ function (ADD_UNIT_TEST NAME)
   add_test(NAME "${NAME}" COMMAND "$<TARGET_FILE:${NAME}>")
 endfunction ()
 
+ADD_UNIT_TEST(TestFileQuestion)
 ADD_UNIT_TEST(TestSerialize)
 ADD_UNIT_TEST(TestUUID)

@@ -21,7 +21,7 @@ b_file_question_deallocate_(
 
 static B_WUR B_FUNC bool
 b_file_question_query_answer_(
-    B_BORROW struct B_IQuestion *question,
+    B_BORROW struct B_IQuestion const *question,
     B_OPTIONAL_OUT_TRANSFER struct B_IAnswer **out,
     struct B_Error *e) {
   B_PRECONDITION(question);
@@ -197,12 +197,23 @@ b_file_answer_deserialize_(
   return true;
 }
 
+static B_WUR B_FUNC bool
+b_file_answer_equal_(
+    B_BORROW struct B_IAnswer const *a,
+    B_BORROW struct B_IAnswer const *b) {
+  B_PRECONDITION(a);
+  B_PRECONDITION(b);
+
+  return *(uint64_t const *) a == *(uint64_t const *) b;
+}
+
 static struct B_AnswerVTable const
 b_file_answer_vtable_ = {
   .deallocate = b_file_answer_deallocate_,
   .replicate = b_file_answer_replicate_,
   .serialize = b_file_answer_serialize_,
   .deserialize = b_file_answer_deserialize_,
+  .equal = b_file_answer_equal_,
 };
 
 static struct B_QuestionVTable const

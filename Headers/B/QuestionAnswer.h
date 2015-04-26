@@ -33,6 +33,10 @@ struct B_AnswerVTable {
       B_BORROW struct B_ByteSource *,
       B_OUT_TRANSFER struct B_IAnswer **,
       B_OUT struct B_Error *);
+
+  B_WUR B_FUNC bool (*equal)(
+      B_BORROW struct B_IAnswer const *,
+      B_BORROW struct B_IAnswer const *);
 };
 
 struct B_QuestionVTable {
@@ -40,7 +44,7 @@ struct B_QuestionVTable {
   struct B_AnswerVTable const *answer_vtable;
 
   B_WUR B_FUNC bool (*query_answer)(
-      B_BORROW struct B_IQuestion *,
+      B_BORROW struct B_IQuestion const *,
       B_OPTIONAL_OUT_TRANSFER struct B_IAnswer **,
       struct B_Error *);
 
