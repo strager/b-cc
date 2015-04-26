@@ -19,6 +19,16 @@
     b_scribble((param), sizeof(*(param))); \
   } while (0)
 
+#define B_BUG() \
+  do { \
+    B_ASSERT(0 && "Bug!"); \
+  } while (0)
+
+#define B_UNREACHABLE() \
+  do { \
+    B_BUG(); \
+  } while (0)
+
 B_WUR B_EXPORT_FUNC void
 b_scribble(
     B_BORROW void *data,

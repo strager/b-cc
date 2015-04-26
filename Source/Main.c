@@ -66,6 +66,7 @@ b_answer_context_callback_(
       return true;
     }
   }
+  B_UNREACHABLE();
 }
 
 static B_FUNC bool
