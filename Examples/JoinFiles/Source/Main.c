@@ -153,12 +153,7 @@ build_joined_(
   }
   struct B_AnswerFuture *future;
   if (!b_answer_context_need(
-      ac,
-      questions,
-      vtables,
-      PATH_COUNT_,
-      &future,
-      e)) {
+      ac, questions, vtables, PATH_COUNT_, &future, e)) {
     return false;
   }
   for (size_t i = 0; i < PATH_COUNT_; ++i) {
