@@ -6,10 +6,12 @@
 #include <B/Private/Database.h>
 #include <B/Private/Log.h>
 #include <B/Private/Memory.h>
+#include <B/Private/RunLoop.h>
 #include <B/QuestionAnswer.h>
 
 struct B_Main {
   struct B_Database *database;
+  struct B_RunLoop *run_loop;
   B_MainCallback *callback;
   void *callback_opaque;
 };
@@ -69,6 +71,52 @@ b_answer_context_callback_(
   B_UNREACHABLE();
 }
 
+struct B_MainAnswerCallbackClosure_ {
+  struct B_Main *main;
+  struct B_AnswerContext *answer_context;
+};
+
+static B_FUNC bool
+b_main_answer_callback_(
+    B_BORROW struct B_RunLoop *run_loop,
+    B_BORROW void const *callback_data,
+    B_OUT struct B_Error *e) {
+  B_PRECONDITION(run_loop);
+  B_PRECONDITION(callback_data);
+  B_OUT_PARAMETER(e);
+
+  struct B_MainAnswerCallbackClosure_ const *closure
+    = callback_data;
+  B_ASSERT(run_loop == closure->main->run_loop);
+  if (!closure->main->callback(
+      closure->main->callback_opaque,
+      closure->main,
+      closure->answer_context,
+      e)) {
+    return false;
+  }
+  return true;
+}
+
+static B_FUNC bool
+b_main_answer_cancel_callback_(
+    B_BORROW struct B_RunLoop *run_loop,
+    B_BORROW void const *callback_data,
+    B_OUT struct B_Error *e) {
+  B_PRECONDITION(run_loop);
+  B_PRECONDITION(callback_data);
+  B_OUT_PARAMETER(e);
+
+  struct B_MainAnswerCallbackClosure_ const *closure
+    = callback_data;
+  B_ASSERT(run_loop == closure->main->run_loop);
+  if (!b_answer_context_deallocate(
+      closure->answer_context, e)) {
+    return false;
+  }
+  return true;
+}
+
 static B_FUNC bool
 b_main_cache_miss_callback_(
     B_BORROW struct B_Main *main,
@@ -111,37 +159,41 @@ b_main_cache_miss_callback_(
   if (!b_answer_context_allocate(
       main->database,
       main,
-      question,  // TODO(strager): Replicate.
+      question,
       question_vtable,
       &ac,
       e)) {
     return false;
   }
-  struct B_AnswerContextCallbackClosure_ closure = {
+  struct B_AnswerContextCallbackClosure_ ac_closure = {
     .main = main,
     .answer_context = ac,
   };
   if (!b_answer_future_add_callback(
       ac->answer_future,
       b_answer_context_callback_,
-      &closure,
-      sizeof(closure),
+      &ac_closure,
+      sizeof(ac_closure),
       e)) {
     B_NYI();
     return false;
   }
-  // Retain the future early because ac may be deallocated
-  // by main->callback.
-  struct B_AnswerFuture *future = ac->answer_future;
-  b_answer_future_retain(future);
-  if (!main->callback(
-      main->callback_opaque,
-      main,
-      ac,
+  struct B_MainAnswerCallbackClosure_ callback_closure = {
+    .main = main,
+    .answer_context = ac,
+  };
+  if (!b_run_loop_add_callback(
+      main->run_loop,
+      b_main_answer_callback_,
+      b_main_answer_cancel_callback_,
+      &callback_closure,
+      sizeof(callback_closure),
       e)) {
-    B_NYI();  // TODO(strager): Clean up ac.
+    B_NYI();
     return false;
   }
+  struct B_AnswerFuture *future = ac->answer_future;
+  b_answer_future_retain(future);
   *out = future;
   return true;
 }
@@ -158,12 +210,19 @@ b_main_allocate(
   B_OUT_PARAMETER(out);
   B_OUT_PARAMETER(e);
 
+  struct B_RunLoop *run_loop;
+  if (!b_run_loop_allocate(&run_loop, e)) {
+    return false;
+  }
   struct B_Main *main;
   if (!b_allocate(sizeof(*main), (void **) &main, e)) {
+    (void) b_run_loop_deallocate(
+      run_loop, &(struct B_Error) {});
     return false;
   }
   *main = (struct B_Main) {
     .database = db,
+    .run_loop = run_loop,
     .callback = callback,
     .callback_opaque = callback_opaque,
   };
@@ -178,6 +237,9 @@ b_main_deallocate(
   B_PRECONDITION(main);
   B_OUT_PARAMETER(e);
 
+  if (!b_run_loop_deallocate(main->run_loop, e)) {
+    return false;
+  }
   b_deallocate(main);
   return true;
 }
@@ -215,10 +277,11 @@ b_main_loop(
   B_OUT_PARAMETER(keep_going);
   B_OUT_PARAMETER(e);
 
-  for (;;) {
-    if (true) {
-      *keep_going = false;
-      return true;
-    }
+  bool keep_going_local;
+  if (!b_run_loop_step(
+      main->run_loop, &keep_going_local, e)) {
+    return false;
   }
+  *keep_going = keep_going_local;
+  return true;
 }

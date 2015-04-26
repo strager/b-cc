@@ -4,6 +4,7 @@
 #include <B/Memory.h>
 #include <B/Private/AnswerFuture.h>
 #include <B/Private/Assertions.h>
+#include <B/Private/Callback.h>
 #include <B/Private/Log.h>
 #include <B/Private/Memory.h>
 #include <B/QuestionAnswer.h>
@@ -18,22 +19,10 @@
 # include <stdio.h>
 #endif
 
-// Force maximum alignment.
-// TODO(strager): Vector types (SSE, NEON)?
-// TODO(strager): Float types (long double, complex)?
-union B_UserData_ {
-  uint8_t bytes[1];
-  char char_padding;
-  long long_padding;
-  long long long_long_padding;
-  void *pointer_padding;
-  void (*function_padding)(void);
-};
-
 struct B_AnswerFutureCallbackEntry {
   B_SLIST_ENTRY(B_AnswerFutureCallbackEntry) link;
   B_AnswerFutureCallback *callback;
-  union B_UserData_ user_data;
+  union B_UserData user_data;
 };
 
 union B_AnswerOrError_ {

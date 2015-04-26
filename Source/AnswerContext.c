@@ -27,14 +27,20 @@ b_answer_context_allocate(
   B_OUT_PARAMETER(out);
   B_OUT_PARAMETER(e);
 
+  struct B_IQuestion *new_question;
+  if (!question_vtable->replicate(
+      question, &new_question, e)) {
+    return false;
+  }
   struct B_AnswerContext *ac;
   if (!b_allocate(sizeof(*ac), (void **) &ac, e)) {
+    B_NYI();
     return false;
   }
   *ac = (struct B_AnswerContext) {
     .database = database,
     .main = main,
-    .question = question,
+    .question = new_question,
     .question_vtable = question_vtable,
     // .answer_future
   };
@@ -64,6 +70,7 @@ b_answer_context_deallocate(
   B_PRECONDITION(
     state == B_FUTURE_RESOLVED || state == B_FUTURE_FAILED);
   b_answer_future_release(ac->answer_future);
+  ac->question_vtable->deallocate(ac->question);
   b_deallocate(ac);
   return true;
 }

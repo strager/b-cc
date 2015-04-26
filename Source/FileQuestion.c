@@ -20,6 +20,24 @@ b_file_question_deallocate_(
 }
 
 static B_WUR B_FUNC bool
+b_file_question_replicate_(
+    B_BORROW struct B_IQuestion const *question,
+    B_OUT_TRANSFER struct B_IQuestion **out,
+    B_OUT struct B_Error *e) {
+  B_PRECONDITION(question);
+  B_OUT_PARAMETER(out);
+  B_OUT_PARAMETER(e);
+
+  struct B_IQuestion *new_question;
+  if (!b_file_question_allocate(
+      (char const *) question, &new_question, e)) {
+    return false;
+  }
+  *out = new_question;
+  return true;
+}
+
+static B_WUR B_FUNC bool
 b_file_question_query_answer_(
     B_BORROW struct B_IQuestion const *question,
     B_OPTIONAL_OUT_TRANSFER struct B_IAnswer **out,
@@ -220,6 +238,7 @@ static struct B_QuestionVTable const
 b_file_question_vtable_ = {
   .answer_vtable = &b_file_answer_vtable_,
   .deallocate = b_file_question_deallocate_,
+  .replicate = b_file_question_replicate_,
   .query_answer = b_file_question_query_answer_,
   .serialize = b_file_question_serialize_,
   .deserialize = b_file_question_deserialize_,

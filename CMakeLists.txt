@@ -42,6 +42,7 @@ add_library(
   PrivateHeaders/B/Private/AnswerContext.h
   PrivateHeaders/B/Private/AnswerFuture.h
   PrivateHeaders/B/Private/Assertions.h
+  PrivateHeaders/B/Private/Callback.h
   PrivateHeaders/B/Private/Config.h
   PrivateHeaders/B/Private/Database.h
   PrivateHeaders/B/Private/Log.h
@@ -49,6 +50,7 @@ add_library(
   PrivateHeaders/B/Private/Memory.h
   PrivateHeaders/B/Private/Mutex.h
   PrivateHeaders/B/Private/Queue.h
+  PrivateHeaders/B/Private/RunLoop.h
   PrivateHeaders/B/Private/SQLite3.h
   Source/AnswerContext.c
   Source/AnswerFuture.c
@@ -59,6 +61,7 @@ add_library(
   Source/Memory.c
   Source/Mutex.c
   Source/QuestionAnswer.c
+  Source/RunLoop.c
   Source/SQLite3.c
   Source/Serialize.c
   Source/UUID.c

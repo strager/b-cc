@@ -16,7 +16,8 @@ enum B_AnswerFutureState {
   B_FUTURE_FAILED = 3,
 };
 
-typedef B_FUNC bool B_AnswerFutureCallback(
+typedef B_FUNC bool
+B_AnswerFutureCallback(
     B_BORROW struct B_AnswerFuture *,
     B_BORROW void const *callback_data,
     B_OUT struct B_Error *);

@@ -22,7 +22,7 @@ B_WUR B_EXPORT_FUNC bool
 b_answer_context_allocate(
     B_BORROW struct B_Database *,
     B_BORROW struct B_Main *,
-    B_TRANSFER struct B_IQuestion *,
+    B_BORROW struct B_IQuestion *,
     B_BORROW struct B_QuestionVTable const *,
     B_OUT_TRANSFER struct B_AnswerContext **,
     B_OUT struct B_Error *);
