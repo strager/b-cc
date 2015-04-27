@@ -15,6 +15,7 @@
 #define B_BORROW
 #define B_BORROW_OPTIONAL
 #define B_IN_OUT
+#define B_OPTIONAL
 #define B_OPTIONAL_OUT_TRANSFER
 #define B_OUT
 #define B_OUT_BORROW

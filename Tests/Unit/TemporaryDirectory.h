@@ -1,7 +1,7 @@
 #pragma once
 
 #if !defined(__cplusplus)
-# error "B/Private/TemporaryDirectory.h is C++-only"
+# error "TemporaryDirectory.h is C++-only"
 #endif
 
 #include <ftw.h>

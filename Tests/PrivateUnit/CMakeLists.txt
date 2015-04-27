@@ -16,3 +16,11 @@ function (ADD_UNIT_TEST NAME)
 endfunction ()
 
 ADD_UNIT_TEST(TestAnswerFuture)
+ADD_UNIT_TEST(TestProcess)
+
+add_executable(b_TestProcessChild TestProcessChild.c)
+set_property(
+  TARGET b_TestProcessChild
+  PROPERTY OUTPUT_NAME TestProcessChild
+)
+add_dependencies(TestProcess b_TestProcessChild)

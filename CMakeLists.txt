@@ -37,6 +37,7 @@ add_library(
   Headers/B/FileQuestion.h
   Headers/B/Main.h
   Headers/B/Memory.h
+  Headers/B/Process.h
   Headers/B/QuestionAnswer.h
   Headers/B/Serialize.h
   Headers/B/UUID.h
@@ -61,6 +62,7 @@ add_library(
   Source/Main.c
   Source/Memory.c
   Source/Mutex.c
+  Source/Process.c
   Source/QuestionAnswer.c
   Source/RunLoop.c
   Source/SQLite3.c
