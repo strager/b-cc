@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
-enable_testing()
+
+project(b)
+set(CTEST_NEW_FORMAT True)
+include(CTest)  # Requires project().
 
 add_subdirectory(Examples/JoinFiles)
 add_subdirectory(Tests/PrivateUnit)
@@ -21,8 +24,6 @@ target_include_directories(
 )
 
 include(CheckCCompilerFlag)
-
-project(b)
 
 find_package(Threads REQUIRED)
 
