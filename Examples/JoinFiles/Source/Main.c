@@ -31,7 +31,7 @@ enum {PATH_COUNT_
 
 static B_FUNC bool
 join_files_(
-    B_BORROW struct B_AnswerContext *ac,
+    B_TRANSFER struct B_AnswerContext *ac,
     B_OUT struct B_Error *e) {
   FILE *joined = NULL;
   FILE *part = NULL;
@@ -140,7 +140,7 @@ join_callback_(
 static bool
 build_joined_(
     B_TRANSFER struct B_AnswerContext *ac,
-    B_BORROW struct B_Error *e) {
+    B_OUT struct B_Error *e) {
   struct B_IQuestion *questions[PATH_COUNT_];
   struct B_QuestionVTable const *vtables[PATH_COUNT_];
   for (size_t i = 0; i < PATH_COUNT_; ++i) {
@@ -161,18 +161,14 @@ build_joined_(
     vtables[i] = b_file_question_vtable();
   }
   if (!b_answer_future_add_callback(
-      future,
-      join_callback_,
-      &ac,
-      sizeof(ac),
-      e)) {
+      future, join_callback_, &ac, sizeof(ac), e)) {
     return false;
   }
   b_answer_future_release(future);
   return true;
 }
 
-B_FUNC bool
+static B_FUNC bool
 dispatch_question_(
     B_BORROW void *opaque,
     B_BORROW struct B_Main *main,
@@ -204,9 +200,7 @@ dispatch_question_(
     }
   }
   if (!b_answer_context_fail(
-      ac,
-      (struct B_Error) {.posix_error = EINVAL},
-      e)) {
+      ac, (struct B_Error) {.posix_error = EINVAL}, e)) {
     return false;
   }
   return true;
