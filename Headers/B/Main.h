@@ -13,7 +13,8 @@ struct B_QuestionVTable;
 
 struct B_Main;
 
-typedef B_FUNC bool B_MainCallback(
+typedef B_FUNC bool
+B_MainCallback(
     B_BORROW void *opaque,
     B_BORROW struct B_Main *,
     B_TRANSFER struct B_AnswerContext *,
