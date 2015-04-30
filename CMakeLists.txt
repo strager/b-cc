@@ -39,6 +39,7 @@ add_library(
   Headers/B/Memory.h
   Headers/B/Process.h
   Headers/B/QuestionAnswer.h
+  Headers/B/RunLoop.h
   Headers/B/Serialize.h
   Headers/B/UUID.h
   PrivateHeaders/B/Private/AnswerContext.h
@@ -52,7 +53,6 @@ add_library(
   PrivateHeaders/B/Private/Memory.h
   PrivateHeaders/B/Private/Mutex.h
   PrivateHeaders/B/Private/Queue.h
-  PrivateHeaders/B/Private/RunLoop.h
   PrivateHeaders/B/Private/SQLite3.h
   Source/AnswerContext.c
   Source/AnswerFuture.c
@@ -65,6 +65,7 @@ add_library(
   Source/Process.c
   Source/QuestionAnswer.c
   Source/RunLoop.c
+  Source/RunLoopPlain.c
   Source/SQLite3.c
   Source/Serialize.c
   Source/UUID.c

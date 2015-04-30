@@ -5,6 +5,7 @@
 #include <B/FileQuestion.h>
 #include <B/Main.h>
 #include <B/QuestionAnswer.h>
+#include <B/RunLoop.h>
 
 #include <errno.h>
 #include <sqlite3.h>
@@ -206,6 +207,19 @@ dispatch_question_(
   return true;
 }
 
+static B_FUNC bool
+root_question_answered_(
+    B_BORROW struct B_AnswerFuture *future,
+    B_BORROW void const *opaque,
+    B_OUT struct B_Error *e) {
+  struct B_RunLoop *rl
+    = *(struct B_RunLoop *const *) opaque;
+  if (!b_run_loop_stop(rl, e)) {
+    return false;
+  }
+  return true;
+}
+
 int
 main(
     int argc,
@@ -234,9 +248,19 @@ main(
     handle_error_(e);
   }
 
+  struct B_RunLoop *run_loop;
+  if (!b_run_loop_allocate_preferred(&run_loop, &e)) {
+    handle_error_(e);
+  }
+
   struct B_Main *main;
   if (!b_main_allocate(
-      database, dispatch_question_, NULL, &main, &e)) {
+      database,
+      run_loop,
+      dispatch_question_,
+      NULL,
+      &main,
+      &e)) {
     handle_error_(e);
   }
 
@@ -256,11 +280,17 @@ main(
   }
   b_file_question_vtable()->deallocate(question);
 
-  bool keep_going = true;
-  while (keep_going) {
-    if (!b_main_loop(main, &keep_going, &e)) {
-      handle_error_(e);
-    }
+  if (!b_answer_future_add_callback(
+      answer_future,
+      root_question_answered_,
+      &run_loop,
+      sizeof(run_loop),
+      &e)) {
+    handle_error_(e);
+  }
+
+  if (!b_run_loop_run(run_loop, &e)) {
+    handle_error_(e);
   }
 
   enum B_AnswerFutureState state;

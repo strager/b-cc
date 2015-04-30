@@ -6,8 +6,8 @@
 #include <B/Private/Database.h>
 #include <B/Private/Log.h>
 #include <B/Private/Memory.h>
-#include <B/Private/RunLoop.h>
 #include <B/QuestionAnswer.h>
+#include <B/RunLoop.h>
 
 struct B_Main {
   struct B_Database *database;
@@ -182,7 +182,7 @@ b_main_cache_miss_callback_(
     .main = main,
     .answer_context = ac,
   };
-  if (!b_run_loop_add_callback(
+  if (!b_run_loop_add_function(
       main->run_loop,
       b_main_answer_callback_,
       b_main_answer_cancel_callback_,
@@ -201,6 +201,7 @@ b_main_cache_miss_callback_(
 B_WUR B_EXPORT_FUNC bool
 b_main_allocate(
     B_BORROW struct B_Database *db,
+    B_BORROW struct B_RunLoop *run_loop,
     B_BORROW B_MainCallback *callback,
     B_BORROW void *callback_opaque,
     B_OUT_TRANSFER struct B_Main **out,
@@ -210,14 +211,8 @@ b_main_allocate(
   B_OUT_PARAMETER(out);
   B_OUT_PARAMETER(e);
 
-  struct B_RunLoop *run_loop;
-  if (!b_run_loop_allocate(&run_loop, e)) {
-    return false;
-  }
   struct B_Main *main;
   if (!b_allocate(sizeof(*main), (void **) &main, e)) {
-    (void) b_run_loop_deallocate(
-      run_loop, &(struct B_Error) {});
     return false;
   }
   *main = (struct B_Main) {
@@ -237,9 +232,7 @@ b_main_deallocate(
   B_PRECONDITION(main);
   B_OUT_PARAMETER(e);
 
-  if (!b_run_loop_deallocate(main->run_loop, e)) {
-    return false;
-  }
+  b_run_loop_deallocate(main->run_loop);
   b_deallocate(main);
   return true;
 }
@@ -265,23 +258,5 @@ b_main_answer(
     return false;
   }
   *out = future;
-  return true;
-}
-
-B_WUR B_EXPORT_FUNC bool
-b_main_loop(
-    B_BORROW struct B_Main *main,
-    B_OUT bool *keep_going,
-    B_OUT struct B_Error *e) {
-  B_PRECONDITION(main);
-  B_OUT_PARAMETER(keep_going);
-  B_OUT_PARAMETER(e);
-
-  bool keep_going_local;
-  if (!b_run_loop_step(
-      main->run_loop, &keep_going_local, e)) {
-    return false;
-  }
-  *keep_going = keep_going_local;
   return true;
 }

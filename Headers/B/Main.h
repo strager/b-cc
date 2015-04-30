@@ -10,6 +10,7 @@ struct B_Database;
 struct B_Error;
 struct B_IQuestion;
 struct B_QuestionVTable;
+struct B_RunLoop;
 
 struct B_Main;
 
@@ -27,6 +28,7 @@ extern "C" {
 B_WUR B_EXPORT_FUNC bool
 b_main_allocate(
     B_BORROW struct B_Database *,
+    B_BORROW struct B_RunLoop *,
     B_BORROW B_MainCallback *callback,
     B_BORROW void *callback_opaque,
     B_OUT_TRANSFER struct B_Main **,
@@ -43,12 +45,6 @@ b_main_answer(
     B_BORROW struct B_IQuestion *,
     B_BORROW struct B_QuestionVTable const *,
     B_OUT_TRANSFER struct B_AnswerFuture **,
-    B_OUT struct B_Error *);
-
-B_WUR B_EXPORT_FUNC bool
-b_main_loop(
-    B_BORROW struct B_Main *,
-    B_OUT bool *keep_going,
     B_OUT struct B_Error *);
 
 #if defined(__cplusplus)
