@@ -2,6 +2,8 @@
 #include <B/Private/Assertions.h>
 #include <B/RunLoop.h>
 
+#include <errno.h>
+
 B_WUR B_EXPORT_FUNC bool
 b_run_loop_allocate_preferred(
     B_OUT_TRANSFER struct B_RunLoop **out,
@@ -10,11 +12,23 @@ b_run_loop_allocate_preferred(
   B_OUT_PARAMETER(e);
 
   struct B_RunLoop *run_loop;
-  if (!b_run_loop_allocate_plain(&run_loop, e)) {
+  if (b_run_loop_allocate_kqueue(&run_loop, e)) {
+    *out = run_loop;
+    return true;
+  }
+  if (e->posix_error != ENOTSUP) {
     return false;
   }
-  *out = run_loop;
-  return true;
+  if (b_run_loop_allocate_plain(&run_loop, e)) {
+    *out = run_loop;
+    return true;
+  }
+  if (e->posix_error != ENOTSUP) {
+    return false;
+  }
+  // We must have *some* implementation. If not, that's a
+  // pretty serious bug.
+  B_BUG();
 }
 
 B_WUR B_EXPORT_FUNC void

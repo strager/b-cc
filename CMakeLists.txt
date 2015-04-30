@@ -65,6 +65,7 @@ add_library(
   Source/Process.c
   Source/QuestionAnswer.c
   Source/RunLoop.c
+  Source/RunLoopKqueue.c
   Source/RunLoopPlain.c
   Source/SQLite3.c
   Source/Serialize.c

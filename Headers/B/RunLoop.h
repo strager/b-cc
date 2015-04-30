@@ -56,6 +56,11 @@ b_run_loop_allocate_plain(
     B_OUT_TRANSFER struct B_RunLoop **,
     B_OUT struct B_Error *);
 
+B_WUR B_EXPORT_FUNC bool
+b_run_loop_allocate_kqueue(
+    B_OUT_TRANSFER struct B_RunLoop **,
+    B_OUT struct B_Error *);
+
 B_WUR B_EXPORT_FUNC void
 b_run_loop_deallocate(
     B_TRANSFER struct B_RunLoop *);
