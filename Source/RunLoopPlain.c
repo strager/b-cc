@@ -62,7 +62,6 @@ b_run_loop_add_function_plain_(
   B_PRECONDITION(run_loop);
   B_PRECONDITION(callback);
   B_PRECONDITION(cancel_callback);
-  B_PRECONDITION(callback_data);
   B_OUT_PARAMETER(e);
 
   struct B_RunLoopPlain_ *rl

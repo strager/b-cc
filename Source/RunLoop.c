@@ -50,7 +50,6 @@ b_run_loop_add_function(
   B_PRECONDITION(run_loop);
   B_PRECONDITION(callback);
   B_PRECONDITION(cancel);
-  B_PRECONDITION(callback_data);
   B_OUT_PARAMETER(e);
 
   if (!run_loop->vtable.add_function(

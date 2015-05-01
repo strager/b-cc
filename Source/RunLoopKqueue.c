@@ -97,7 +97,6 @@ b_run_loop_add_function_kqueue_(
   B_PRECONDITION(run_loop);
   B_PRECONDITION(callback);
   B_PRECONDITION(cancel_callback);
-  B_PRECONDITION(callback_data);
   B_OUT_PARAMETER(e);
 
   struct B_RunLoopKqueue_ *rl
@@ -110,16 +109,14 @@ b_run_loop_add_function_kqueue_(
   if (!b_allocate(entry_size, (void **) &entry, e)) {
     return false;
   }
-  *entry = (struct B_RunLoopKqueueFunctionEntry_) {
-    // .link
-    .callback = callback,
-    .cancel_callback = cancel_callback,
-    // .user_data
-  };
-  memcpy(
-    entry->user_data.bytes,
-    callback_data,
-    callback_data_size);
+  entry->callback = callback;
+  entry->cancel_callback = cancel_callback;
+  if (callback_data) {
+    memcpy(
+      entry->user_data.bytes,
+      callback_data,
+      callback_data_size);
+  }
   B_SLIST_INSERT_HEAD(&rl->callbacks, entry, link);
   if (!b_run_loop_kqueue_notify_(rl, e)) {
     return false;
@@ -162,7 +159,7 @@ b_run_loop_run_kqueue_(
     }
 
     // Drain all functions.
-    for (;;) {
+    while (!rl->stop) {
       struct B_RunLoopKqueueFunctionEntry_ *entry
         = B_SLIST_FIRST(&rl->callbacks);
       if (!entry) {

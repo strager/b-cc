@@ -17,6 +17,7 @@ endfunction ()
 
 ADD_UNIT_TEST(TestAnswerFuture)
 ADD_UNIT_TEST(TestProcess)
+ADD_UNIT_TEST(TestRunLoop)
 
 add_executable(b_TestProcessChild TestProcessChild.c)
 set_property(
