@@ -34,6 +34,12 @@
 # define B_CONFIG_BUGGY_SIGFILLSET 0
 #endif
 
+#if defined(__linux__)
+# define B_CONFIG_EVENTFD 1
+#else
+# define B_CONFIG_EVENTFD 0
+#endif
+
 #if defined(__APPLE__) || defined(__FreeBSD__)
 # define B_CONFIG_KQUEUE 1
 #else

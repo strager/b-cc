@@ -19,7 +19,7 @@ b_run_loop_allocate_preferred(
   if (e->posix_error != ENOTSUP) {
     return false;
   }
-  if (b_run_loop_allocate_plain(&run_loop, e)) {
+  if (b_run_loop_allocate_sigchld(&run_loop, e)) {
     *out = run_loop;
     return true;
   }
@@ -54,6 +54,33 @@ b_run_loop_add_function(
 
   if (!run_loop->vtable.add_function(
       run_loop,
+      callback,
+      cancel,
+      callback_data,
+      callback_data_size,
+      e)) {
+    return false;
+  }
+  return true;
+}
+
+B_WUR B_EXPORT_FUNC bool
+b_run_loop_add_process_id(
+    B_BORROW struct B_RunLoop *run_loop,
+    B_ProcessID pid,
+    B_RunLoopProcessFunction *callback,
+    B_RunLoopFunction *cancel,
+    B_BORROW void const *callback_data,
+    size_t callback_data_size,
+    B_BORROW struct B_Error *e) {
+  B_PRECONDITION(run_loop);
+  B_PRECONDITION(callback);
+  B_PRECONDITION(cancel);
+  B_OUT_PARAMETER(e);
+
+  if (!run_loop->vtable.add_process_id(
+      run_loop,
+      pid,
       callback,
       cancel,
       callback_data,

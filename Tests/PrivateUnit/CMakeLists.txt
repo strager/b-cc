@@ -3,9 +3,21 @@ enable_testing()
 
 project(b_TestUnit)
 
+add_library(b_PrivateUnitUtil
+            STATIC
+            Environ.c
+            Environ.h
+            Executable.h)
+
 function (ADD_UNIT_TEST NAME)
   add_executable("${NAME}" "${NAME}.cc")
-  target_link_libraries("${NAME}" b gtest gtest_main)
+  target_link_libraries(
+    "${NAME}"
+    b
+    b_PrivateUnitUtil
+    gtest
+    gtest_main
+  )
   # FIXME(strager): It'd be nice to use b_SOURCE_DIR here.
   target_include_directories(
     "${NAME}"
@@ -16,12 +28,4 @@ function (ADD_UNIT_TEST NAME)
 endfunction ()
 
 ADD_UNIT_TEST(TestAnswerFuture)
-ADD_UNIT_TEST(TestProcess)
 ADD_UNIT_TEST(TestRunLoop)
-
-add_executable(b_TestProcessChild TestProcessChild.c)
-set_property(
-  TARGET b_TestProcessChild
-  PROPERTY OUTPUT_NAME TestProcessChild
-)
-add_dependencies(TestProcess b_TestProcessChild)

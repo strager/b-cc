@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+struct B_Error;
+
 #if defined(__cplusplus)
 extern "C" {
 #endif

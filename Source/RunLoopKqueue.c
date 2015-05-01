@@ -8,12 +8,15 @@
 # include <B/Private/Log.h>
 # include <B/Private/Memory.h>
 # include <B/Private/Queue.h>
+# include <B/Private/RunLoopUtil.h>
+# include <B/Process.h>
 # include <B/RunLoop.h>
 
 # include <errno.h>
 # include <stddef.h>
 # include <string.h>
 # include <sys/event.h>
+# include <sys/wait.h>
 # include <unistd.h>
 
 enum {
@@ -22,9 +25,8 @@ enum {
   B_RUN_LOOP_USER_IDENT_ = 1,
 };
 
-struct B_RunLoopKqueueFunctionEntry_ {
-  B_SLIST_ENTRY(B_RunLoopKqueueFunctionEntry_) link;
-  B_RunLoopFunction *callback;
+struct B_RunLoopKqueueProcessEntry_ {
+  B_RunLoopProcessFunction *callback;
   B_RunLoopFunction *cancel_callback;
   union B_UserData user_data;
 };
@@ -33,7 +35,7 @@ struct B_RunLoopKqueue_ {
   struct B_RunLoop super;
   int fd;
   bool stop;
-  B_SLIST_HEAD(, B_RunLoopKqueueFunctionEntry_) callbacks;
+  B_RunLoopFunctionList functions;
 };
 
 B_STATIC_ASSERT(
@@ -41,35 +43,25 @@ B_STATIC_ASSERT(
   "super must be the first member of B_RunLoopKqueue_");
 
 static B_WUR B_FUNC void
-b_run_loop_deallocate_kqueue_(
+b_run_loop_deallocate_(
     B_TRANSFER struct B_RunLoop *run_loop) {
   B_PRECONDITION(run_loop);
 
   struct B_RunLoopKqueue_ *rl
     = (struct B_RunLoopKqueue_ *) run_loop;
-  struct B_RunLoopKqueueFunctionEntry_ *callback_entry;
-  struct B_RunLoopKqueueFunctionEntry_ *temp_entry;
-  B_SLIST_FOREACH_SAFE(
-      callback_entry, &rl->callbacks, link, temp_entry) {
-    if (!callback_entry->cancel_callback(
-          &rl->super,
-          callback_entry->user_data.bytes,
-          &(struct B_Error) {})) {
-      B_NYI();
-    }
-    b_deallocate(callback_entry);
-    // FIXME(strager): Should we keep iterating until the
-    // list is empty? What if the list is mutated while we
-    // iterate?
-  }
+  b_run_loop_function_list_deinitialize(
+    run_loop, &rl->functions);
   (void) close(rl->fd);
   b_deallocate(rl);
 }
 
 static B_WUR B_FUNC bool
-b_run_loop_kqueue_notify_(
+b_run_loop_notify_(
     B_BORROW struct B_RunLoopKqueue_ *rl,
     B_OUT struct B_Error *e) {
+  B_PRECONDITION(rl);
+  B_OUT_PARAMETER(e);
+
   int rc = kevent(rl->fd, &(struct kevent) {
     .ident = B_RUN_LOOP_USER_IDENT_,
     .filter = EVFILT_USER,
@@ -87,7 +79,7 @@ b_run_loop_kqueue_notify_(
 }
 
 static B_WUR B_FUNC bool
-b_run_loop_add_function_kqueue_(
+b_run_loop_add_function_(
     B_BORROW struct B_RunLoop *run_loop,
     B_TRANSFER B_RunLoopFunction *callback,
     B_TRANSFER B_RunLoopFunction *cancel_callback,
@@ -101,11 +93,124 @@ b_run_loop_add_function_kqueue_(
 
   struct B_RunLoopKqueue_ *rl
     = (struct B_RunLoopKqueue_ *) run_loop;
+  if (!b_run_loop_function_list_add_function(
+      &rl->functions,
+      callback,
+      cancel_callback,
+      callback_data,
+      callback_data_size,
+      e)) {
+    return false;
+  }
+  if (!b_run_loop_notify_(rl, e)) {
+    // Leave the function enqueued. Another thread could
+    // have popped it, and the worst that can happen for a
+    // failed notify is a deadlock.
+    return false;
+  }
+  return true;
+}
+
+struct B_RunLoopKqueueProcessFallbackClosure_ {
+  struct B_ProcessExitStatus exit_status;
+  B_RunLoopProcessFunction *callback;
+  B_RunLoopFunction *cancel_callback;
+  union B_UserData user_data;
+};
+
+static B_FUNC bool
+b_run_loop_add_process_id_kqueue_fallback_callback_(
+    B_BORROW struct B_RunLoop *rl,
+    B_BORROW void const *callback_data,
+    B_OUT struct B_Error *e) {
+  struct B_RunLoopKqueueProcessFallbackClosure_ *closure
+    = *(struct B_RunLoopKqueueProcessFallbackClosure_ *
+        const *) callback_data;
+  bool ok = closure->callback(
+    rl, &closure->exit_status, closure->user_data.bytes, e);
+  b_deallocate(closure);
+  return ok;
+}
+
+static B_FUNC bool
+b_run_loop_add_process_id_kqueue_fallback_cancel_(
+    B_BORROW struct B_RunLoop *rl,
+    B_BORROW void const *callback_data,
+    B_OUT struct B_Error *e) {
+  struct B_RunLoopKqueueProcessFallbackClosure_ *closure
+    = *(struct B_RunLoopKqueueProcessFallbackClosure_ *
+        const *) callback_data;
+  bool ok = closure->cancel_callback(
+    rl, closure->user_data.bytes, e);
+  b_deallocate(closure);
+  return ok;
+}
+
+static B_WUR B_FUNC bool
+b_run_loop_add_process_id_kqueue_fallback_(
+    B_BORROW struct B_RunLoopKqueue_ *rl,
+    B_BORROW struct B_ProcessExitStatus const *exit_status,
+    B_TRANSFER B_RunLoopProcessFunction *callback,
+    B_TRANSFER B_RunLoopFunction *cancel_callback,
+    B_TRANSFER void const *callback_data,
+    size_t callback_data_size,
+    B_OUT struct B_Error *e) {
+  B_PRECONDITION(rl);
+  B_PRECONDITION(exit_status);
+  B_PRECONDITION(callback);
+  B_PRECONDITION(cancel_callback);
+  B_OUT_PARAMETER(e);
+
+  size_t closure_size = offsetof(
+    struct B_RunLoopKqueueProcessFallbackClosure_,
+    user_data.bytes[callback_data_size]);
+  struct B_RunLoopKqueueProcessFallbackClosure_ *closure;
+  if (!b_allocate(closure_size, (void **) &closure, e)) {
+    return false;
+  }
+  closure->exit_status = *exit_status;
+  closure->callback = callback;
+  closure->cancel_callback = cancel_callback;
+  if (callback_data) {
+    memcpy(
+      closure->user_data.bytes,
+      callback_data,
+      callback_data_size);
+  }
+  if (!b_run_loop_add_function_(
+      (struct B_RunLoop *) rl,
+      b_run_loop_add_process_id_kqueue_fallback_callback_,
+      b_run_loop_add_process_id_kqueue_fallback_cancel_,
+      &closure,
+      sizeof(closure_size),
+      e)) {
+    b_deallocate(closure);
+    return false;
+  }
+  return true;
+}
+
+static B_WUR B_FUNC bool
+b_run_loop_add_process_id_(
+    B_BORROW struct B_RunLoop *run_loop,
+    B_ProcessID pid,
+    B_TRANSFER B_RunLoopProcessFunction *callback,
+    B_TRANSFER B_RunLoopFunction *cancel_callback,
+    B_TRANSFER void const *callback_data,
+    size_t callback_data_size,
+    B_OUT struct B_Error *e) {
+  B_PRECONDITION(run_loop);
+  B_PRECONDITION(callback);
+  B_PRECONDITION(cancel_callback);
+  B_OUT_PARAMETER(e);
+
+  struct B_RunLoopKqueue_ *rl
+    = (struct B_RunLoopKqueue_ *) run_loop;
   // TODO(strager): Check for overflow.
   size_t entry_size = offsetof(
-    struct B_RunLoopKqueueFunctionEntry_,
+    struct B_RunLoopKqueueProcessEntry_,
     user_data.bytes[callback_data_size]);
-  struct B_RunLoopKqueueFunctionEntry_ *entry;
+  struct B_RunLoopKqueueProcessEntry_ *entry;
   if (!b_allocate(entry_size, (void **) &entry, e)) {
     return false;
   }
@@ -117,15 +222,66 @@ b_run_loop_add_function_kqueue_(
       callback_data,
       callback_data_size);
   }
-  B_SLIST_INSERT_HEAD(&rl->callbacks, entry, link);
-  if (!b_run_loop_kqueue_notify_(rl, e)) {
+  int rc = kevent(rl->fd, &(struct kevent) {
+    .ident = pid,
+    .filter = EVFILT_PROC,
+    .flags = EV_ADD | EV_ONESHOT,
+    .fflags = NOTE_EXIT | NOTE_EXITSTATUS,
+    .data = (intptr_t) NULL,
+    .udata = entry,
+  }, 1, NULL, 0, NULL);
+  if (rc != -1) {
+    B_ASSERT(rc == 0);
+    return true;
+  }
+  b_deallocate(entry);
+  if (errno == ESRCH) {
+    // If the process exits before it's added to a kqueue,
+    // kevent will fail with ESRCH.
+    int status;
+retry:;
+    pid_t new_pid = waitpid(pid, &status, WNOHANG);
+    if (new_pid == -1) {
+      if (errno == EINTR) {
+        goto retry;
+      }
+      *e = (struct B_Error) {.posix_error = errno};
+      return false;
+    }
+    B_ASSERT(new_pid == pid);
+    struct B_ProcessExitStatus exit_status
+      = b_exit_status_from_waitpid_status(status);
+    if (!b_run_loop_add_process_id_kqueue_fallback_(
+        rl,
+        &exit_status,
+        callback,
+        cancel_callback,
+        callback_data,
+        callback_data_size,
+        e)) {
+      return false;
+    }
+    return true;
+  } else {
+    *e = (struct B_Error) {.posix_error = errno};
     return false;
   }
-  return true;
+}
+
+static B_FUNC void
+b_run_loop_drain_functions_(
+    B_BORROW struct B_RunLoopKqueue_ *rl) {
+  B_PRECONDITION(rl);
+
+  bool keep_going = true;
+  while (keep_going && !rl->stop) {
+    b_run_loop_function_list_run_one(
+      &rl->super, &rl->functions, &keep_going);
+  }
 }
 
 static B_WUR B_FUNC bool
-b_run_loop_run_kqueue_(
+b_run_loop_run_(
     B_BORROW struct B_RunLoop *run_loop,
     B_OUT struct B_Error *e) {
   B_PRECONDITION(run_loop);
@@ -151,35 +307,39 @@ b_run_loop_run_kqueue_(
     for (int i = 0; i < event_count; ++i) {
       switch (events[i].filter) {
       case EVFILT_USER:
-        B_ASSERT(events[i].ident == B_RUN_LOOP_USER_IDENT_);
+        B_ASSERT(events[i].ident
+          == B_RUN_LOOP_USER_IDENT_);
+        break;
+      case EVFILT_PROC:
+        if (events[i].fflags & NOTE_EXIT) {
+          struct B_RunLoopKqueueProcessEntry_ *entry
+            = (struct B_RunLoopKqueueProcessEntry_ *)
+              events[i].udata;
+          struct B_ProcessExitStatus s
+            = b_exit_status_from_waitpid_status(
+              events[i].data);
+          if (!entry->callback(
+              &rl->super,
+              &s,
+              entry->user_data.bytes,
+              &(struct B_Error) {})) {
+            B_NYI();
+          }
+          b_deallocate(entry);
+        }
         break;
       default:
         B_BUG();
       }
     }
 
-    // Drain all functions.
-    while (!rl->stop) {
-      struct B_RunLoopKqueueFunctionEntry_ *entry
-        = B_SLIST_FIRST(&rl->callbacks);
-      if (!entry) {
-        break;
-      }
-      B_SLIST_REMOVE_HEAD(&rl->callbacks, link);
-      if (!entry->callback(
-          &rl->super,
-          entry->user_data.bytes,
-          &(struct B_Error) {})) {
-        B_NYI();
-      }
-      b_deallocate(entry);
-    }
+    b_run_loop_drain_functions_(rl);
   }
   return true;
 }
 
 static B_WUR B_FUNC bool
-b_run_loop_stop_kqueue_(
+b_run_loop_stop_(
     B_BORROW struct B_RunLoop *run_loop,
     B_OUT struct B_Error *e) {
   B_PRECONDITION(run_loop);
@@ -188,7 +348,7 @@ b_run_loop_stop_kqueue_(
   struct B_RunLoopKqueue_ *rl
     = (struct B_RunLoopKqueue_ *) run_loop;
   rl->stop = true;
-  if (!b_run_loop_kqueue_notify_(rl, e)) {
+  if (!b_run_loop_notify_(rl, e)) {
     return false;
   }
   return true;
@@ -228,16 +388,18 @@ b_run_loop_allocate_kqueue(
   *rl = (struct B_RunLoopKqueue_) {
     .super = {
       .vtable = {
-        .deallocate = b_run_loop_deallocate_kqueue_,
-        .add_function = b_run_loop_add_function_kqueue_,
-        .run = b_run_loop_run_kqueue_,
-        .stop = b_run_loop_stop_kqueue_,
+        .deallocate = b_run_loop_deallocate_,
+        .add_function = b_run_loop_add_function_,
+        .add_process_id = b_run_loop_add_process_id_,
+        .run = b_run_loop_run_,
+        .stop = b_run_loop_stop_,
       },
     },
     .fd = fd,
     .stop = false,
-    .callbacks = B_SLIST_HEAD_INITIALIZER(&rl->callbacks),
+    // .functions
   };
+  b_run_loop_function_list_initialize(&rl->functions);
   *out = &rl->super;
   return true;
 
