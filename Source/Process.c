@@ -77,13 +77,13 @@ exit_status_from_waitpid_status_(
   if (WIFEXITED(waitpid_status)) {
     struct B_ProcessExitStatus exit_status;
     exit_status.type = B_PROCESS_EXIT_STATUS_CODE;
-    exit_status.code.exit_code
+    exit_status.u.code.exit_code
       = WEXITSTATUS(waitpid_status);
     return exit_status;
   } else if (WIFSIGNALED(waitpid_status)) {
     struct B_ProcessExitStatus exit_status;
     exit_status.type = B_PROCESS_EXIT_STATUS_SIGNAL;
-    exit_status.signal.signal_number
+    exit_status.u.signal.signal_number
       = WTERMSIG(waitpid_status);
     return exit_status;
   } else {
@@ -309,21 +309,21 @@ b_process_manager_check(
         stderr,
         "Process %ld exited with code %ld\n",
         (long) process_info->pid,
-        (long) exit_status->code.exit_code);
+        (long) exit_status->u.code.exit_code);
       break;
     case B_PROCESS_EXIT_STATUS_EXCEPTION:
       fprintf(
         stderr,
         "Process %ld exited with exception %#08X\n",
         (long) process_info->pid,
-        (unsigned) exit_status->exception.code);
+        (unsigned) exit_status->u.exception.code);
       break;
     case B_PROCESS_EXIT_STATUS_SIGNAL:
       fprintf(
         stderr,
         "Process %ld exited with signal %d\n",
         (long) process_info->pid,
-        (int) exit_status->signal.signal_number);
+        (int) exit_status->u.signal.signal_number);
       break;
     default:
       B_BUG();

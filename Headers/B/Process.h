@@ -106,7 +106,7 @@ struct B_ProcessExitStatus {
 
     // B_PROCESS_EXIT_STATUS_EXCEPTION
     struct B_ProcessExitStatusException exception;
-  };
+  } u;
 };
 
 typedef B_WUR B_FUNC bool
@@ -204,11 +204,12 @@ operator==(
 
   switch (a.type) {
   case B_PROCESS_EXIT_STATUS_SIGNAL:
-    return a.signal.signal_number == b.signal.signal_number;
+    return a.u.signal.signal_number
+      == b.u.signal.signal_number;
   case B_PROCESS_EXIT_STATUS_CODE:
-    return a.code.exit_code == b.code.exit_code;
+    return a.u.code.exit_code == b.u.code.exit_code;
   case B_PROCESS_EXIT_STATUS_EXCEPTION:
-    return a.exception.code == b.exception.code;
+    return a.u.exception.code == b.u.exception.code;
   default:
     abort();
   }

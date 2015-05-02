@@ -692,7 +692,7 @@ TEST_P(TestProcess, TrueReturnsPromptly) {
   EXPECT_FALSE(timed_out);
   EXPECT_EQ(1U, exit_count);
   EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
-  EXPECT_EQ(0, exit_status.code.exit_code);
+  EXPECT_EQ(0, exit_status.u.code.exit_code);
 
   EXPECT_TRUE(b_process_manager_deallocate(manager, &e));
   delete tester;
@@ -721,7 +721,7 @@ TEST_P(TestProcess, FalseReturnsPromptly) {
   EXPECT_FALSE(timed_out);
   EXPECT_EQ(1U, exit_count);
   EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
-  EXPECT_NE(0, exit_status.code.exit_code);
+  EXPECT_NE(0, exit_status.u.code.exit_code);
 
   EXPECT_TRUE(b_process_manager_deallocate(manager, &e));
   delete tester;
@@ -791,7 +791,7 @@ TEST_P(TestProcess, KillSIGTERM) {
   EXPECT_FALSE(timed_out);
   EXPECT_EQ(1U, exit_count);
   EXPECT_EQ(B_PROCESS_EXIT_STATUS_SIGNAL, exit_status.type);
-  EXPECT_EQ(SIGTERM, exit_status.signal.signal_number);
+  EXPECT_EQ(SIGTERM, exit_status.u.signal.signal_number);
 
   EXPECT_TRUE(b_process_manager_deallocate(manager, &e));
   delete tester;
@@ -839,7 +839,7 @@ TEST_P(TestProcess, MultipleTruesInParallel) {
       i != exit_statuses.end();
       ++i) {
     EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, i->type);
-    EXPECT_EQ(0, i->code.exit_code);
+    EXPECT_EQ(0, i->u.code.exit_code);
   }
 
   EXPECT_TRUE(b_process_manager_deallocate(manager, &e));
@@ -978,7 +978,7 @@ TEST_P(TestProcess, DeeplyNestedProcessTree) {
 
   B_ProcessExitStatus success;
   success.type = B_PROCESS_EXIT_STATUS_CODE;
-  success.code.exit_code = 0;
+  success.u.code.exit_code = 0;
 
   B_ProcessTree_ process_tree(
     controller,
@@ -1022,7 +1022,7 @@ TEST_P(TestProcess, VeryBranchyProcessTree) {
 
   B_ProcessExitStatus success;
   success.type = B_PROCESS_EXIT_STATUS_CODE;
-  success.code.exit_code = 0;
+  success.u.code.exit_code = 0;
 
   B_ProcessTree_ leaf_process_tree(
     controller,
@@ -1083,7 +1083,7 @@ TEST_P(TestProcess, BasicExecChildHasCleanSignalMask) {
   EXPECT_FALSE(timed_out);
   EXPECT_EQ(1U, exit_count);
   EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
-  EXPECT_EQ(0, exit_status.code.exit_code);
+  EXPECT_EQ(0, exit_status.u.code.exit_code);
 
   EXPECT_TRUE(b_process_manager_deallocate(manager, &e));
   delete tester;
@@ -1126,7 +1126,7 @@ TEST_P(TestProcess, BasicExecChildDoesNotInheritSigaction) {
   EXPECT_FALSE(timed_out);
   EXPECT_EQ(1U, exit_count);
   EXPECT_EQ(B_PROCESS_EXIT_STATUS_CODE, exit_status.type);
-  EXPECT_EQ(0, exit_status.code.exit_code);
+  EXPECT_EQ(0, exit_status.u.code.exit_code);
 
   EXPECT_TRUE(b_process_manager_deallocate(manager, &e));
   delete tester;
