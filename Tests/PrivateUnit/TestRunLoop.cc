@@ -330,36 +330,6 @@ b_exec_pid_(
 #endif
 }
 
-bool
-b_exec_(
-    B_BORROW struct B_RunLoop *rl,
-    B_BORROW std::vector<char const *> args,
-    B_RunLoopProcessFunction *callback,
-    B_RunLoopFunction *cancel,
-    B_BORROW void const *callback_data,
-    size_t callback_data_size,
-    struct B_Error *e) {
-#if B_CONFIG_POSIX_SPAWN
-  pid_t pid;
-  if (!b_exec_pid_(args, &pid, e)) {
-    return false;
-  }
-  if (!b_run_loop_add_process_id(
-      rl,
-      pid,
-      callback,
-      cancel,
-      callback_data,
-      callback_data_size,
-      e)) {
-    return false;
-  }
-  return true;
-#else
-# error "Unknown process start implementation"
-#endif
-}
-
 // TFunc must be memcpy-able.
 template<typename TFunc>
 void
@@ -369,12 +339,13 @@ b_exec_and_stop_if_(
     // Asynchronously set.
     B_OUT struct B_ProcessExitStatus *exit_status,
     TFunc stop_check) {
+  args.push_back(NULL);
   B_ExecAndStopIfClosure_<TFunc> closure(
     exit_status, stop_check);
   struct B_Error e;
-  if (!b_exec_(
+  if (!b_run_loop_exec_basic(
       rl,
-      args,
+      args.data(),
       b_exec_and_stop_if_callback_<TFunc>,
       b_run_loop_function_fail_,
       &closure,
@@ -517,6 +488,7 @@ public:
       program_args(program_args),
       next_processes(next_processes),
       exited(false) {
+    this->program_args.push_back(NULL);
     this->set_root(this);
   }
 
@@ -548,9 +520,9 @@ public:
   exec(
       B_OUT struct B_Error *e) {
     B_ProcessTree_ *self = this;
-    return b_exec_(
+    return b_run_loop_exec_basic(
       this->run_loop,
-      this->program_args,
+      this->program_args.data(),
       b_process_tree_callback_,
       b_run_loop_function_fail_,
       &self,

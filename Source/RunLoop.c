@@ -1,8 +1,13 @@
 #include <B/Error.h>
 #include <B/Private/Assertions.h>
+#include <B/Private/Config.h>
 #include <B/RunLoop.h>
 
 #include <errno.h>
+
+#if B_CONFIG_POSIX_SPAWN
+# include <spawn.h>
+#endif
 
 B_WUR B_EXPORT_FUNC bool
 b_run_loop_allocate_preferred(
@@ -115,4 +120,60 @@ b_run_loop_stop(
     return false;
   }
   return true;
+}
+
+#if B_CONFIG_POSIX_SPAWN
+static char **
+b_environ_(
+    void) {
+  extern char **environ;
+  return environ;
+}
+#endif
+
+B_WUR B_EXPORT_FUNC bool
+b_run_loop_exec_basic(
+    B_BORROW struct B_RunLoop *run_loop,
+    B_BORROW char const *const *command_args,
+    B_RunLoopProcessFunction *callback,
+    B_RunLoopFunction *cancel_callback,
+    B_BORROW void const *callback_data,
+    size_t callback_data_size,
+    B_OUT struct B_Error *e) {
+  B_PRECONDITION(run_loop);
+  B_PRECONDITION(command_args);
+  B_PRECONDITION(command_args[0]);
+  B_PRECONDITION(callback);
+  B_PRECONDITION(cancel_callback);
+  B_OUT_PARAMETER(e);
+
+#if B_CONFIG_POSIX_SPAWN
+  pid_t pid;
+  int rc = posix_spawnp(
+    &pid,
+    command_args[0],
+    NULL,
+    NULL,
+    // FIXME(strager): This cast looks like a bug.
+    (char *const *) command_args,
+    b_environ_());
+  if (rc != 0) {
+    *e = (struct B_Error) {.posix_error = rc};
+    return false;
+  }
+  if (!b_run_loop_add_process_id(
+      run_loop,
+      pid,
+      callback,
+      cancel_callback,
+      callback_data,
+      callback_data_size,
+      e)) {
+    // Should we kill the child or something?
+    return false;
+  }
+  return true;
+#else
+# error "Unknown process start implementation"
+#endif
 }

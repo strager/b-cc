@@ -126,6 +126,16 @@ B_EXPORT_FUNC_CDECL void
 b_run_loop_sigchld_handler(
     int signal_number);
 
+B_WUR B_EXPORT_FUNC bool
+b_run_loop_exec_basic(
+    B_BORROW struct B_RunLoop *,
+    B_BORROW char const *const *command_args,
+    B_RunLoopProcessFunction *callback,
+    B_RunLoopFunction *cancel_callback,
+    B_BORROW void const *callback_data,
+    size_t callback_data_size,
+    B_OUT struct B_Error *);
+
 #if defined(__cplusplus)
 }
 #endif
