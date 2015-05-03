@@ -7,9 +7,14 @@
 #include <B/Serialize.h>
 
 #include <errno.h>
+#include <sph_sha2.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+struct B_FileAnswer_ {
+  uint8_t sha256_hash[SPH_SIZE_sha256 / 8];
+};
 
 static B_WUR B_FUNC void
 b_file_question_deallocate_(
@@ -61,25 +66,27 @@ b_file_question_query_answer_(
     *e = (struct B_Error) {.posix_error = error};
     goto fail;
   }
-  uint64_t counter = 0;
-  char buffer[1024];
-  while (!feof(f)) {
-    size_t read_bytes = fread(buffer, 1, sizeof(buffer), f);
-    B_ASSERT(read_bytes <= sizeof(buffer));
-    int error = ferror(f);
-    if (error) {
-      *e = (struct B_Error) {.posix_error = error};
-      goto fail;
-    }
-    for (size_t i = 0; i < read_bytes; ++i) {
-      counter += (uint8_t) buffer[i];
+  sph_sha256_context sha256_context;
+  sph_sha256_init(&sha256_context);
+  {
+    char buffer[1024];
+    while (!feof(f)) {
+      size_t read_bytes = fread(
+        buffer, 1, sizeof(buffer), f);
+      B_ASSERT(read_bytes <= sizeof(buffer));
+      int error = ferror(f);
+      if (error) {
+        *e = (struct B_Error) {.posix_error = error};
+        goto fail;
+      }
+      sph_sha256(&sha256_context, buffer, read_bytes);
     }
   }
-  uint64_t *answer;
+  struct B_FileAnswer_ *answer;
   if (!b_allocate(sizeof(*answer), (void **) &answer, e)) {
     goto fail;
   }
-  *answer = counter;
+  sph_sha256_close(&sha256_context, answer->sha256_hash);
   *out = (struct B_IAnswer *) answer;
   ok = true;
 
@@ -168,27 +175,32 @@ b_file_answer_replicate_(
   B_OUT_PARAMETER(out);
   B_OUT_PARAMETER(e);
 
-  uint64_t *new_hash;
+  struct B_FileAnswer_ *new_answer;
   if (!b_allocate(
-      sizeof(*new_hash), (void **) &new_hash, e)) {
+      sizeof(*new_answer), (void **) &new_answer, e)) {
     return false;
   }
-  *new_hash = *(uint64_t const *) answer;
-  *out = (struct B_IAnswer *) new_hash;
+  *new_answer = *(struct B_FileAnswer_ const *) answer;
+  *out = (struct B_IAnswer *) new_answer;
   return true;
 }
 
 static B_WUR B_FUNC bool
 b_file_answer_serialize_(
-    B_BORROW struct B_IAnswer const *answer,
+    B_BORROW struct B_IAnswer const *raw_answer,
     B_BORROW struct B_ByteSink *sink,
     B_OUT struct B_Error *e) {
-  B_PRECONDITION(answer);
+  B_PRECONDITION(raw_answer);
   B_PRECONDITION(sink);
   B_OUT_PARAMETER(e);
 
-  uint64_t hash = *(uint64_t const *) answer;
-  if (!b_serialize_8_be(sink, hash, e)) {
+  struct B_FileAnswer_ const *answer
+    = (struct B_FileAnswer_ const *) raw_answer;
+  if (!b_serialize_bytes(
+      sink,
+      answer->sha256_hash,
+      sizeof(answer->sha256_hash),
+      e)) {
     return false;
   }
   return true;
@@ -203,26 +215,40 @@ b_file_answer_deserialize_(
   B_OUT_PARAMETER(out);
   B_OUT_PARAMETER(e);
 
-  uint64_t *hash;
-  if (!b_allocate(sizeof(*hash), (void **) &hash, e)) {
+  struct B_FileAnswer_ *answer;
+  if (!b_allocate(sizeof(*answer), (void **) &answer, e)) {
     return false;
   }
-  if (!b_deserialize_8_be(source, hash, e)) {
-    b_deallocate(hash);
+  if (!b_deserialize_bytes(
+      source,
+      sizeof(answer->sha256_hash),
+      answer->sha256_hash,
+      e)) {
+    b_deallocate(answer);
     return false;
   }
-  *out = (struct B_IAnswer *) hash;
+  *out = (struct B_IAnswer *) answer;
   return true;
 }
 
 static B_WUR B_FUNC bool
 b_file_answer_equal_(
-    B_BORROW struct B_IAnswer const *a,
-    B_BORROW struct B_IAnswer const *b) {
-  B_PRECONDITION(a);
-  B_PRECONDITION(b);
+    B_BORROW struct B_IAnswer const *raw_a,
+    B_BORROW struct B_IAnswer const *raw_b) {
+  B_PRECONDITION(raw_a);
+  B_PRECONDITION(raw_b);
 
-  return *(uint64_t const *) a == *(uint64_t const *) b;
+  struct B_FileAnswer_ const *a
+    = (struct B_FileAnswer_ const *) raw_a;
+  struct B_FileAnswer_ const *b
+    = (struct B_FileAnswer_ const *) raw_b;
+  if (memcmp(
+      a->sha256_hash,
+      b->sha256_hash,
+      sizeof(a->sha256_hash)) != 0) {
+    return false;
+  }
+  return true;
 }
 
 static struct B_AnswerVTable const

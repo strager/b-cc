@@ -7,6 +7,7 @@ include(CTest)  # Requires project().
 add_subdirectory(Examples/JoinFiles)
 add_subdirectory(Tests/Unit)
 add_subdirectory(Vendor/gmock-1.7.0)
+add_subdirectory(Vendor/sphlib-3.0/c)
 add_subdirectory(Vendor/sqlite-3.8.4.1)
 
 # Omissions from CMakeLists.txt of gmock and gtest.
@@ -73,7 +74,12 @@ add_library(
 target_include_directories(b PUBLIC Headers)
 target_include_directories(b PRIVATE PrivateHeaders)
 target_link_libraries(b PUBLIC b_sqlite)
-target_link_libraries(b PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(
+  b
+  PRIVATE
+  ${CMAKE_THREAD_LIBS_INIT}
+  b_sphlib_sha2
+)
 
 # Compile as C99.
 check_c_compiler_flag(-std=c99 HAVE_STD_C99)
