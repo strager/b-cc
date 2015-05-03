@@ -4,7 +4,7 @@
 #include <B/RunLoop.h>
 
 #if B_CONFIG_POSIX_SPAWN
-# include "Environ.h"
+# include "Util/Environ.h"
 #endif
 
 #include <errno.h>

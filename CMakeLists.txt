@@ -5,7 +5,6 @@ set(CTEST_NEW_FORMAT True)
 include(CTest)  # Requires project().
 
 add_subdirectory(Examples/JoinFiles)
-add_subdirectory(Tests/PrivateUnit)
 add_subdirectory(Tests/Unit)
 add_subdirectory(Vendor/gmock-1.7.0)
 add_subdirectory(Vendor/sqlite-3.8.4.1)
