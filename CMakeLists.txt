@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.0)
 
+include(CMake/b_copy_file.cmake)
+
 project(b)
 set(CTEST_NEW_FORMAT True)
 include(CTest)  # Requires project().
 
 add_subdirectory(CMake)
 add_subdirectory(Examples/JoinFiles)
+add_subdirectory(Examples/SelfCompile)
 add_subdirectory(Tests/Unit)
 add_subdirectory(Vendor/gmock-1.7.0)
 add_subdirectory(Vendor/sphlib-3.0/c)
@@ -49,6 +52,7 @@ add_library(
   PrivateHeaders/B/Private/Config.h
   PrivateHeaders/B/Private/Database.h
   PrivateHeaders/B/Private/Log.h
+  PrivateHeaders/B/Private/Main.h
   PrivateHeaders/B/Private/Math.h
   PrivateHeaders/B/Private/Memory.h
   PrivateHeaders/B/Private/Mutex.h

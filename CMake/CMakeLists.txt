@@ -4,12 +4,7 @@ project(b_CMake)
 
 set(RT_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/RunTest.sh")
 set(RT_BINARY "${CMAKE_CURRENT_BINARY_DIR}/RunTest.sh")
-add_custom_command(
-  OUTPUT "${RT_BINARY}"
-  COMMAND cmake -E copy "${RT_SOURCE}" "${RT_BINARY}"
-  DEPENDS "${RT_SOURCE}"
-  COMMENT "Copying RunTest.sh"
-)
+b_copy_file("${RT_SOURCE}" "${RT_BINARY}")
 add_custom_target(
   b_RunTestWrapper
   DEPENDS "${RT_BINARY}"

@@ -27,16 +27,9 @@ if (HAVE_W_NO_MAIN)
   )
 endif ()
 
-add_custom_command(
-  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/TestJoinFiles.py"
-  COMMAND
-  cmake
-  -E copy
+b_copy_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/Tests/TestJoinFiles.py"
   "${CMAKE_CURRENT_BINARY_DIR}/TestJoinFiles.py"
-  DEPENDS
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tests/TestJoinFiles.py"
-  COMMENT "Copying TestJoinFiles.py"
 )
 add_custom_target(
   TestJoinFiles

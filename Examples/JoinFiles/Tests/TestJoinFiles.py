@@ -43,7 +43,6 @@ class TestJoinFiles(unittest.TestCase):
       pdb.set_trace()
     return subprocess.call(args, cwd=temp_dir)
 
-
   def test_full_build(self):
     with temp_dir() as d:
       with open(j(d, 'one.txt'), 'wb') as one:

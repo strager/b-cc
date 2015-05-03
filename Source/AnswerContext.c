@@ -8,6 +8,7 @@
 #include <B/Private/Log.h>
 #include <B/Private/Memory.h>
 #include <B/QuestionAnswer.h>
+#include <B/Private/Main.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -88,6 +89,19 @@ b_answer_context_question(
 
   *out_question = ac->question;
   *out_vtable = ac->question_vtable;
+  return true;
+}
+
+B_WUR B_EXPORT_FUNC bool
+b_answer_context_run_loop(
+    B_BORROW struct B_AnswerContext *ac,
+    B_OUT_BORROW struct B_RunLoop **out,
+    B_OUT struct B_Error *e) {
+  B_PRECONDITION(ac);
+  B_OUT_PARAMETER(out);
+  B_OUT_PARAMETER(e);
+
+  *out = b_main_run_loop(ac->main);
   return true;
 }
 

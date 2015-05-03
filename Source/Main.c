@@ -259,3 +259,11 @@ b_main_answer(
   *out = future;
   return true;
 }
+
+B_WUR B_FUNC B_BORROW struct B_RunLoop *
+b_main_run_loop(
+    B_BORROW struct B_Main *main) {
+  B_PRECONDITION(main);
+
+  return main->run_loop;
+}

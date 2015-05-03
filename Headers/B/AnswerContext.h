@@ -10,6 +10,7 @@ struct B_Error;
 struct B_IAnswer;
 struct B_IQuestion;
 struct B_QuestionVTable;
+struct B_RunLoop;
 
 struct B_AnswerContext;
 
@@ -22,6 +23,12 @@ b_answer_context_question(
     B_BORROW struct B_AnswerContext *,
     B_OUT_BORROW struct B_IQuestion **,
     B_OUT_BORROW struct B_QuestionVTable const **,
+    B_OUT struct B_Error *);
+
+B_WUR B_EXPORT_FUNC bool
+b_answer_context_run_loop(
+    B_BORROW struct B_AnswerContext *,
+    B_OUT_BORROW struct B_RunLoop **,
     B_OUT struct B_Error *);
 
 B_WUR B_EXPORT_FUNC bool
