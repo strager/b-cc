@@ -232,7 +232,6 @@ b_main_deallocate(
   B_PRECONDITION(main);
   B_OUT_PARAMETER(e);
 
-  b_run_loop_deallocate(main->run_loop);
   b_deallocate(main);
   return true;
 }

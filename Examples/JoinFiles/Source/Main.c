@@ -322,6 +322,9 @@ done:
       ok = false;
     }
   }
+  if (run_loop) {
+    b_run_loop_deallocate(run_loop);
+  }
   if (database) {
     if (!b_database_close(database, e)) {
       ok = false;
