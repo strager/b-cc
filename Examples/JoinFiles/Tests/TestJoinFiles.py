@@ -29,9 +29,12 @@ class TestJoinFiles(unittest.TestCase):
         'be the path of your executable',
       )
     self.exe = os.path.realpath(exe)
+    self.run_test_sh = os.getenv('B_RUN_TEST_SH')
 
   def execute(self, temp_dir, extra_args=[]):
     args = [self.exe] + extra_args
+    if self.run_test_sh is not None:
+      args = [self.run_test_sh] + args
     if os.getenv('B_DEBUG_TEST'):
       print('Would execute: {}'.format(
         ' '.join(map(pipes.quote, args)),

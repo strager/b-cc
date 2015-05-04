@@ -4,6 +4,7 @@ project(b)
 set(CTEST_NEW_FORMAT True)
 include(CTest)  # Requires project().
 
+add_subdirectory(CMake)
 add_subdirectory(Examples/JoinFiles)
 add_subdirectory(Tests/Unit)
 add_subdirectory(Vendor/gmock-1.7.0)

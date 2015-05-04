@@ -34,5 +34,7 @@ script:
   - (cd Build && ctest)
 
   # Test a build with Valgrind's memcheck tool.
-  - (cd Build && cmake -DMEMORYCHECK_COMMAND_OPTIONS="--tool=memcheck --leak-check=yes --show-reachable=yes --error-exitcode=1" ..)
-  - (cd Build && ctest -D ExperimentalMemCheck)
+  # --error-exitcode must not be a common value (like 0, 1,
+  # or 2), else it collides with exit codes of some example
+  # program tests.
+  - (cd Build && B_RUN_TEST_PREFIX="valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --error-exitcode=99" ctest)

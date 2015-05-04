@@ -28,7 +28,11 @@ function (ADD_UNIT_TEST NAME)
     PRIVATE
     ../../PrivateHeaders
   )
-  add_test(NAME "${NAME}" COMMAND "$<TARGET_FILE:${NAME}>")
+  add_test(
+    NAME "${NAME}"
+    COMMAND "${B_RUN_TEST_WRAPPER}" "$<TARGET_FILE:${NAME}>"
+  )
+  add_dependencies("${NAME}" b_RunTestWrapper)
 endfunction ()
 
 ADD_UNIT_TEST(TestAnswerFuture)

@@ -50,9 +50,11 @@ add_test(
   NAME TestJoinFiles
   COMMAND "${CMAKE_CURRENT_BINARY_DIR}/TestJoinFiles.py"
 )
+add_dependencies(TestJoinFiles b_RunTestWrapper)
 set_property(
   TEST TestJoinFiles
   APPEND PROPERTY
   ENVIRONMENT
+  "B_RUN_TEST_SH=${B_RUN_TEST_WRAPPER}"
   JOIN_FILES_EXE=$<TARGET_FILE:b_JoinFiles>
 )
