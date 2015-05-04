@@ -13,13 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void
-handle_error_(
-    struct B_Error error) {
-  fprintf(stderr, "%s\n", strerror(error.posix_error));
-  exit(1);
-}
-
 static char const *const
 joined_paths_[] = {
   "one.txt",
@@ -220,20 +213,24 @@ root_question_answered_(
   return true;
 }
 
-int
-main(
-    int argc,
-    char **argv) {
-  struct B_Error e;
+bool
+run_(
+    int *exit_code,
+    struct B_Error *e) {
+  bool ok;
 
-  struct B_Database *database;
+  struct B_Database *database = NULL;
+  struct B_RunLoop *run_loop = NULL;
+  struct B_Main *main = NULL;
+
   if (!b_database_open_sqlite3(
       "JoinFiles.cache",
       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
       NULL,
       &database,
-      &e)) {
-    handle_error_(e);
+      e)) {
+    database = NULL;
+    goto fail;
   }
   struct B_QuestionVTable const *const vtables[] = {
     b_file_question_vtable(),
@@ -244,30 +241,30 @@ main(
       database,
       vtables,
       sizeof(vtables) / sizeof(*vtables),
-      &e)) {
-    handle_error_(e);
+      e)) {
+    goto fail;
   }
 
-  struct B_RunLoop *run_loop;
-  if (!b_run_loop_allocate_preferred(&run_loop, &e)) {
-    handle_error_(e);
+  if (!b_run_loop_allocate_preferred(&run_loop, e)) {
+    run_loop = NULL;
+    goto fail;
   }
 
-  struct B_Main *main;
   if (!b_main_allocate(
       database,
       run_loop,
       dispatch_question_,
       NULL,
       &main,
-      &e)) {
-    handle_error_(e);
+      e)) {
+    main = NULL;
+    goto fail;
   }
 
   struct B_IQuestion *question;
   if (!b_file_question_allocate(
-      "joined.txt", &question, &e)) {
-    handle_error_(e);
+      "joined.txt", &question, e)) {
+    goto fail;
   }
   struct B_AnswerFuture *answer_future;
   if (!b_main_answer(
@@ -275,8 +272,9 @@ main(
       question,
       b_file_question_vtable(),
       &answer_future,
-      &e)) {
-    handle_error_(e);
+      e)) {
+    b_file_question_vtable()->deallocate(question);
+    goto fail;
   }
   b_file_question_vtable()->deallocate(question);
 
@@ -285,37 +283,67 @@ main(
       root_question_answered_,
       &run_loop,
       sizeof(run_loop),
-      &e)) {
-    handle_error_(e);
+      e)) {
+    goto fail;
   }
 
-  if (!b_run_loop_run(run_loop, &e)) {
-    handle_error_(e);
+  if (!b_run_loop_run(run_loop, e)) {
+    goto fail;
   }
 
   enum B_AnswerFutureState state;
-  if (!b_answer_future_state(answer_future, &state, &e)) {
-    handle_error_(e);
+  if (!b_answer_future_state(answer_future, &state, e)) {
+    b_answer_future_release(answer_future);
+    goto fail;
   }
   b_answer_future_release(answer_future);
   answer_future = NULL;
   switch (state) {
   case B_FUTURE_PENDING:
     fprintf(stderr, "Answer future still PENDING\n");
-    exit(1);
+    ok = true;
+    *exit_code = 1;
+    goto done;
   case B_FUTURE_FAILED:
     fprintf(stderr, "Answering question FAILED\n");
-    exit(1);
+    ok = true;
+    *exit_code = 2;
+    goto done;
   case B_FUTURE_RESOLVED:
     break;
   }
 
-  if (!b_main_deallocate(main, &e)) {
-    handle_error_(e);
-  }
-  if (!b_database_close(database, &e)) {
-    handle_error_(e);
-  }
+  ok = true;
+  *exit_code = 0;
 
-  return 0;
+done:
+  if (main) {
+    if (!b_main_deallocate(main, e)) {
+      ok = false;
+    }
+  }
+  if (database) {
+    if (!b_database_close(database, e)) {
+      ok = false;
+    }
+  }
+  return ok;
+
+fail:
+  ok = false;
+  goto done;
+}
+
+int
+main(
+    int argc,
+    char **argv) {
+  int exit_code;
+  struct B_Error error;
+  if (!run_(&exit_code, &error)) {
+    fprintf(
+      stderr, "Error: %s\n", strerror(error.posix_error));
+    return 1;
+  }
+  return exit_code;
 }

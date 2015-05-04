@@ -62,7 +62,7 @@ class TestJoinFiles(unittest.TestCase):
   def test_missing_all_inputs(self):
     with temp_dir() as d:
       exit_code = self.execute(d)
-      self.assertEqual(1, exit_code)
+      self.assertEqual(2, exit_code)
       self.assertFalse(os.path.exists(j(d, 'one.txt')))
       self.assertFalse(os.path.exists(j(d, 'two.txt')))
       self.assertFalse(os.path.exists(j(d, 'three.txt')))
