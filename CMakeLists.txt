@@ -6,9 +6,18 @@ project(b)
 set(CTEST_NEW_FORMAT True)
 include(CTest)  # Requires project().
 
+# b_Python needs PIC for ELF platforms.
+set(CMAKE_POSITION_INDEPENDENT_CODE True)
+
+# Must be first.
 add_subdirectory(CMake)
+
 add_subdirectory(Examples/JoinFiles)
 add_subdirectory(Examples/SelfCompile)
+
+# Must be after Examples.
+add_subdirectory(Bindings/Python)
+
 add_subdirectory(Tests/Unit)
 add_subdirectory(Vendor/gmock-1.7.0)
 add_subdirectory(Vendor/sphlib-3.0/c)
