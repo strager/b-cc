@@ -103,30 +103,20 @@ foreach (FILE ${SOURCE_FILES})
   )
   list(APPEND CODE_FILES "${CODE_DIR}/${FILE}")
 endforeach ()
-b_copy_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tests/TestSelfCompile.py"
-  "${CMAKE_CURRENT_BINARY_DIR}/TestSelfCompile.py"
-)
 add_custom_target(
+  TestSelfCompileSources
+  DEPENDS ${CODE_FILES}
+)
+b_add_python_executable(
   TestSelfCompile
-  ALL
-  DEPENDS
-  "${CMAKE_CURRENT_BINARY_DIR}/TestSelfCompile.py"
-  ${CODE_FILES}
-  SOURCES
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tests/TestSelfCompile.py"
+  Tests/TestSelfCompile.py
 )
-add_dependencies(TestSelfCompile b_SelfCompile)
-add_test(
-  NAME TestSelfCompile
-  COMMAND "${CMAKE_CURRENT_BINARY_DIR}/TestSelfCompile.py"
-)
-add_dependencies(TestSelfCompile b_RunTestWrapper)
+add_dependencies(TestSelfCompile TestSelfCompileSources)
+b_add_python_test(TestSelfCompile)
 set_property(
   TEST TestSelfCompile
   APPEND PROPERTY
   ENVIRONMENT
-  "B_RUN_TEST_SH=${B_RUN_TEST_WRAPPER}"
   SELF_COMPILE_EXE=$<TARGET_FILE:b_SelfCompile>
   "CODE_DIR=${CODE_DIR}"
 )

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
+include(../../CMake/b_python.cmake)
 include(CheckCCompilerFlag)
 
 project(b_JoinFiles)
@@ -27,27 +28,13 @@ if (HAVE_W_NO_MAIN)
   )
 endif ()
 
-b_copy_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tests/TestJoinFiles.py"
-  "${CMAKE_CURRENT_BINARY_DIR}/TestJoinFiles.py"
-)
-add_custom_target(
+b_add_python_executable(
   TestJoinFiles
-  ALL
-  DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/TestJoinFiles.py"
-  SOURCES
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tests/TestJoinFiles.py"
+  Tests/TestJoinFiles.py
 )
-add_dependencies(TestJoinFiles b_JoinFiles)
-add_test(
-  NAME TestJoinFiles
-  COMMAND "${CMAKE_CURRENT_BINARY_DIR}/TestJoinFiles.py"
-)
-add_dependencies(TestJoinFiles b_RunTestWrapper)
+b_add_python_test(TestJoinFiles)
 set_property(
   TEST TestJoinFiles
   APPEND PROPERTY
-  ENVIRONMENT
-  "B_RUN_TEST_SH=${B_RUN_TEST_WRAPPER}"
-  JOIN_FILES_EXE=$<TARGET_FILE:b_JoinFiles>
+  ENVIRONMENT JOIN_FILES_EXE=$<TARGET_FILE:b_JoinFiles>
 )
