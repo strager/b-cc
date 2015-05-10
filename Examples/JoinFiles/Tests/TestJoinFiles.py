@@ -90,5 +90,27 @@ class TestJoinFiles(unittest.TestCase):
         joined_contents,
       )
 
+  def test_incremental_build(self):
+    with temp_dir() as d:
+      with open(j(d, 'one.txt'), 'wb') as one:
+        one.write('hello world\n')
+      with open(j(d, 'two.txt'), 'wb') as two:
+        two.write('line two ')
+      with open(j(d, 'three.txt'), 'wb') as three:
+        three.write('and three\n')
+      exit_code = self.execute(d)
+      self.assertEqual(0, exit_code)
+      with open(j(d, 'three.txt'), 'wb') as three:
+        three.write('ends here\n')
+      exit_code = self.execute(d)
+      self.assertEqual(0, exit_code)
+      self.assertTrue(os.path.exists(j(d, 'joined.txt')))
+      with open(j(d, 'joined.txt'), 'rb') as joined:
+        joined_contents = joined.read()
+      self.assertEqual(
+        'hello world\nline two ends here\n',
+        joined_contents,
+      )
+
 if __name__ == '__main__':
   unittest.main()
