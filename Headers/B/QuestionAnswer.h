@@ -22,7 +22,7 @@ struct B_AnswerVTable {
   B_WUR B_FUNC bool (*replicate)(
       B_BORROW struct B_IAnswer const *,
       B_OUT_TRANSFER struct B_IAnswer **,
-      struct B_Error *);
+      B_OUT struct B_Error *);
 
   B_WUR B_FUNC bool (*serialize)(
       B_BORROW struct B_IAnswer const *,
@@ -46,7 +46,7 @@ struct B_QuestionVTable {
   B_WUR B_FUNC bool (*query_answer)(
       B_BORROW struct B_IQuestion const *,
       B_OPTIONAL_OUT_TRANSFER struct B_IAnswer **,
-      struct B_Error *);
+      B_OUT struct B_Error *);
 
   B_WUR B_FUNC void (*deallocate)(
       B_TRANSFER struct B_IQuestion *);
@@ -54,7 +54,7 @@ struct B_QuestionVTable {
   B_WUR B_FUNC bool (*replicate)(
       B_BORROW struct B_IQuestion const *,
       B_OUT_TRANSFER struct B_IQuestion **,
-      struct B_Error *);
+      B_OUT struct B_Error *);
 
   B_WUR B_FUNC bool (*serialize)(
       B_BORROW struct B_IQuestion const *,
