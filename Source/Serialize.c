@@ -100,9 +100,9 @@ b_byte_sink_in_memory_finalize(
   B_OUT_PARAMETER(data_size);
   B_OUT_PARAMETER(e);
 
-  if (storage->data == NULL) {
-    B_ASSERT(storage->data_cur == NULL);
-    B_ASSERT(storage->data_end == NULL);
+  if (!storage->data) {
+    B_ASSERT(!storage->data_cur);
+    B_ASSERT(!storage->data_end);
     // Give a non-NULL pointer.
     void *empty;
     if (!b_allocate(1, &empty, e)) {
