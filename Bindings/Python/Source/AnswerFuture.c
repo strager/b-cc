@@ -32,14 +32,14 @@ b_py_answer_future_from_pointer(
   if (!self) {
     return NULL;
   }
-  struct B_PyAnswerFuture *future
+  struct B_PyAnswerFuture *future_py
     = (struct B_PyAnswerFuture *) self;
-  future->answer_future = answer_future;
-  return future;
+  future_py->answer_future = answer_future;
+  return future_py;
 }
 
 struct B_PyAnswerFutureClosure_ {
-  struct B_PyAnswerFuture *future;
+  struct B_PyAnswerFuture *future_py;
   PyObject *callback;
 };
 
@@ -51,7 +51,7 @@ b_py_answer_future_callback_(
   struct B_PyAnswerFutureClosure_ const *closure
     = callback_data;
   bool ok;
-  assert(closure->future->answer_future == future);
+  assert(closure->future_py->answer_future == future);
   if (!PyCallable_Check(closure->callback)) {
     PyErr_SetString(
       PyExc_TypeError, "callback must be callable");
@@ -59,7 +59,7 @@ b_py_answer_future_callback_(
     goto fail;
   }
   PyObject *args
-    = Py_BuildValue("(O)", (PyObject *) closure->future);
+    = Py_BuildValue("(O)", (PyObject *) closure->future_py);
   if (!args) {
     *e = b_py_error();
     goto fail;
@@ -75,7 +75,7 @@ b_py_answer_future_callback_(
 
   ok = true;
 done:
-  Py_DECREF(closure->future);
+  Py_DECREF(closure->future_py);
   Py_DECREF(closure->callback);
   return ok;
 
@@ -100,17 +100,17 @@ b_py_answer_future_add_callback_(
       PyExc_TypeError, "callback must be callable");
     return NULL;
   }
-  struct B_PyAnswerFuture *future
+  struct B_PyAnswerFuture *future_py
     = b_py_answer_future(self);
-  if (!future) {
+  if (!future_py) {
     return NULL;
   }
   struct B_Error e;
   if (!b_answer_future_add_callback(
-      future->answer_future,
+      future_py->answer_future,
       b_py_answer_future_callback_,
       &(struct B_PyAnswerFutureClosure_) {
-        .future = future,
+        .future_py = future_py,
         .callback = callback,
       },
       sizeof(struct B_PyAnswerFutureClosure_),
@@ -118,7 +118,7 @@ b_py_answer_future_add_callback_(
     b_py_raise(e);
     return NULL;
   }
-  Py_INCREF(future);
+  Py_INCREF(future_py);
   Py_INCREF(callback);
   Py_RETURN_NONE;
 }
