@@ -1,5 +1,8 @@
 #pragma once
 
+#include <B/Attributes.h>
+
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef int64_t B_ProcessID;
@@ -43,26 +46,32 @@ struct B_ProcessExitStatus {
 };
 
 #if defined(__cplusplus)
+extern "C" {
+#endif
+
+B_WUR B_EXPORT_FUNC bool
+b_process_exit_status_equal(
+    struct B_ProcessExitStatus const *,
+    struct B_ProcessExitStatus const *);
+
+#if defined(__cplusplus)
+}
+#endif
+
+#if defined(__cplusplus)
 # include <stdlib.h>
 
 static inline bool
 operator==(
     struct B_ProcessExitStatus a,
     struct B_ProcessExitStatus b) {
-  if (a.type != b.type) {
-    return false;
-  }
+  return b_process_exit_status_equal(&a, &b);
+}
 
-  switch (a.type) {
-  case B_PROCESS_EXIT_STATUS_SIGNAL:
-    return a.u.signal.signal_number
-      == b.u.signal.signal_number;
-  case B_PROCESS_EXIT_STATUS_CODE:
-    return a.u.code.exit_code == b.u.code.exit_code;
-  case B_PROCESS_EXIT_STATUS_EXCEPTION:
-    return a.u.exception.code == b.u.exception.code;
-  default:
-    abort();
-  }
+static inline bool
+operator!=(
+    struct B_ProcessExitStatus a,
+    struct B_ProcessExitStatus b) {
+  return !(a == b);
 }
 #endif

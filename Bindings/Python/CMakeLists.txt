@@ -21,6 +21,7 @@ add_library(
   PrivateHeaders/B/Py/Private/Database.h
   PrivateHeaders/B/Py/Private/FileQuestion.h
   PrivateHeaders/B/Py/Private/Main.h
+  PrivateHeaders/B/Py/Private/Process.h
   PrivateHeaders/B/Py/Private/Question.h
   PrivateHeaders/B/Py/Private/QuestionVTable.h
   PrivateHeaders/B/Py/Private/RunLoop.h
@@ -31,6 +32,7 @@ add_library(
   Source/FileQuestion.c
   Source/Main.c
   Source/Module.c
+  Source/Process.c
   Source/Question.c
   Source/QuestionVTable.c
   Source/RunLoop.c
@@ -92,4 +94,5 @@ endfunction ()
 add_unit_test(TestDatabase)
 add_unit_test(TestFileQuestion)
 add_unit_test(TestMain)
+add_unit_test(TestProcess)
 add_unit_test(TestRunLoop)

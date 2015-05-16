@@ -3,6 +3,7 @@
 #include <B/Py/Private/Database.h>
 #include <B/Py/Private/FileQuestion.h>
 #include <B/Py/Private/Main.h>
+#include <B/Py/Private/Process.h>
 #include <B/Py/Private/Question.h>
 #include <B/Py/Private/QuestionVTable.h>
 #include <B/Py/Private/RunLoop.h>
@@ -40,6 +41,9 @@ b_init_(
     return false;
   }
   if (!b_py_main_init(module)) {
+    return false;
+  }
+  if (!b_py_process_init(module)) {
     return false;
   }
   if (!b_py_run_loop_init(module)) {
