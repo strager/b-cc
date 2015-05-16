@@ -19,17 +19,11 @@ add_subdirectory(Examples/SelfCompile)
 add_subdirectory(Bindings/Python)
 
 add_subdirectory(Tests/Unit)
-add_subdirectory(Vendor/gmock-1.7.0)
+add_subdirectory(Vendor/gtest-1.7.0)
 add_subdirectory(Vendor/sphlib-3.0/c)
 add_subdirectory(Vendor/sqlite-3.8.4.1)
 
-# Omissions from CMakeLists.txt of gmock and gtest.
-target_include_directories(
-  gmock
-  INTERFACE
-  ${gmock_SOURCE_DIR}/include
-  ${gtest_SOURCE_DIR}/include
-)
+# Omissions from CMakeLists.txt of gtest.
 target_include_directories(
   gtest
   INTERFACE

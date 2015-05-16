@@ -1,3 +1,0 @@
-Home page: https://code.google.com/p/googlemock/
-Downloaded page: https://code.google.com/p/googlemock/downloads/detail?name=gmock-1.7.0.zip&can=2&q=
-Download link: https://googlemock.googlecode.com/files/gmock-1.7.0.zip
