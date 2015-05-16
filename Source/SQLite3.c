@@ -9,6 +9,7 @@
 B_WUR B_FUNC struct B_Error
 b_sqlite3_error(
     int sqlite_rc) {
+  (void) sqlite_rc;
   B_NYI();
   return (struct B_Error) {.posix_error = 0};
 }

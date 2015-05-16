@@ -402,7 +402,7 @@ b_run_loop_run_(
         return false;
       }
     } else {
-      for (int i = 0; i < pollfd_count; ++i) {
+      for (nfds_t i = 0; i < pollfd_count; ++i) {
         if (pollfds[i].revents & POLLIN) {
           if (pollfds[i].fd == sigchld_fd) {
             check_processes = true;

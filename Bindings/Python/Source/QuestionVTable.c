@@ -126,6 +126,9 @@ b_py_question_deserialize_(
     B_OUT_TRANSFER struct B_IQuestion **question,
     B_OUT struct B_Error *e) {
   __builtin_trap();
+  (void) byte_source;
+  (void) question;
+  (void) e;
 }
 
 // This template is copied and .uuid replaced for each

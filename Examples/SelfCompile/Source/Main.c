@@ -344,6 +344,8 @@ dispatch_question_(
     B_BORROW struct B_Main *main,
     B_TRANSFER struct B_AnswerContext *ac,
     B_OUT struct B_Error *e) {
+  (void) opaque;
+  (void) main;
   struct B_IQuestion *question;
   struct B_QuestionVTable const *question_vtable;
   if (!b_answer_context_question(
@@ -386,6 +388,7 @@ root_question_answered_(
     B_BORROW struct B_AnswerFuture *future,
     B_BORROW void const *opaque,
     B_OUT struct B_Error *e) {
+  (void) future;
   struct B_RunLoop *rl
     = *(struct B_RunLoop *const *) opaque;
   if (!b_run_loop_stop(rl, e)) {
@@ -522,6 +525,8 @@ int
 main(
     int argc,
     char **argv) {
+  (void) argc;
+  (void) argv;
   int exit_code;
   struct B_Error error;
   if (!run_(&exit_code, &error)) {

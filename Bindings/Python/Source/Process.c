@@ -137,6 +137,7 @@ b_py_process_exit_status_signal_new_(
     PyTypeObject *type,
     PyObject *args,
     PyObject *kwargs) {
+  (void) type;
   static char *keywords[] = {"signal_number", NULL};
   int signal_number;
   if (!PyArg_ParseTupleAndKeywords(
@@ -183,6 +184,7 @@ b_py_process_exit_status_exception_new_(
     PyTypeObject *type,
     PyObject *args,
     PyObject *kwargs) {
+  (void) type;
   static char *keywords[] = {"exception_code", NULL};
   if (sizeof(PY_LONG_LONG) < sizeof(uint32_t)) {
     // TODO(strager): static_assert.
@@ -237,6 +239,7 @@ b_py_process_exit_status_code_new_(
     PyTypeObject *type,
     PyObject *args,
     PyObject *kwargs) {
+  (void) type;
   static char *keywords[] = {"exit_code", NULL};
   if (sizeof(PY_LONG_LONG) < sizeof(int64_t)) {
     // TODO(strager): static_assert.

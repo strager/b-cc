@@ -16,7 +16,7 @@ enum B_ProcessExitStatusType {
 
   // A Win32 exception in the process (e.g.
   // EXCEPTION_ACCESS_VIOLATION) terminated the process.
-  B_PROCESS_EXIT_STATUS_EXCEPTION = 3,
+  B_PROCESS_EXIT_STATUS_EXCEPTION = 3
 };
 
 struct B_ProcessExitStatusSignal {

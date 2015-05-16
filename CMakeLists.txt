@@ -24,6 +24,9 @@ add_subdirectory(Vendor/gtest-1.7.0)
 add_subdirectory(Vendor/sphlib-3.0/c)
 add_subdirectory(Vendor/sqlite-3.8.4.1)
 
+include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
+
 # Omissions from CMakeLists.txt of gtest.
 target_include_directories(
   gtest
@@ -105,7 +108,10 @@ if (HAVE_STD_C99)
 endif ()
 
 # TODO(#29): Kill with fire.
-b_disable_gcc_warnings(TARGET b PRIVATE_WARNINGS main)
+b_disable_gcc_warnings(
+  TARGET b
+  PRIVATE_WARNINGS extended-offsetof main
+)
 
 target_compile_definitions(
   b

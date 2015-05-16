@@ -68,7 +68,7 @@ b_run_loop_function_noop_(
 B_FUNC bool
 b_run_loop_function_stop_no_closure_(
     B_BORROW struct B_RunLoop *rl,
-    B_BORROW void const *opaque,
+    B_BORROW void const *,
     B_OUT struct B_Error *) {
   struct B_Error e;
   EXPECT_TRUE(b_run_loop_stop(rl, &e));
@@ -78,7 +78,7 @@ b_run_loop_function_stop_no_closure_(
 B_FUNC bool
 b_run_loop_function_fail_no_closure_(
     B_BORROW struct B_RunLoop *,
-    B_BORROW void const *opaque,
+    B_BORROW void const *,
     B_OUT struct B_Error *) {
   ADD_FAILURE();
   return true;
@@ -173,7 +173,7 @@ public:
 }
 
 INSTANTIATE_TEST_CASE_P(
-  ,  // No prefix.
+  RunLoopFactories,
   TestRunLoop,
   ::testing::ValuesIn(factories));
 
@@ -586,7 +586,7 @@ private:
 
 static B_FUNC bool
 b_process_tree_callback_(
-    B_BORROW struct B_RunLoop *rl,
+    B_BORROW struct B_RunLoop *,
     B_BORROW struct B_ProcessExitStatus const *status,
     B_BORROW void const *opaque,
     B_OUT struct B_Error *e) {

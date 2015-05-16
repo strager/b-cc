@@ -16,6 +16,10 @@ struct B_AnswerVTable
 b_dummy_answer_vtable_ = {
   b_dummy_answer_deallocate_,
   // TODO(strager)
+  NULL,
+  NULL,
+  NULL,
+  NULL,
 };
 
 TEST(TestAnswerFuture, PendingState) {

@@ -135,6 +135,7 @@ b_py_run_loop_function_callback_(
     B_BORROW struct B_RunLoop *rl,
     B_BORROW void const *callback_data,
     B_OUT struct B_Error *e) {
+  (void) rl;
   struct B_PyRunLoopCallbackClosure_ const *closure
     = callback_data;
   bool ok;
@@ -174,6 +175,7 @@ b_py_run_loop_process_callback_(
     B_BORROW struct B_ProcessExitStatus const *exit_status,
     B_BORROW void const *callback_data,
     B_OUT struct B_Error *e) {
+  (void) rl;
   struct B_PyRunLoopCallbackClosure_ const *closure
     = callback_data;
   bool ok;
@@ -219,6 +221,8 @@ b_py_run_loop_cancel_callback_(
     B_BORROW struct B_RunLoop *rl,
     B_BORROW void const *callback_data,
     B_OUT struct B_Error *e) {
+  (void) rl;
+  (void) e;
   struct B_PyRunLoopCallbackClosure_ const *closure
     = callback_data;
   Py_DECREF(closure->callback);

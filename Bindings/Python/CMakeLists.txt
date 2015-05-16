@@ -73,7 +73,7 @@ endif ()
 # TODO(#29): Kill with fire.
 b_disable_gcc_warnings(
   TARGET b_Python
-  PRIVATE_WARNINGS main
+  PRIVATE_WARNINGS extended-offsetof main
 )
 
 # Allow Python to import our module by naming it _b.so (even

@@ -5,6 +5,7 @@ B_FUNC void
 b_py_raise(
     struct B_Error error) {
   // TODO(strager)
+  (void) error;
   __builtin_trap();
 }
 
@@ -19,6 +20,7 @@ B_FUNC struct B_Error
 b_py_error_from(
     PyObject *object) {
   // TODO(strager)
+  (void) object;
   return (struct B_Error) {.posix_error = EINVAL};
 }
 

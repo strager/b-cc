@@ -303,7 +303,8 @@ b_run_loop_run_(
       return false;
     }
     B_ASSERT(
-      event_count <= sizeof(events) / sizeof(*events));
+      (size_t) event_count
+        <= sizeof(events) / sizeof(*events));
     for (int i = 0; i < event_count; ++i) {
       switch (events[i].filter) {
       case EVFILT_USER:

@@ -13,7 +13,7 @@ struct B_AnswerFuture;
 enum B_AnswerFutureState {
   B_FUTURE_PENDING = 1,
   B_FUTURE_RESOLVED = 2,
-  B_FUTURE_FAILED = 3,
+  B_FUTURE_FAILED = 3
 };
 
 typedef B_FUNC bool

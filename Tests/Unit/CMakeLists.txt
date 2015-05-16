@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 enable_testing()
 
+include(CheckCXXCompilerFlag)
+
 project(b_TestUnit)
 
 add_library(
