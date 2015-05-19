@@ -379,7 +379,7 @@ b_py_run_loop_methods_[] = {
     .ml_flags = METH_KEYWORDS,
     .ml_doc = "",
   },
-  {},
+  B_PY_METHOD_DEF_END
 };
 
 static PyTypeObject

@@ -25,7 +25,7 @@ b_question_serialize_to_memory(
   }
   if (!vtable->serialize(question, sink, e)) {
     (void) b_byte_sink_in_memory_release(
-      &storage, &(struct B_Error) {});
+      &storage, &(struct B_Error) {.posix_error = 0});
     return false;
   }
   uint8_t *data;
@@ -86,7 +86,7 @@ b_answer_serialize_to_memory(
   }
   if (!vtable->serialize(answer, sink, e)) {
     (void) b_byte_sink_in_memory_release(
-      &storage, &(struct B_Error) {});
+      &storage, &(struct B_Error) {.posix_error = 0});
     return false;
   }
   uint8_t *data;

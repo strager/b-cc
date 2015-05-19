@@ -40,7 +40,9 @@ b_run_loop_function_list_deinitialize(
   B_SLIST_FOREACH_SAFE(
       entry, functions, link, temp_entry) {
     if (!entry->cancel_callback(
-        rl, entry->user_data.bytes, &(struct B_Error) {})) {
+        rl,
+        entry->user_data.bytes,
+        &(struct B_Error) {.posix_error = 0})) {
       B_NYI();
     }
     b_deallocate(entry);
@@ -103,7 +105,7 @@ b_run_loop_function_list_run_one(
   if (!entry->callback(
       run_loop,
       entry->user_data.bytes,
-      &(struct B_Error) {})) {
+      &(struct B_Error) {.posix_error = 0})) {
     B_NYI();
   }
   b_deallocate(entry);

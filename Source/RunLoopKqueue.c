@@ -322,7 +322,7 @@ b_run_loop_run_(
               &rl->super,
               &s,
               entry->user_data.bytes,
-              &(struct B_Error) {})) {
+              &(struct B_Error) {.posix_error = 0})) {
             B_NYI();
           }
           b_deallocate(entry);

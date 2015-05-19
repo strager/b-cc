@@ -93,7 +93,7 @@ b_run_loop_sigchld_handler(
 # endif
 # if B_USE_PIPE_
   B_ASSERT(b_sigchld_pipe_write_ != -1);
-  uint8_t data[1] = {};
+  uint8_t data[1] = {0};
   ssize_t rc = write(
     b_sigchld_pipe_write_, data, sizeof(data));
   if (rc == -1) {
@@ -178,7 +178,7 @@ b_run_loop_notify_(
   return true;
 # endif
 # if B_USE_PIPE_
-  uint8_t data[1] = {};
+  uint8_t data[1] = {0};
   ssize_t rc = write(
     rl->functions_pipe_write, data, sizeof(data));
   if (rc == -1) {
@@ -325,7 +325,7 @@ b_run_loop_check_processes_(
         entry->u.pid,
         &exited,
         &waitpid_status,
-        &(struct B_Error) {})) {
+        &(struct B_Error) {.posix_error = 0})) {
       B_NYI();
     }
     if (exited) {
@@ -350,7 +350,7 @@ b_run_loop_check_processes_(
         &rl->super,
         &exit_status,
         entry->user_data.bytes,
-        &(struct B_Error) {})) {
+        &(struct B_Error) {.posix_error = 0})) {
       B_NYI();
     }
     b_deallocate(entry);

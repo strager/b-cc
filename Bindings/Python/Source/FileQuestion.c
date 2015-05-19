@@ -95,7 +95,7 @@ b_py_file_question_getset_[] = {
     .doc = NULL,
     .closure = NULL,
   },
-  {},
+  B_PY_GET_SET_DEF_END
 };
 
 static PyTypeObject

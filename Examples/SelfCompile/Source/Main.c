@@ -197,7 +197,7 @@ static bool
 link_(
     B_TRANSFER struct B_AnswerContext *ac,
     B_OUT struct B_Error *e) {
-  struct B_IQuestion *questions[SOURCE_COUNT_] = {};
+  struct B_IQuestion *questions[SOURCE_COUNT_];
   struct B_QuestionVTable const *vtables[SOURCE_COUNT_];
   for (size_t i = 0; i < SOURCE_COUNT_; ++i) {
     char *obj_path = strdup(sources_[i]);

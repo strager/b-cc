@@ -12,6 +12,38 @@ struct B_PyIntConstant {
   int value;
 };
 
+#define B_PY_INT_CONSTANT_END \
+  { \
+    .name = NULL, \
+    .value = 0, \
+  }
+
+#define B_PY_GET_SET_DEF_END \
+  { \
+    .closure = NULL, \
+    .doc = NULL, \
+    .get = NULL, \
+    .name = NULL, \
+    .set = NULL, \
+  }
+
+#define B_PY_MEMBER_DEF_END \
+  { \
+    .doc = NULL, \
+    .flags = 0, \
+    .name = NULL, \
+    .offset = 0, \
+    .type = 0, \
+  }
+
+#define B_PY_METHOD_DEF_END \
+  { \
+    .ml_doc = NULL, \
+    .ml_flags = 0, \
+    .ml_meth = NULL, \
+    .ml_name = NULL, \
+  }
+
 #if defined(__cplusplus)
 extern "C" {
 #endif

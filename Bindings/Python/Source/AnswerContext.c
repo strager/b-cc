@@ -220,7 +220,7 @@ b_py_answer_context_methods_[] = {
     .ml_flags = METH_KEYWORDS,
     .ml_doc = "",
   },
-  {},
+  B_PY_METHOD_DEF_END
 };
 
 static PyObject *
@@ -264,7 +264,7 @@ b_py_answer_context_getset_[] = {
     .doc = NULL,
     .closure = NULL,
   },
-  {},
+  B_PY_GET_SET_DEF_END
 };
 
 static PyTypeObject

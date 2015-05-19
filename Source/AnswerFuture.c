@@ -96,7 +96,7 @@ b_answer_future_check_callbacks_(
         if (!callback_entry->callback(
             future,
             callback_entry->user_data.bytes,
-            &(struct B_Error) {})) {
+            &(struct B_Error) {.posix_error = 0})) {
           B_NYI();
         }
         b_deallocate(callback_entry);
@@ -179,7 +179,7 @@ b_answer_future_resolve(
   entry->state = B_FUTURE_RESOLVED;
   entry->result.answer = answer;
   if (!b_answer_future_check_callbacks_(
-      future, &(struct B_Error) {})) {
+      future, &(struct B_Error) {.posix_error = 0})) {
     B_NYI();
   }
   return true;
@@ -200,7 +200,7 @@ b_answer_future_fail(
   entry->state = B_FUTURE_FAILED;
   entry->result.error = error;
   if (!b_answer_future_check_callbacks_(
-      future, &(struct B_Error) {})) {
+      future, &(struct B_Error) {.posix_error = 0})) {
     B_NYI();
   }
   return true;
@@ -327,7 +327,9 @@ b_answer_future_add_callback(
   case B_FUTURE_RESOLVED:
   case B_FUTURE_FAILED:
     if (!callback(
-        future, callback_data, &(struct B_Error) {})) {
+        future,
+        callback_data,
+        &(struct B_Error) {.posix_error = 0})) {
       B_NYI();
     }
     return true;
@@ -426,7 +428,8 @@ b_answer_future_join_child_callback_(
     }
   }
   if (!b_answer_future_check_callbacks_(
-      closure->parent_future, &(struct B_Error) {})) {
+      closure->parent_future,
+      &(struct B_Error) {.posix_error = 0})) {
     B_NYI();
   }
   b_answer_future_release(closure->parent_future);

@@ -244,7 +244,8 @@ b_database_open_sqlite3(
   return true;
 
 fail:
-  (void) b_database_close(database, &(struct B_Error) {});
+  (void) b_database_close(
+    database, &(struct B_Error) {.posix_error = 0});
   return false;
 }
 
@@ -826,7 +827,7 @@ look_up_answer_locked_(
     e);
   // Ignore errors, as our lookup is done.
   (void) b_sqlite3_step_expecting_end(
-    stmt, &(struct B_Error) {});
+    stmt, &(struct B_Error) {.posix_error = 0});
   if (!ok) {
     goto done_reset;
   }

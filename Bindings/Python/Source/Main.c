@@ -180,7 +180,7 @@ b_py_main_methods_[] = {
     .ml_flags = METH_KEYWORDS,
     .ml_doc = "",
   },
-  {},
+  B_PY_METHOD_DEF_END
 };
 
 static PyTypeObject

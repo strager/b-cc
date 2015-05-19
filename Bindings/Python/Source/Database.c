@@ -262,7 +262,7 @@ b_py_database_methods_[] = {
     .ml_flags = METH_KEYWORDS,
     .ml_doc = "",
   },
-  {},
+  B_PY_METHOD_DEF_END
 };
 
 static struct B_PyIntConstant
@@ -276,7 +276,7 @@ b_py_database_constants_[] = {
   {"SQLITE_OPEN_READWRITE",    SQLITE_OPEN_READWRITE},
   {"SQLITE_OPEN_SHAREDCACHE",  SQLITE_OPEN_SHAREDCACHE},
   {"SQLITE_OPEN_URI",          SQLITE_OPEN_URI},
-  {},
+  B_PY_INT_CONSTANT_END
 };
 
 static PyTypeObject

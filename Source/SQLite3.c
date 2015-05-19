@@ -10,7 +10,7 @@ B_WUR B_FUNC struct B_Error
 b_sqlite3_error(
     int sqlite_rc) {
   B_NYI();
-  return (struct B_Error) {};
+  return (struct B_Error) {.posix_error = 0};
 }
 
 B_WUR B_EXPORT_FUNC bool

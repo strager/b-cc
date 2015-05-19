@@ -129,7 +129,7 @@ b_py_process_exit_status_signal_members_[] = {
         status.u.signal.signal_number),
     .type = T_INT,
   },
-  {},
+  B_PY_MEMBER_DEF_END
 };
 
 static PyObject *
@@ -175,7 +175,7 @@ b_py_process_exit_status_exception_members_[] = {
         status.u.exception.code),
     .type = T_UINT,  // FIXME(strager)
   },
-  {},
+  B_PY_MEMBER_DEF_END
 };
 
 static PyObject *
@@ -229,7 +229,7 @@ b_py_process_exit_status_code_members_[] = {
         status.u.code.exit_code),
     .type = T_ULONGLONG,  // FIXME(strager)
   },
-  {},
+  B_PY_MEMBER_DEF_END
 };
 
 static PyObject *

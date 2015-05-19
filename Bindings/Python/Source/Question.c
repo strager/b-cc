@@ -139,7 +139,7 @@ b_py_question_methods_[] = {
     .ml_flags = METH_KEYWORDS,
     .ml_doc = "",
   },
-  {},
+  B_PY_METHOD_DEF_END
 };
 
 PyTypeObject

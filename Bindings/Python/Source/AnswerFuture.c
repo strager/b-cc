@@ -132,7 +132,7 @@ b_py_answer_future_methods_[] = {
     .ml_flags = METH_KEYWORDS,
     .ml_doc = "",
   },
-  {},
+  B_PY_METHOD_DEF_END
 };
 
 static PyObject *
@@ -168,7 +168,7 @@ b_py_answer_future_getset_[] = {
     .doc = NULL,
     .closure = NULL,
   },
-  {},
+  B_PY_GET_SET_DEF_END
 };
 
 static struct B_PyIntConstant
@@ -176,7 +176,7 @@ b_py_answer_future_constants_[] = {
   {"FAILED",   B_FUTURE_FAILED},
   {"PENDING",  B_FUTURE_PENDING},
   {"RESOLVED", B_FUTURE_RESOLVED},
-  {},
+  B_PY_INT_CONSTANT_END
 };
 
 static PyTypeObject
