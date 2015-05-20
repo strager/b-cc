@@ -216,7 +216,7 @@ root_question_answered_(
   return true;
 }
 
-bool
+static bool
 run_(
     int *exit_code,
     struct B_Error *e) {

@@ -21,6 +21,7 @@
 # endif
 
 # include <errno.h>
+# include <limits.h>
 # include <poll.h>
 # include <signal.h>
 # include <string.h>
@@ -243,6 +244,11 @@ b_run_loop_add_process_id_(
 
   struct B_RunLoopSigchld_ *rl
     = (struct B_RunLoopSigchld_ *) run_loop;
+  if (pid >= (1L << ((sizeof(pid_t) * CHAR_BIT) - 1))) {
+    *e = (struct B_Error) {.posix_error = EINVAL};
+    return false;
+  }
+  pid_t native_pid = (pid_t) pid;
   // TODO(strager): Check for overflow.
   size_t entry_size = offsetof(
     struct B_RunLoopSigchldProcessEntry_,
@@ -251,7 +257,7 @@ b_run_loop_add_process_id_(
   if (!b_allocate(entry_size, (void **) &entry, e)) {
     return false;
   }
-  entry->u.pid = pid;
+  entry->u.pid = native_pid;
   entry->callback = callback;
   entry->cancel_callback = cancel_callback;
   if (callback_data) {

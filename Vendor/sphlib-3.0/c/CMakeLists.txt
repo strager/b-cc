@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-include(CheckCCompilerFlag)
+include(../../../CMake/b_disable_gcc_warnings.cmake)
 
 project(b_sphlib)
 
@@ -12,22 +12,16 @@ add_library(
   sph_types.h
 )
 target_include_directories(b_sphlib_sha2 PUBLIC .)
-check_c_compiler_flag(
-  -Wlong-long
-  HAVE_W_LONG_LONG
+b_disable_gcc_warnings(
+  TARGET b_sphlib_sha2
+  PRIVATE_WARNINGS
+  long-long
+  shorten-64-to-32
+  sign-conversion
+  # Should be under WARNINGS, but we don't want -Wno-undef
+  # for the B library.
+  undef
 )
-if (HAVE_W_LONG_LONG)
-  set_property(
-    TARGET b_sphlib_sha2
-    APPEND
-    PROPERTY COMPILE_OPTIONS -Wno-long-long
-  )
-  set_property(
-    TARGET b_sphlib_sha2
-    APPEND
-    PROPERTY INTERFACE_COMPILE_OPTIONS -Wno-long-long
-  )
-endif ()
 add_library(
   b_sphlib_utest
   STATIC
@@ -35,6 +29,10 @@ add_library(
   utest.h
 )
 target_include_directories(b_sphlib_utest PUBLIC .)
+b_disable_gcc_warnings(
+  TARGET b_sphlib_utest
+  PRIVATE_WARNINGS sign-conversion
+)
 add_executable(
   b_sphlib_test_sha2
   test_sha2.c
@@ -43,6 +41,10 @@ target_link_libraries(
   b_sphlib_test_sha2
   b_sphlib_sha2
   b_sphlib_utest
+)
+b_disable_gcc_warnings(
+  TARGET b_sphlib_test_sha2
+  PRIVATE_WARNINGS long-long undef
 )
 target_include_directories(b_sphlib_test_sha2 PUBLIC .)
 add_test(

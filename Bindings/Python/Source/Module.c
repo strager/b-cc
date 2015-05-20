@@ -54,6 +54,10 @@ b_init_(
 
 PyMODINIT_FUNC
 init_b(
+    void);
+
+PyMODINIT_FUNC
+init_b(
     void) {
   PyErr_SetString(PyExc_TypeError, "hello");
   if (b_init_()) {

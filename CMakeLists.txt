@@ -35,8 +35,14 @@ target_include_directories(
 )
 b_disable_gcc_warnings(
     TARGET gtest
-    PRIVATE_WARNINGS missing-field-initializers
-    WARNINGS long-long variadic-macros
+    PRIVATE_WARNINGS
+    missing-field-initializers
+    sign-conversion
+    WARNINGS
+    long-long
+    missing-prototypes
+    undef
+    variadic-macros
 )
 
 find_package(Threads REQUIRED)
@@ -96,6 +102,24 @@ target_link_libraries(
   ${CMAKE_THREAD_LIBS_INIT}
   b_sphlib_sha2
 )
+
+# Disable some warnings due to sphlib nonsense.
+check_c_compiler_flag(-Wconversion HAVE_W_CONVERSION)
+if (HAVE_W_CONVERSION)
+  set_property(
+    SOURCE Source/FileQuestion.c
+    APPEND_STRING
+    PROPERTY COMPILE_FLAGS " -Wno-conversion"
+  )
+endif ()
+check_c_compiler_flag(-Wundef HAVE_W_UNDEF)
+if (HAVE_W_UNDEF)
+  set_property(
+    SOURCE Source/FileQuestion.c
+    APPEND_STRING
+    PROPERTY COMPILE_FLAGS " -Wno-undef"
+  )
+endif ()
 
 # Compile as C99.
 check_c_compiler_flag(-std=c99 HAVE_STD_C99)

@@ -29,9 +29,12 @@ b_sqlite3_bind_blob(
 
   // FIXME(strager): Should this be a reported error?
   B_ASSERT(data_size <= INT_MAX);
-
   int rc = sqlite3_bind_blob(
-    stmt, host_parameter_name, data, data_size, destructor);
+    stmt,
+    host_parameter_name,
+    data,
+    (int) data_size,
+    destructor);
   if (rc != SQLITE_OK) {
     *e = b_sqlite3_error(rc);
     return false;
@@ -61,7 +64,7 @@ b_sqlite3_value_blob(
   // sqlite3_column_blob.
   int size = sqlite3_value_bytes(value);
   B_ASSERT(size >= 0);
-  *out_size = size;
+  *out_size = (size_t) size;
   if (size == 0) {
     // "The return value from sqlite3_column_blob() for a
     // zero-length BLOB is a NULL pointer."
@@ -106,8 +109,10 @@ b_sqlite3_prepare(
   B_OUT_PARAMETER(e);
 
   sqlite3_stmt *stmt;
+  // FIXME(strager): Should this be a reported error?
+  B_ASSERT(query_size <= INT_MAX);
   int rc = sqlite3_prepare_v2(
-    handle, query, query_size, &stmt, NULL);
+    handle, query, (int) query_size, &stmt, NULL);
   if (rc != SQLITE_OK) {
     *e = b_sqlite3_error(rc);
     return false;

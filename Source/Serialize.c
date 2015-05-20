@@ -32,8 +32,12 @@ byte_sink_in_memory_write_bytes_(
   if ((size_t) (storage->data_end - storage->data_cur)
       < data_size) {
     // Grow the buffer.
-    size_t offset = storage->data_cur - storage->data;
-    size_t old_size = storage->data_end - storage->data;
+    B_ASSERT(storage->data_cur >= storage->data);
+    size_t offset
+      = (size_t) (storage->data_cur - storage->data);
+    B_ASSERT(storage->data_end >= storage->data);
+    size_t old_size
+      = (size_t) (storage->data_end - storage->data);
     // TODO(strager): Use a smarter algorithm.
     // TODO(strager): Check for overflos.
     size_t new_size = old_size + data_size;
@@ -114,7 +118,8 @@ b_byte_sink_in_memory_finalize(
   }
 
   *data = storage->data;
-  *data_size = storage->data_cur - storage->data;
+  B_ASSERT(storage->data_cur >= storage->data);
+  *data_size = (size_t) (storage->data_cur - storage->data);
   return true;
 }
 
@@ -333,8 +338,8 @@ b_deserialize_2_be(
     return false;
   }
   *out
-    = ((uint16_t) bytes[0] << 8)
-    | ((uint16_t) bytes[1] << 0);
+    = ((uint16_t) (bytes[0] << 8))
+    | ((uint16_t) (bytes[1] << 0));
   return true;
 }
 

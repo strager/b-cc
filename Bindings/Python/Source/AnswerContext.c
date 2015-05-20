@@ -77,10 +77,8 @@ b_py_answer_context_need_(
     if (length_signed == -1) {
       __builtin_trap();
     }
-    if (length_signed < -1) {
-      __builtin_trap();
-    }
-    question_count = length_signed;
+    assert(length_signed >= 0);
+    question_count = (size_t) length_signed;
     // TODO(strager): Check for overflow.
     questions = PyMem_Malloc(
       sizeof(*questions) * question_count);
@@ -94,7 +92,9 @@ b_py_answer_context_need_(
       __builtin_trap();
     }
     for (size_t i = 0; i < question_count; ++i) {
-      PyObject *o = PySequence_GetItem(questions_object, i);
+      assert(i < SSIZE_MAX);
+      PyObject *o = PySequence_GetItem(
+        questions_object, (ssize_t) i);
       struct B_PyQuestion *q_py = b_py_question(o);
       if (!q_py) {
         __builtin_trap();

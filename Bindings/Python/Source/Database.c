@@ -144,7 +144,9 @@ b_py_database_check_all_(
       __builtin_trap();
     }
     for (size_t i = 0; i < vtable_count; ++i) {
-      PyObject *o = PySequence_GetItem(question_classes, i);
+      assert(i < SSIZE_MAX);
+      PyObject *o = PySequence_GetItem(
+        question_classes, (ssize_t) i);
       if (!PyType_Check(o)) {
         PyErr_SetString(
           PyExc_TypeError, "Expected Question type");

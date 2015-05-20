@@ -201,7 +201,7 @@ b_py_process_exit_status_exception_new_(
   struct B_ProcessExitStatus status = {
     .type = B_PROCESS_EXIT_STATUS_EXCEPTION,
     // FIXME(strager): What about truncation?
-    .u = {.exception = {.code = exception_code}},
+    .u = {.exception = {.code = (uint32_t) exception_code}},
   };
   return (PyObject *)
     b_py_process_exit_status_from_pointer(&status);

@@ -13,6 +13,7 @@
 # include <B/RunLoop.h>
 
 # include <errno.h>
+# include <limits.h>
 # include <stddef.h>
 # include <string.h>
 # include <sys/event.h>
@@ -206,6 +207,11 @@ b_run_loop_add_process_id_(
 
   struct B_RunLoopKqueue_ *rl
     = (struct B_RunLoopKqueue_ *) run_loop;
+  if (pid >= (1L << ((sizeof(pid_t) * CHAR_BIT) - 1))) {
+    *e = (struct B_Error) {.posix_error = EINVAL};
+    return false;
+  }
+  pid_t native_pid = (pid_t) pid;
   // TODO(strager): Check for overflow.
   size_t entry_size = offsetof(
     struct B_RunLoopKqueueProcessEntry_,
@@ -223,7 +229,7 @@ b_run_loop_add_process_id_(
       callback_data_size);
   }
   int rc = kevent(rl->fd, &(struct kevent) {
-    .ident = pid,
+    .ident = (uintptr_t) native_pid,
     .filter = EVFILT_PROC,
     .flags = EV_ADD | EV_ONESHOT,
     .fflags = NOTE_EXIT | NOTE_EXITSTATUS,
@@ -240,7 +246,7 @@ b_run_loop_add_process_id_(
     // kevent will fail with ESRCH.
     int status;
 retry:;
-    pid_t new_pid = waitpid(pid, &status, WNOHANG);
+    pid_t new_pid = waitpid(native_pid, &status, WNOHANG);
     if (new_pid == -1) {
       if (errno == EINTR) {
         goto retry;
@@ -248,7 +254,7 @@ retry:;
       *e = (struct B_Error) {.posix_error = errno};
       return false;
     }
-    B_ASSERT(new_pid == pid);
+    B_ASSERT(new_pid == native_pid);
     struct B_ProcessExitStatus exit_status
       = b_exit_status_from_waitpid_status(status);
     if (!b_run_loop_add_process_id_kqueue_fallback_(
@@ -318,7 +324,7 @@ b_run_loop_run_(
               events[i].udata;
           struct B_ProcessExitStatus s
             = b_exit_status_from_waitpid_status(
-              events[i].data);
+              (int) events[i].data);
           if (!entry->callback(
               &rl->super,
               &s,

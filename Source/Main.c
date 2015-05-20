@@ -5,6 +5,7 @@
 #include <B/Private/Assertions.h>
 #include <B/Private/Database.h>
 #include <B/Private/Log.h>
+#include <B/Private/Main.h>
 #include <B/Private/Memory.h>
 #include <B/QuestionAnswer.h>
 #include <B/RunLoop.h>

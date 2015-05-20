@@ -5,6 +5,7 @@
 #include <B/Error.h>
 #include <B/Memory.h>
 #include <B/Private/Assertions.h>
+#include <B/Private/Database.h>
 #include <B/Private/Log.h>
 #include <B/Private/Memory.h>
 #include <B/Private/Mutex.h>
@@ -811,7 +812,7 @@ look_up_answer_locked_(
     ok = false;
     goto done_reset;
   }
-  answer_buffer.size = sqlite3_column_bytes(
+  answer_buffer.size = (size_t) sqlite3_column_bytes(
     stmt, B_SELECT_ANSWER_ANSWER_DATA);
   if (!answer_buffer.data) {
     // "The return value from sqlite3_column_blob() for

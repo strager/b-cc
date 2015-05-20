@@ -83,7 +83,7 @@ private:
     if (this->path_.empty()) {
       return;
     }
-    size_t fdCount = 10;
+    int fdCount = 10;
     int rc = nftw(
       this->path_.c_str(),
       remove_path,
