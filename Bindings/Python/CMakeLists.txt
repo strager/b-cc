@@ -82,10 +82,21 @@ set_property(TARGET b_Python PROPERTY OUTPUT_NAME _b)
 set_property(TARGET b_Python PROPERTY PREFIX "")
 set_property(TARGET b_Python PROPERTY SUFFIX .so)
 
+b_add_python_package(
+  b_PythonPackage
+  SOURCE_BASE Source
+  b/__init__.py
+  b/twisted.py
+)
+
 function (ADD_UNIT_TEST NAME)
   set(TARGET "b_Python_${NAME}")
   b_add_python_executable("${TARGET}" "Tests/${NAME}.py")
-  b_add_python_test("${TARGET}" MODULES b_Python)
+  b_add_python_test(
+    "${TARGET}"
+    MODULES b_Python
+    PACKAGES b_PythonPackage
+  )
 endfunction ()
 
 add_unit_test(TestDatabase)

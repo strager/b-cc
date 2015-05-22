@@ -252,5 +252,44 @@ class TestRunLoopSigchld(
   def _create_run_loop(self):
     return _b.RunLoop.sigchld()
 
+def twisted_exit_reason_to_exit_status(reason):
+  import twisted.internet.error as error
+  if isinstance(reason.value, error.ProcessDone):
+    return _b.ProcessExitStatusCode(0)
+  if isinstance(reason.value, error.ProcessTerminated):
+    if reason.value.exitCode is not None:
+      return _b.ProcessExitStatusCode(reason.value.exitCode)
+    if reason.value.signal is not None:
+      return _b.ProcessExitStatusSignal(reason.value.signal)
+  raise NotImplementedError(
+    'Unknown exit reason {}'.format(reason),
+  )
+
+class TestRunLoopTwistedGlobal(
+  unittest.TestCase,
+  TestRunLoopMixin,
+):
+  def _create_run_loop(self):
+    import b.twisted
+    return b.twisted.TwistedRunLoop.with_global_reactor()
+
+  def _spawn_process(self, args, run_loop, callback):
+    from twisted.internet.protocol import ProcessProtocol
+    class Protocol(ProcessProtocol):
+      def processEnded(self, reason):
+        callback(twisted_exit_reason_to_exit_status(reason))
+    run_loop.reactor.spawnProcess(
+      processProtocol=Protocol(),
+      executable=args[0],
+      args=args,
+    )
+
+  @unittest.skip(
+    'Twisted does not stop immediately; it runs all '
+    'timers.',
+  )
+  def test_two_stop_functions(self):
+    pass
+
 if __name__ == '__main__':
   unittest.main()

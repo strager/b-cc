@@ -13,7 +13,7 @@ before_install:
   - bash -x -c 'for i in {0..5}; do if sudo apt-get update -qq; then exit 0; fi; sleep 5; done; exit 1'
 
 install:
-  - sudo apt-get install valgrind $apt_packages
+  - sudo apt-get install valgrind python-twisted-core $apt_packages
 
   # Travis runs Ubuntu 12.04, but 12.04 does not have CMake
   # 3.x. Run the CMake's custom installer to install CMake
