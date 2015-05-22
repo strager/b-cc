@@ -10,6 +10,10 @@ class TestProcessExitStatus(unittest.TestCase):
     self.assertEqual(19, s.exit_code)
     self.assertEqual(_b.ProcessExitStatusCode(19), s)
     self.assertNotEqual(_b.ProcessExitStatusCode(20), s)
+    self.assertEqual(
+      'ProcessExitStatusCode(19)',
+      repr(_b.ProcessExitStatusCode(19)),
+    )
 
   def test_signal(self):
     s = _b.ProcessExitStatusSignal(signal.SIGTERM)
@@ -22,6 +26,14 @@ class TestProcessExitStatus(unittest.TestCase):
       _b.ProcessExitStatusSignal(signal.SIGSEGV),
       s,
     )
+    self.assertEqual(
+      'ProcessExitStatusSignal(signal.SIGSEGV)',
+      repr(_b.ProcessExitStatusSignal(signal.SIGSEGV)),
+    )
+    self.assertEqual(
+      'ProcessExitStatusSignal(0)',
+      repr(_b.ProcessExitStatusSignal(0)),
+    )
 
   def test_exception(self):
     s = _b.ProcessExitStatusException(0xC0000004)
@@ -33,6 +45,10 @@ class TestProcessExitStatus(unittest.TestCase):
     self.assertNotEqual(
       _b.ProcessExitStatusException(0xC0000002),
       s,
+    )
+    self.assertEqual(
+      'ProcessExitStatusException(0xC0000004)',
+      repr(_b.ProcessExitStatusException(0xC0000004)),
     )
 
   def test_mix(self):

@@ -152,6 +152,49 @@ b_py_process_exit_status_signal_new_(
     b_py_process_exit_status_from_pointer(&status);
 }
 
+static char const *
+b_py_signal_string_(
+    int signal_number) {
+  switch (signal_number) {
+    case SIGSEGV: return "SIGSEGV";
+    // TODO(strager): More signals.
+    default:
+      return NULL;
+  }
+}
+
+static PyObject *
+b_py_process_exit_status_signal_repr_(
+    PyObject *self) {
+  struct B_PyProcessExitStatus *status_py
+    = b_py_process_exit_status(self);
+  if (!status_py) {
+    return NULL;
+  }
+  assert(
+    status_py->status.type == B_PROCESS_EXIT_STATUS_SIGNAL);
+  char buffer[128];  // More than enough.
+  int sig = status_py->status.u.signal.signal_number;
+  char const *signal_string = b_py_signal_string_(sig);
+  int rc;
+  if (signal_string) {
+    rc = snprintf(
+      buffer,
+      sizeof(buffer),
+      "ProcessExitStatusSignal(signal.%s)",
+      signal_string);
+  } else {
+    rc = snprintf(
+      buffer,
+      sizeof(buffer),
+      "ProcessExitStatusSignal(%d)",
+      sig);
+  }
+  assert(rc >= 0);
+  assert((size_t) rc < sizeof(buffer) - 1);
+  return PyString_FromString(buffer);
+}
+
 static PyTypeObject
 b_py_process_exit_status_signal_type_ = {
   PyVarObject_HEAD_INIT(NULL, 0)
@@ -163,6 +206,7 @@ b_py_process_exit_status_signal_type_ = {
   .tp_members = b_py_process_exit_status_signal_members_,
   .tp_name = "_b.ProcessExitStatusSignal",
   .tp_new = b_py_process_exit_status_signal_new_,
+  .tp_repr = b_py_process_exit_status_signal_repr_,
 };
 
 static PyMemberDef
@@ -207,6 +251,30 @@ b_py_process_exit_status_exception_new_(
     b_py_process_exit_status_from_pointer(&status);
 }
 
+static PyObject *
+b_py_process_exit_status_exception_repr_(
+    PyObject *self) {
+  struct B_PyProcessExitStatus *status_py
+    = b_py_process_exit_status(self);
+  if (!status_py) {
+    return NULL;
+  }
+  assert(status_py->status.type
+    == B_PROCESS_EXIT_STATUS_EXCEPTION);
+  char buffer[39];  // Exact length needed.
+  assert(sizeof(unsigned)
+    >= sizeof(status_py->status.u.exception.code));
+  int rc = snprintf(
+    buffer,
+    sizeof(buffer),
+    "ProcessExitStatusException(0x%08X)",
+    (unsigned) status_py->status.u.exception.code);
+  assert(rc >= 0);
+  assert(rc == sizeof(buffer) - 1);
+  assert(buffer[sizeof(buffer) - 1] == '\0');
+  return PyString_FromString(buffer);
+}
+
 static PyTypeObject
 b_py_process_exit_status_exception_type_ = {
   PyVarObject_HEAD_INIT(NULL, 0)
@@ -218,6 +286,7 @@ b_py_process_exit_status_exception_type_ = {
   .tp_members = b_py_process_exit_status_exception_members_,
   .tp_name = "_b.ProcessExitStatusException",
   .tp_new = b_py_process_exit_status_exception_new_,
+  .tp_repr = b_py_process_exit_status_exception_repr_,
 };
 
 static PyMemberDef
@@ -262,6 +331,29 @@ b_py_process_exit_status_code_new_(
     b_py_process_exit_status_from_pointer(&status);
 }
 
+static PyObject *
+b_py_process_exit_status_code_repr_(
+    PyObject *self) {
+  struct B_PyProcessExitStatus *status_py
+    = b_py_process_exit_status(self);
+  if (!status_py) {
+    return NULL;
+  }
+  assert(
+    status_py->status.type == B_PROCESS_EXIT_STATUS_CODE);
+  char buffer[128];  // More than enough.
+  assert(sizeof(long long)
+    >= sizeof(status_py->status.u.code.exit_code));
+  int rc = snprintf(
+    buffer,
+    sizeof(buffer),
+    "ProcessExitStatusCode(%lld)",
+    (long long) status_py->status.u.code.exit_code);
+  assert(rc >= 0);
+  assert((size_t) rc < sizeof(buffer) - 1);
+  return PyString_FromString(buffer);
+}
+
 static PyTypeObject
 b_py_process_exit_status_code_type_ = {
   PyVarObject_HEAD_INIT(NULL, 0)
@@ -273,6 +365,7 @@ b_py_process_exit_status_code_type_ = {
   .tp_members = b_py_process_exit_status_code_members_,
   .tp_name = "_b.ProcessExitStatusCode",
   .tp_new = b_py_process_exit_status_code_new_,
+  .tp_repr = b_py_process_exit_status_code_repr_,
 };
 
 B_WUR B_FUNC bool
