@@ -107,7 +107,7 @@ class TestRunLoopMixin(object):
     self.assertNotEqual(
       (callback_1, (), {}) in called,
       (callback_2, (), {}) in called,
-      'Only one callback should have been called'
+      'Only one callback should have been called',
     )
 
   def test_true_process(self):
