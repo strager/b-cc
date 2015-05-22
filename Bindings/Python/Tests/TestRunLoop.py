@@ -90,7 +90,7 @@ class TestRunLoopMixin(object):
     rl.run()
     self.assertEqual([(callback, (), {})], called)
 
-  def test_stop_function(self):
+  def test_two_stop_functions(self):
     rl = self._create_run_loop()
     called = []
     callback_1 = Callback(called, stop_run_loop=rl)
