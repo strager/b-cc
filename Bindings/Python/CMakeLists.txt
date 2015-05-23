@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 
 add_subdirectory(Examples/JoinFiles)
 
+include(../../CMake/b_disable_gcc_warnings.cmake)
 include(../../CMake/b_python.cmake)
 include(CheckCCompilerFlag)
 
@@ -70,14 +71,10 @@ if (HAVE_STD_C99)
 endif ()
 
 # TODO(#29): Kill with fire.
-check_c_compiler_flag(-Wno-main HAVE_W_NO_MAIN)
-if (HAVE_W_NO_MAIN)
-  set_property(
-    TARGET b_Python
-    APPEND
-    PROPERTY COMPILE_OPTIONS -Wno-main
-  )
-endif ()
+b_disable_gcc_warnings(
+  TARGET b_Python
+  PRIVATE_WARNINGS main
+)
 
 # Allow Python to import our module by naming it _b.so (even
 # on OS X).

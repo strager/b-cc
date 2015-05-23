@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
 include(CMake/b_copy_file.cmake)
+include(CMake/b_disable_gcc_warnings.cmake)
 
 project(b)
 set(CTEST_NEW_FORMAT True)
@@ -29,8 +30,11 @@ target_include_directories(
   INTERFACE
   ${gtest_SOURCE_DIR}/include
 )
-
-include(CheckCCompilerFlag)
+b_disable_gcc_warnings(
+    TARGET gtest
+    PRIVATE_WARNINGS missing-field-initializers
+    WARNINGS long-long variadic-macros
+)
 
 find_package(Threads REQUIRED)
 
@@ -101,14 +105,7 @@ if (HAVE_STD_C99)
 endif ()
 
 # TODO(#29): Kill with fire.
-check_c_compiler_flag(-Wno-main HAVE_W_NO_MAIN)
-if (HAVE_W_NO_MAIN)
-  set_property(
-    TARGET b
-    APPEND
-    PROPERTY COMPILE_OPTIONS -Wno-main
-  )
-endif ()
+b_disable_gcc_warnings(TARGET b PRIVATE_WARNINGS main)
 
 target_compile_definitions(
   b

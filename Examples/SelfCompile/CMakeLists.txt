@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
+include(../../CMake/b_disable_gcc_warnings.cmake)
 include(CheckCCompilerFlag)
 
 project(b_SelfCompile)
@@ -18,14 +19,10 @@ if (HAVE_STD_C99)
 endif ()
 
 # TODO(#29): Kill with fire.
-check_c_compiler_flag(-Wno-main HAVE_W_NO_MAIN)
-if (HAVE_W_NO_MAIN)
-  set_property(
-    TARGET b_SelfCompile
-    APPEND
-    PROPERTY COMPILE_OPTIONS -Wno-main
-  )
-endif ()
+b_disable_gcc_warnings(
+  TARGET b_SelfCompile
+  PRIVATE_WARNINGS main
+)
 
 target_compile_definitions(
   b_SelfCompile
