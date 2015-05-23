@@ -4,6 +4,17 @@
 #include <B/Py/Private/Util.h>
 #include <B/RunLoop.h>
 
+struct B_PyRunLoopImpl_ {
+  struct B_RunLoopVTable vtable;
+  struct B_PyRunLoop *run_loop_py;
+};
+
+struct B_PyRunLoop {
+  PyObject_HEAD
+  struct B_RunLoop *real_run_loop;
+  struct B_PyRunLoopImpl_ run_loop;
+};
+
 static PyTypeObject
 b_py_run_loop_type_;
 
@@ -24,6 +35,64 @@ b_py_run_loop(
   return (struct B_PyRunLoop *) object;
 }
 
+B_WUR B_FUNC B_OUT_BORROW struct B_RunLoop *
+b_py_run_loop_native(
+    B_BORROW struct B_PyRunLoop *rl_py) {
+  return (struct B_RunLoop *) &rl_py->run_loop;
+}
+
+B_WUR B_FUNC B_OUT_BORROW struct B_PyRunLoop *
+b_py_run_loop_py(
+    B_BORROW struct B_RunLoop *run_loop) {
+  return ((struct B_PyRunLoopImpl_ *) run_loop)
+    ->run_loop_py;
+}
+
+static B_WUR B_FUNC bool
+b_py_run_loop_vtable_add_function_(
+    B_BORROW struct B_RunLoop *run_loop,
+    B_TRANSFER B_RunLoopFunction *callback,
+    B_TRANSFER B_RunLoopFunction *cancel_callback,
+    B_TRANSFER void const *callback_data,
+    size_t callback_data_size,
+    B_OUT struct B_Error *e) {
+  struct B_PyRunLoopImpl_ *rl
+    = (struct B_PyRunLoopImpl_ *) run_loop;
+  if (!b_run_loop_add_function(
+      rl->run_loop_py->real_run_loop,
+      callback,
+      cancel_callback,
+      callback_data,
+      callback_data_size,
+      e)) {
+    return false;
+  }
+  return true;
+}
+
+static B_OUT_TRANSFER PyObject *
+b_py_run_loop_allocate_(
+    B_TRANSFER struct B_RunLoop *real_run_loop) {
+  PyObject *self = b_py_run_loop_type_.tp_alloc(
+    &b_py_run_loop_type_, 0);
+  if (!self) {
+    return NULL;
+  }
+  struct B_PyRunLoop *rl_py = (struct B_PyRunLoop *) self;
+  rl_py->real_run_loop = real_run_loop;
+  rl_py->run_loop = (struct B_PyRunLoopImpl_) {
+    .vtable = {
+      .deallocate = NULL,
+      .add_function = b_py_run_loop_vtable_add_function_,
+      .add_process_id = NULL,
+      .run = NULL,
+      .stop = NULL,
+    },
+    .run_loop_py = rl_py,
+  };
+  return self;
+}
+
 static PyObject *
 b_py_run_loop_kqueue_(
     PyObject *cls,
@@ -35,19 +104,13 @@ b_py_run_loop_kqueue_(
       args, kwargs, "", keywords)) {
     return NULL;
   }
-  PyObject *self = b_py_run_loop_type_.tp_alloc(
-    &b_py_run_loop_type_, 0);
-  if (!self) {
-    return NULL;
-  }
-  struct B_PyRunLoop *rl_py = (struct B_PyRunLoop *) self;
+  struct B_RunLoop *rl;
   struct B_Error e;
-  if (!b_run_loop_allocate_kqueue(&rl_py->run_loop, &e)) {
-    Py_DECREF(self);
+  if (!b_run_loop_allocate_kqueue(&rl, &e)) {
     b_py_raise(e);
     return NULL;
   }
-  return self;
+  return b_py_run_loop_allocate_(rl);
 }
 
 static PyObject *
@@ -61,20 +124,13 @@ b_py_run_loop_preferred_(
       args, kwargs, "", keywords)) {
     return NULL;
   }
-  PyObject *self = b_py_run_loop_type_.tp_alloc(
-    &b_py_run_loop_type_, 0);
-  if (!self) {
-    return NULL;
-  }
-  struct B_PyRunLoop *rl_py = (struct B_PyRunLoop *) self;
+  struct B_RunLoop *rl;
   struct B_Error e;
-  if (!b_run_loop_allocate_preferred(
-      &rl_py->run_loop, &e)) {
-    Py_DECREF(self);
+  if (!b_run_loop_allocate_preferred(&rl, &e)) {
     b_py_raise(e);
     return NULL;
   }
-  return self;
+  return b_py_run_loop_allocate_(rl);
 }
 
 static PyObject *
@@ -88,19 +144,13 @@ b_py_run_loop_sigchld_(
       args, kwargs, "", keywords)) {
     return NULL;
   }
-  PyObject *self = b_py_run_loop_type_.tp_alloc(
-    &b_py_run_loop_type_, 0);
-  if (!self) {
-    return NULL;
-  }
-  struct B_PyRunLoop *rl_py = (struct B_PyRunLoop *) self;
+  struct B_RunLoop *rl;
   struct B_Error e;
-  if (!b_run_loop_allocate_sigchld(&rl_py->run_loop, &e)) {
-    Py_DECREF(self);
+  if (!b_run_loop_allocate_sigchld(&rl, &e)) {
     b_py_raise(e);
     return NULL;
   }
-  return self;
+  return b_py_run_loop_allocate_(rl);
 }
 
 static PyObject *
@@ -119,7 +169,7 @@ b_py_run_loop_run_(
     return NULL;
   }
   struct B_Error e;
-  if (!b_run_loop_run(rl_py->run_loop, &e)) {
+  if (!b_run_loop_run(rl_py->real_run_loop, &e)) {
     b_py_raise(e);
     return NULL;
   }
@@ -245,7 +295,7 @@ b_py_run_loop_add_function_(
   }
   struct B_Error e;
   if (!b_run_loop_add_function(
-      rl_py->run_loop,
+      rl_py->real_run_loop,
       b_py_run_loop_function_callback_,
       b_py_run_loop_cancel_callback_,
       &(struct B_PyRunLoopCallbackClosure_) {
@@ -292,7 +342,7 @@ b_py_run_loop_add_process_id_(
   }
   struct B_Error e;
   if (!b_run_loop_add_process_id(
-      rl_py->run_loop,
+      rl_py->real_run_loop,
       // FIXME(strager): What about pid_t truncation?
       pid,
       b_py_run_loop_process_callback_,
@@ -326,7 +376,7 @@ b_py_run_loop_stop_(
     return NULL;
   }
   struct B_Error e;
-  if (!b_run_loop_stop(rl_py->run_loop, &e)) {
+  if (!b_run_loop_stop(rl_py->real_run_loop, &e)) {
     b_py_raise(e);
     return NULL;
   }

@@ -5,12 +5,7 @@
 #include <Python.h>
 #include <stdbool.h>
 
-struct B_RunLoop;
-
-struct B_PyRunLoop {
-  PyObject_HEAD
-  struct B_RunLoop *run_loop;
-};
+struct B_PyRunLoop;
 
 #if defined(__cplusplus)
 extern "C" {
@@ -23,6 +18,14 @@ b_py_run_loop_init(
 B_WUR B_FUNC B_OUT_BORROW struct B_PyRunLoop *
 b_py_run_loop(
     B_BORROW PyObject *);
+
+B_WUR B_FUNC B_OUT_BORROW struct B_RunLoop *
+b_py_run_loop_native(
+    B_BORROW struct B_PyRunLoop *);
+
+B_WUR B_FUNC B_OUT_BORROW struct B_PyRunLoop *
+b_py_run_loop_py(
+    B_BORROW struct B_RunLoop *);
 
 #if defined(__cplusplus)
 }

@@ -106,10 +106,14 @@ b_py_main_new_(
     return NULL;
   }
   struct B_PyMain *main_py = (struct B_PyMain *) self;
+  struct B_RunLoop *rl = b_py_run_loop_native(rl_py);
+  if (!rl) {
+    return NULL;
+  }
   struct B_Error e;
   if (!b_main_allocate(
       db_py->database,
-      rl_py->run_loop,
+      rl,
       b_py_main_callback_,
       main_py,
       &main_py->main,

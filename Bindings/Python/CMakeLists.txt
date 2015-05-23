@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
 add_subdirectory(Examples/JoinFiles)
+add_subdirectory(Examples/SelfCompile)
 
 include(../../CMake/b_disable_gcc_warnings.cmake)
 include(../../CMake/b_python.cmake)

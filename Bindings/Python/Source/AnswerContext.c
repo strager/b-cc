@@ -4,6 +4,7 @@
 #include <B/Py/Private/AnswerContext.h>
 #include <B/Py/Private/AnswerFuture.h>
 #include <B/Py/Private/Question.h>
+#include <B/Py/Private/RunLoop.h>
 #include <B/Py/Private/Util.h>
 #include <B/QuestionAnswer.h>
 
@@ -255,11 +256,38 @@ b_py_answer_context_get_question_(
   return (PyObject *) q_py;
 }
 
+static PyObject *
+b_py_answer_context_get_run_loop_(
+    PyObject *self,
+    void *opaque) {
+  (void) opaque;
+  struct B_PyAnswerContext *ac_py
+    = b_py_answer_context(self);
+  if (!ac_py) {
+    return NULL;
+  }
+  struct B_Error e;
+  struct B_RunLoop *rl;
+  if (!b_answer_context_run_loop(
+      ac_py->answer_context, &rl, &e)) {
+    b_py_raise(e);
+    return NULL;
+  }
+  return (PyObject *) b_py_run_loop_py(rl);
+}
+
 static PyGetSetDef
 b_py_answer_context_getset_[] = {
   {
     .name = "question",
     .get = b_py_answer_context_get_question_,
+    .set = NULL,
+    .doc = NULL,
+    .closure = NULL,
+  },
+  {
+    .name = "run_loop",
+    .get = b_py_answer_context_get_run_loop_,
     .set = NULL,
     .doc = NULL,
     .closure = NULL,
