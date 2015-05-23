@@ -353,7 +353,6 @@ b_run_loop_check_processes_(
       = b_exit_status_from_waitpid_status(
         entry->u.waitpid_status);
     if (!entry->callback(
-        &rl->super,
         &exit_status,
         entry->user_data.bytes,
         &(struct B_Error) {.posix_error = 0})) {

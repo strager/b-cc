@@ -79,16 +79,13 @@ struct B_MainAnswerCallbackClosure_ {
 
 static B_FUNC bool
 b_main_answer_callback_(
-    B_BORROW struct B_RunLoop *run_loop,
     B_BORROW void const *callback_data,
     B_OUT struct B_Error *e) {
-  B_PRECONDITION(run_loop);
   B_PRECONDITION(callback_data);
   B_OUT_PARAMETER(e);
 
   struct B_MainAnswerCallbackClosure_ const *closure
     = callback_data;
-  B_ASSERT(run_loop == closure->main->run_loop);
   if (!closure->main->callback(
       closure->main->callback_opaque,
       closure->main,
@@ -101,16 +98,13 @@ b_main_answer_callback_(
 
 static B_FUNC bool
 b_main_answer_cancel_callback_(
-    B_BORROW struct B_RunLoop *run_loop,
     B_BORROW void const *callback_data,
     B_OUT struct B_Error *e) {
-  B_PRECONDITION(run_loop);
   B_PRECONDITION(callback_data);
   B_OUT_PARAMETER(e);
 
   struct B_MainAnswerCallbackClosure_ const *closure
     = callback_data;
-  B_ASSERT(run_loop == closure->main->run_loop);
   if (!b_answer_context_deallocate(
       closure->answer_context, e)) {
     return false;

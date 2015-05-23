@@ -40,7 +40,6 @@ b_run_loop_function_list_deinitialize(
   B_SLIST_FOREACH_SAFE(
       entry, functions, link, temp_entry) {
     if (!entry->cancel_callback(
-        rl,
         entry->user_data.bytes,
         &(struct B_Error) {.posix_error = 0})) {
       B_NYI();
@@ -103,7 +102,6 @@ b_run_loop_function_list_run_one(
   }
   B_SLIST_REMOVE_HEAD(functions, link);
   if (!entry->callback(
-      run_loop,
       entry->user_data.bytes,
       &(struct B_Error) {.posix_error = 0})) {
     B_NYI();

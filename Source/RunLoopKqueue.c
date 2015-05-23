@@ -121,28 +121,26 @@ struct B_RunLoopKqueueProcessFallbackClosure_ {
 
 static B_FUNC bool
 b_run_loop_add_process_id_kqueue_fallback_callback_(
-    B_BORROW struct B_RunLoop *rl,
     B_BORROW void const *callback_data,
     B_OUT struct B_Error *e) {
   struct B_RunLoopKqueueProcessFallbackClosure_ *closure
     = *(struct B_RunLoopKqueueProcessFallbackClosure_ *
         const *) callback_data;
   bool ok = closure->callback(
-    rl, &closure->exit_status, closure->user_data.bytes, e);
+    &closure->exit_status, closure->user_data.bytes, e);
   b_deallocate(closure);
   return ok;
 }
 
 static B_FUNC bool
 b_run_loop_add_process_id_kqueue_fallback_cancel_(
-    B_BORROW struct B_RunLoop *rl,
     B_BORROW void const *callback_data,
     B_OUT struct B_Error *e) {
   struct B_RunLoopKqueueProcessFallbackClosure_ *closure
     = *(struct B_RunLoopKqueueProcessFallbackClosure_ *
         const *) callback_data;
   bool ok = closure->cancel_callback(
-    rl, closure->user_data.bytes, e);
+    closure->user_data.bytes, e);
   b_deallocate(closure);
   return ok;
 }
@@ -326,7 +324,6 @@ b_run_loop_run_(
             = b_exit_status_from_waitpid_status(
               (int) events[i].data);
           if (!entry->callback(
-              &rl->super,
               &s,
               entry->user_data.bytes,
               &(struct B_Error) {.posix_error = 0})) {

@@ -54,11 +54,9 @@ print_command_(
 
 static B_FUNC bool
 exec_callback_(
-    B_BORROW struct B_RunLoop *rl,
     B_BORROW struct B_ProcessExitStatus const *status,
     B_BORROW void const *opaque,
     B_OUT struct B_Error *e) {
-  (void) rl;
   struct B_AnswerContext *ac
     = *(struct B_AnswerContext *const *) opaque;
   if (status->type == B_PROCESS_EXIT_STATUS_CODE
@@ -78,10 +76,8 @@ exec_callback_(
 
 static B_FUNC bool
 exec_cancel_callback_(
-    B_BORROW struct B_RunLoop *rl,
     B_BORROW void const *opaque,
     B_OUT struct B_Error *e) {
-  (void) rl;
   struct B_AnswerContext *ac
     = *(struct B_AnswerContext *const *) opaque;
   if (!b_answer_context_fail(

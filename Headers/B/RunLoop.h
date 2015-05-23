@@ -15,13 +15,11 @@ struct B_RunLoopVTable;
 
 typedef B_FUNC bool
 B_RunLoopFunction(
-    B_BORROW struct B_RunLoop *,
     B_BORROW void const *callback_data,
     B_OUT struct B_Error *);
 
 typedef B_FUNC bool
 B_RunLoopProcessFunction(
-    B_BORROW struct B_RunLoop *,
     B_BORROW struct B_ProcessExitStatus const *,
     B_BORROW void const *callback_data,
     B_OUT struct B_Error *);

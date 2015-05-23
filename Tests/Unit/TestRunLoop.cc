@@ -24,6 +24,12 @@
 namespace {
 
 struct B_RunLoopClosure_ {
+  B_RunLoopClosure_(
+      struct B_RunLoop *run_loop) :
+      run_loop(run_loop) {
+  }
+
+  struct B_RunLoop *const run_loop;
   // Each true is a callback call. Each false is a cancel
   // callback call.
   std::vector<bool> calls;
@@ -31,20 +37,18 @@ struct B_RunLoopClosure_ {
 
 B_FUNC bool
 b_run_loop_function_stop_(
-    B_BORROW struct B_RunLoop *rl,
     B_BORROW void const *opaque,
     B_OUT struct B_Error *) {
   B_RunLoopClosure_ *closure
     = *static_cast<B_RunLoopClosure_ *const *>(opaque);
   closure->calls.push_back(true);
   struct B_Error e;
-  EXPECT_TRUE(b_run_loop_stop(rl, &e));
+  EXPECT_TRUE(b_run_loop_stop(closure->run_loop, &e));
   return true;
 }
 
 B_FUNC bool
 b_run_loop_function_fail_(
-    B_BORROW struct B_RunLoop *,
     B_BORROW void const *opaque,
     B_OUT struct B_Error *) {
   B_RunLoopClosure_ *closure
@@ -56,31 +60,11 @@ b_run_loop_function_fail_(
 
 B_FUNC bool
 b_run_loop_function_noop_(
-    B_BORROW struct B_RunLoop *,
     B_BORROW void const *opaque,
     B_OUT struct B_Error *) {
   B_RunLoopClosure_ *closure
     = *static_cast<B_RunLoopClosure_ *const *>(opaque);
   closure->calls.push_back(false);
-  return true;
-}
-
-B_FUNC bool
-b_run_loop_function_stop_no_closure_(
-    B_BORROW struct B_RunLoop *rl,
-    B_BORROW void const *,
-    B_OUT struct B_Error *) {
-  struct B_Error e;
-  EXPECT_TRUE(b_run_loop_stop(rl, &e));
-  return true;
-}
-
-B_FUNC bool
-b_run_loop_function_fail_no_closure_(
-    B_BORROW struct B_RunLoop *,
-    B_BORROW void const *,
-    B_OUT struct B_Error *) {
-  ADD_FAILURE();
   return true;
 }
 
@@ -177,24 +161,10 @@ INSTANTIATE_TEST_CASE_P(
   TestRunLoop,
   ::testing::ValuesIn(factories));
 
-TEST_P(TestRunLoop, StopFunctionNoClosure) {
-  struct B_Error e;
-  struct B_RunLoop *rl = this->create();
-  ASSERT_TRUE(b_run_loop_add_function(
-    rl,
-    b_run_loop_function_stop_no_closure_,
-    b_run_loop_function_fail_no_closure_,
-    NULL,
-    0,
-    &e));
-  ASSERT_TRUE(b_run_loop_run(rl, &e));
-  b_run_loop_deallocate(rl);
-}
-
 TEST_P(TestRunLoop, StopFunctionWithClosure) {
   struct B_Error e;
   struct B_RunLoop *rl = this->create();
-  B_RunLoopClosure_ closure;
+  B_RunLoopClosure_ closure(rl);
   B_RunLoopClosure_ *closure_pointer = &closure;
   ASSERT_TRUE(b_run_loop_add_function(
     rl,
@@ -214,7 +184,7 @@ TEST_P(TestRunLoop, StopFunctionWithClosure) {
 TEST_P(TestRunLoop, TwoStopFunctions) {
   struct B_Error e;
   struct B_RunLoop *rl = this->create();
-  B_RunLoopClosure_ closure;
+  B_RunLoopClosure_ closure(rl);
   B_RunLoopClosure_ *closure_pointer = &closure;
   ASSERT_TRUE(b_run_loop_add_function(
     rl,
@@ -274,12 +244,15 @@ b_vec_(
 template<typename TFunc>
 struct B_ExecAndStopIfClosure_ {
   B_ExecAndStopIfClosure_(
+      struct B_RunLoop *run_loop,
       struct B_ProcessExitStatus *exit_status,
       TFunc stop_check) :
+      run_loop(run_loop),
       exit_status(exit_status),
       stop_check(stop_check) {
   }
 
+  struct B_RunLoop *const run_loop;
   struct B_ProcessExitStatus *exit_status;
   // FIXME(strager): Is there a way to enforce that TFunc is
   // memcpy-able?
@@ -289,7 +262,6 @@ struct B_ExecAndStopIfClosure_ {
 template<typename TFunc>
 B_FUNC bool
 b_exec_and_stop_if_callback_(
-    B_BORROW struct B_RunLoop *rl,
     B_BORROW struct B_ProcessExitStatus const *exit_status,
     B_BORROW void const *opaque,
     B_OUT struct B_Error *) {
@@ -299,7 +271,7 @@ b_exec_and_stop_if_callback_(
   *closure->exit_status = *exit_status;
   if (closure->stop_check()) {
     struct B_Error e;
-    EXPECT_TRUE(b_run_loop_stop(rl, &e));
+    EXPECT_TRUE(b_run_loop_stop(closure->run_loop, &e));
   }
   return true;
 }
@@ -341,7 +313,7 @@ b_exec_and_stop_if_(
     TFunc stop_check) {
   args.push_back(NULL);
   B_ExecAndStopIfClosure_<TFunc> closure(
-    exit_status, stop_check);
+    rl, exit_status, stop_check);
   struct B_Error e;
   if (!b_run_loop_exec_basic(
       rl,
@@ -586,7 +558,6 @@ private:
 
 static B_FUNC bool
 b_process_tree_callback_(
-    B_BORROW struct B_RunLoop *,
     B_BORROW struct B_ProcessExitStatus const *status,
     B_BORROW void const *opaque,
     B_OUT struct B_Error *e) {
@@ -671,7 +642,7 @@ TEST_P(TestRunLoop, AddExitedProcess) {
   b_sleep_ignoring_signals_(5);
   struct B_ProcessExitStatus exit_status;
   B_ExecAndStopIfClosure_<B_True_> closure(
-    &exit_status, B_True_());
+    rl, &exit_status, B_True_());
   ASSERT_TRUE(b_run_loop_add_process_id(
     rl,
     pid,
@@ -699,7 +670,7 @@ TEST_P(TestRunLoop, AddExitedProcess2) {
   b_sleep_ignoring_signals_(5);
   struct B_ProcessExitStatus exit_status;
   B_ExecAndStopIfClosure_<B_True_> closure(
-    &exit_status, B_True_());
+    rl, &exit_status, B_True_());
   ASSERT_TRUE(b_run_loop_add_process_id(
     rl,
     pid,
