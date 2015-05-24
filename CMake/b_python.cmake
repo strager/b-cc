@@ -52,11 +52,32 @@ endfunction ()
 function (B_APPEND_PYTHON_PATH TEST_NAME)
   # TODO(strager): Error on ":".
   string(REPLACE ";" : PYTHONPATH "${ARGN}")
+  # TODO(strager): Prepend existing PYTHONPATH (from user
+  # environment).
+  get_property(ENV TEST "${TEST_NAME}" PROPERTY ENVIRONMENT)
+  set(NEWENV)
+  set(SAW_ENVIRONMENT False)
+  foreach (PAIR ${ENV})
+    if (PAIR MATCHES "^PYTHONPATH=")
+      if (SAW_ENVIRONMENT)
+        message(
+          AUTHOR_WARNING
+          "PYTHONPATH set multiple times for ${TEST_NAME}"
+        )
+      endif ()
+      set(SAW_ENVIRONMENT True)
+      list(APPEND NEWENV "${PAIR}:${PYTHONPATH}")
+    else ()
+      list(APPEND NEWENV "${PAIR}")
+    endif ()
+  endforeach ()
+  if (NOT SAW_ENVIRONMENT)
+    list(APPEND NEWENV "PYTHONPATH=${PYTHONPATH}")
+  endif ()
   set_property(
     TEST "${TEST_NAME}"
-    APPEND PROPERTY
-    ENVIRONMENT
-    "PYTHONPATH=\${PYTHONPATH}:${PYTHONPATH}"
+    PROPERTY
+    ENVIRONMENT "${NEWENV}"
   )
 endfunction ()
 

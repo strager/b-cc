@@ -1,8 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
 
-add_subdirectory(Examples/JoinFiles)
-add_subdirectory(Examples/SelfCompile)
-
 include(../../CMake/b_disable_gcc_warnings.cmake)
 include(../../CMake/b_python.cmake)
 include(CheckCCompilerFlag)
@@ -106,3 +103,7 @@ add_unit_test(TestFileQuestion)
 add_unit_test(TestMain)
 add_unit_test(TestProcess)
 add_unit_test(TestRunLoop)
+
+# Must come after b_PythonPackage is defined.
+add_subdirectory(Examples/JoinFiles)
+add_subdirectory(Examples/SelfCompile)

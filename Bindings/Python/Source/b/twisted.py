@@ -1,20 +1,21 @@
 from __future__ import absolute_import
 
-#import _b
-import twisted.internet.error
+from twisted.internet.defer import Deferred
 from twisted.internet.error import AlreadyCalled
 from twisted.internet.error import AlreadyCancelled
 from twisted.internet.interfaces import IReactorCore
 from twisted.internet.interfaces import IReactorTime
+import _b
+import twisted.internet.error
 
-#class TwistedRunLoop(_b.RunLoop):
-class TwistedRunLoop(object):
+class TwistedRunLoop(_b.RunLoop):
   @classmethod
   def with_global_reactor(cls):
     from twisted.internet import reactor
     return cls(reactor)
 
   def __init__(self, reactor):
+    super(TwistedRunLoop, self).__init__()
     if not IReactorCore.providedBy(reactor):
       raise TypeError('reactor must implement IReactorCore')
     if not IReactorTime.providedBy(reactor):
@@ -57,3 +58,53 @@ class TwistedRunLoop(object):
 #        calls.pop().cancel()
 #      except AlreadyCalled, AlreadyCancelled:
 #        pass
+
+def deferred_from_answer_future(answer_future):
+  deferred = Deferred()
+  def callback(future):
+    state = future.state
+    if state == _b.AnswerFuture.PENDING:
+      raise ValueError('Future resolved in PENDING state')
+    elif state == _b.AnswerFuture.FAILED:
+      deferred.errback(future)
+    elif state == _b.AnswerFuture.RESOLVED:
+      deferred.callback(future)
+  answer_future.add_callback(callback)
+  return deferred
+
+class TwistedAnswerContext(object):
+  def __init__(self, ac):
+    self.__ac = ac
+
+  @property
+  def question(self):
+    return self.__ac.question
+
+  def need(self, questions):
+    return deferred_from_answer_future(
+      self.__ac.need(questions),
+    )
+
+class TwistedMain(object):
+  def __init__(self, database, callback, reactor=None):
+    if reactor is None:
+      from twisted.internet import reactor
+    self.__reactor = reactor
+    self.__callback = callback
+    self.__main = _b.Main(
+      database=database,
+      callback=self.__main_callback,
+      run_loop=TwistedRunLoop(reactor),
+    )
+
+  def __main_callback(self, _main, ac):
+    deferred = self.__callback(TwistedAnswerContext(ac))
+    deferred.addCallbacks(
+      callback=lambda _: ac.succeed(),
+      errback=lambda e: ac.fail(e),
+    )
+
+  def answer(self, question):
+    return deferred_from_answer_future(
+      self.__main.answer(question),
+    )
