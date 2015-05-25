@@ -11,7 +11,7 @@ def main():
       | _b.Database.SQLITE_OPEN_CREATE,
   ) as database:
     database.check_all([_b.FileQuestion])
-    run_loop = _b.RunLoop.preferred()
+    run_loop = _b.RunLoopNative.preferred()
     def root_question_answered(future):
       return run_loop.stop()
     main = _b.Main(

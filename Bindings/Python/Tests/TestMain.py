@@ -5,7 +5,7 @@ import unittest
 
 class TestRunLoop(unittest.TestCase):
   def setUp(self):
-    self.run_loop = _b.RunLoop.preferred()
+    self.run_loop = _b.RunLoopNative.preferred()
     self.database = _b.Database.open_sqlite3(
       ':memory:',
       _b.Database.SQLITE_OPEN_READWRITE,

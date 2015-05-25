@@ -9,7 +9,7 @@ import unittest
 
 class TestRunLoop(unittest.TestCase):
   def test_allocate_preferred(self):
-    run_loop = _b.RunLoop.preferred()
+    run_loop = _b.RunLoopNative.preferred()
     _ = run_loop
 
 class Callback(object):
@@ -232,7 +232,7 @@ class TestRunLoopPreferred(
   TestRunLoopMixin,
 ):
   def _create_run_loop(self):
-    return _b.RunLoop.preferred()
+    return _b.RunLoopNative.preferred()
 
 @unittest.skipUnless(
   hasattr(select, 'kqueue'),
@@ -243,14 +243,14 @@ class TestRunLoopKqueue(
   TestRunLoopMixin,
 ):
   def _create_run_loop(self):
-    return _b.RunLoop.kqueue()
+    return _b.RunLoopNative.kqueue()
 
 class TestRunLoopSigchld(
   unittest.TestCase,
   TestRunLoopMixin,
 ):
   def _create_run_loop(self):
-    return _b.RunLoop.sigchld()
+    return _b.RunLoopNative.sigchld()
 
 def twisted_exit_reason_to_exit_status(reason):
   import twisted.internet.error as error

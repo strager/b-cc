@@ -28,6 +28,11 @@ b_init_(
     return false;
   }
 
+  // Must be before b_py_run_loop_native_init.
+  if (!b_py_run_loop_init(module)) {
+    return false;
+  }
+
   if (!b_py_answer_context_init(module)) {
     return false;
   }
@@ -46,7 +51,7 @@ b_init_(
   if (!b_py_process_init(module)) {
     return false;
   }
-  if (!b_py_run_loop_init(module)) {
+  if (!b_py_run_loop_native_init(module)) {
     return false;
   }
   return true;

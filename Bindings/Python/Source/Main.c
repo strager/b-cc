@@ -106,7 +106,7 @@ b_py_main_new_(
     return NULL;
   }
   struct B_PyMain *main_py = (struct B_PyMain *) self;
-  struct B_RunLoop *rl = b_py_run_loop_native(rl_py);
+  struct B_RunLoop *rl = b_py_run_loop_get(rl_py);
   if (!rl) {
     return NULL;
   }

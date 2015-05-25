@@ -38,6 +38,7 @@ add_library(
   Source/Question.c
   Source/QuestionVTable.c
   Source/RunLoop.c
+  Source/RunLoopNative.c
   Source/Util.c
 )
 target_include_directories(
