@@ -281,6 +281,9 @@ class TestRunLoopTwistedGlobal(
     run_loop.reactor.spawnProcess(
       processProtocol=Protocol(),
       executable=args[0],
+      # HACK(strager): Work around file descriptor leak in
+      # Twisted.
+      childFDs={},
       args=args,
     )
 
