@@ -51,12 +51,18 @@ def main():
       # AnswerFuture callbacks should always be called using
       # the RunLoop.
       reactor.callWhenRunning(lambda: reactor.crash())
+    def root_question_error(e):
+      reactor.crash()
+      raise  # Not a typo. This will re-raise e.
     main = b.twisted.TwistedMain(
       database=database,
       callback=dispatch_question,
     )
     answer_deferred = main.answer(_b.FileQuestion(out_path))
-    answer_deferred.addCallback(root_question_answered)
+    answer_deferred.addCallbacks(
+      root_question_answered,
+      root_question_error,
+    )
     reactor.run()
     if not answer_deferred.called:
       print('Answer deferred is still uncalled')
