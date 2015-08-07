@@ -102,6 +102,7 @@ add_unit_test(TestDatabase)
 add_unit_test(TestFileQuestion)
 add_unit_test(TestMain)
 add_unit_test(TestProcess)
+add_unit_test(TestPythonFileQuestion)
 add_unit_test(TestRunLoop)
 
 # Must come after b_PythonPackage is defined.
