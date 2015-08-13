@@ -142,6 +142,22 @@ b_py_question_methods_[] = {
   B_PY_METHOD_DEF_END
 };
 
+static PyObject *
+b_py_question_new_(
+    PyTypeObject *type,
+    PyObject *args,
+    PyObject *kwargs) {
+  (void) args;
+  (void) kwargs;
+  PyObject *self = type->tp_alloc(type, 0);
+  if (!self) {
+    return NULL;
+  }
+  struct B_PyQuestion *q_py = (struct B_PyQuestion *) self;
+  q_py->question = (struct B_IQuestion *) self;
+  return self;
+}
+
 PyTypeObject
 b_py_question_type = {
   PyVarObject_HEAD_INIT(NULL, 0)
@@ -151,6 +167,7 @@ b_py_question_type = {
   .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT,
   .tp_methods = b_py_question_methods_,
   .tp_name = "_b.Question",
+  .tp_new = b_py_question_new_,
 };
 
 B_WUR B_FUNC bool

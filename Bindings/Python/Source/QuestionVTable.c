@@ -296,6 +296,7 @@ b_py_question_class_set_python_vtable_(
   vtable_py->native_vtable = NULL;
   vtable_py->python_vtable
     = b_py_python_question_python_vtable_;
+  // TODO(strager): Ensure all necessary methods exist.
 // @nocommit
   //vtable_py->python_vtable.uuid = ...;
   vtable_py->python_vtable.answer_vtable
