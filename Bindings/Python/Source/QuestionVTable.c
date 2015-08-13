@@ -1,6 +1,7 @@
 #include <B/Error.h>
 #include <B/Py/Private/Question.h>
 #include <B/Py/Private/QuestionVTable.h>
+#include <B/Py/Private/Serialize.h>
 #include <B/Py/Private/Util.h>
 #include <B/QuestionAnswer.h>
 
@@ -154,10 +155,28 @@ b_py_question_serialize_python_(
     B_BORROW struct B_IQuestion const *question,
     B_BORROW struct B_ByteSink *byte_sink,
     B_OUT struct B_Error *e) {
-  __builtin_trap();
-  (void) question;
-  (void) byte_sink;
-  (void) e;
+  struct B_PyQuestion *question_py
+    = b_py_question_from_pointer(
+      (struct B_IQuestion *) question);
+  if (!question_py) {
+    *e = b_py_error();
+    return false;
+  }
+  struct B_PyByteSink *sink_py
+    = b_py_byte_sink_from_pointer(byte_sink);
+  if (!sink_py) {
+    *e = b_py_error();
+    return false;
+  }
+  PyObject *result = PyObject_CallMethod(
+    (PyObject *) question_py, "serialize", "O", sink_py);
+  Py_DECREF(sink_py);
+  if (!result) {
+    *e = b_py_error();
+    return false;
+  }
+  Py_DECREF(result);
+  return true;
 }
 
 static B_WUR B_FUNC bool

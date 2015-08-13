@@ -25,6 +25,7 @@ add_library(
   PrivateHeaders/B/Py/Private/Question.h
   PrivateHeaders/B/Py/Private/QuestionVTable.h
   PrivateHeaders/B/Py/Private/RunLoop.h
+  PrivateHeaders/B/Py/Private/Serialize.h
   PrivateHeaders/B/Py/Private/Util.h
   Source/Answer.c
   Source/AnswerContext.c
@@ -38,6 +39,7 @@ add_library(
   Source/QuestionVTable.c
   Source/RunLoop.c
   Source/RunLoopNative.c
+  Source/Serialize.c
   Source/Util.c
 )
 target_include_directories(

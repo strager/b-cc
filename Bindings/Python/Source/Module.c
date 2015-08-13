@@ -8,6 +8,7 @@
 #include <B/Py/Private/Question.h>
 #include <B/Py/Private/QuestionVTable.h>
 #include <B/Py/Private/RunLoop.h>
+#include <B/Py/Private/Serialize.h>
 
 #include <Python.h>
 
@@ -41,6 +42,9 @@ b_init_(
     return false;
   }
   if (!b_py_answer_future_init(module)) {
+    return false;
+  }
+  if (!b_py_byte_sink_init(module)) {
     return false;
   }
   if (!b_py_database_init(module)) {

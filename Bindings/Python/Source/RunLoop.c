@@ -92,6 +92,7 @@ b_py_run_loop_vtable_add_function_(
     *e = b_py_error();
     return false;
   }
+  Py_DECREF(result);
   return true;
 }
 
