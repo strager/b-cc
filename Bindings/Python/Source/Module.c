@@ -1,3 +1,4 @@
+#include <B/Py/Private/Answer.h>
 #include <B/Py/Private/AnswerContext.h>
 #include <B/Py/Private/AnswerFuture.h>
 #include <B/Py/Private/Database.h>
@@ -33,6 +34,9 @@ b_init_(
     return false;
   }
 
+  if (!b_py_answer_init(module)) {
+    return false;
+  }
   if (!b_py_answer_context_init(module)) {
     return false;
   }

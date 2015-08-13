@@ -148,7 +148,7 @@ b_py_question_type = {
   .tp_basicsize = sizeof(struct B_PyQuestion),
   .tp_dealloc = NULL,  // TODO(strager)
   .tp_doc = "",
-  .tp_flags = Py_TPFLAGS_DEFAULT,
+  .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT,
   .tp_methods = b_py_question_methods_,
   .tp_name = "_b.Question",
 };

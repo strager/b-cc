@@ -15,6 +15,7 @@ endif ()
 add_library(
   b_Python
   SHARED
+  PrivateHeaders/B/Py/Private/Answer.h
   PrivateHeaders/B/Py/Private/AnswerContext.h
   PrivateHeaders/B/Py/Private/AnswerFuture.h
   PrivateHeaders/B/Py/Private/Database.h
@@ -25,6 +26,7 @@ add_library(
   PrivateHeaders/B/Py/Private/QuestionVTable.h
   PrivateHeaders/B/Py/Private/RunLoop.h
   PrivateHeaders/B/Py/Private/Util.h
+  Source/Answer.c
   Source/AnswerContext.c
   Source/AnswerFuture.c
   Source/Database.c
