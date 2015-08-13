@@ -6,13 +6,20 @@
 
 struct B_PyQuestionVTable {
   PyObject_HEAD
-  struct B_QuestionVTable const *native_vtable;
   struct B_QuestionVTable python_vtable;
   // TODO(strager): AnswerVTable.
+
+  // Used only if this PyQuestionVTable forwards to a native
+  // QuestionVTable.
+  struct B_QuestionVTable const *native_vtable;
 };
 
 static PyTypeObject
 b_py_question_vtable_type_;
+
+static B_WUR B_FUNC B_BORROW struct B_PyQuestionVTable *
+b_py_question_class_set_python_vtable_(
+    B_BORROW PyTypeObject *);
 
 static bool
 b_py_question_vtable_check_(
@@ -51,26 +58,6 @@ b_py_question_and_vtable_(
   return true;
 }
 
-static B_WUR B_FUNC bool
-b_py_question_query_answer_(
-    B_BORROW struct B_IQuestion const *question,
-    B_OPTIONAL_OUT_TRANSFER struct B_IAnswer **out,
-    B_OUT struct B_Error *e) {
-  struct B_IQuestion *native_question;
-  struct B_QuestionVTable const *native_vtable;
-  if (!b_py_question_and_vtable_(
-      question, &native_question, &native_vtable, e)) {
-    return false;
-  }
-  struct B_IAnswer *answer;
-  if (!native_vtable->query_answer(
-      native_question, &answer, e)) {
-    return false;
-  }
-  *out = answer;
-  return true;
-}
-
 static B_WUR B_FUNC void
 b_py_question_deallocate_(
     B_TRANSFER struct B_IQuestion *question) {
@@ -103,7 +90,27 @@ b_py_question_replicate_(
 }
 
 static B_WUR B_FUNC bool
-b_py_question_serialize_(
+b_py_question_query_answer_native_(
+    B_BORROW struct B_IQuestion const *question,
+    B_OPTIONAL_OUT_TRANSFER struct B_IAnswer **out,
+    B_OUT struct B_Error *e) {
+  struct B_IQuestion *native_question;
+  struct B_QuestionVTable const *native_vtable;
+  if (!b_py_question_and_vtable_(
+      question, &native_question, &native_vtable, e)) {
+    return false;
+  }
+  struct B_IAnswer *answer;
+  if (!native_vtable->query_answer(
+      native_question, &answer, e)) {
+    return false;
+  }
+  *out = answer;
+  return true;
+}
+
+static B_WUR B_FUNC bool
+b_py_question_serialize_native_(
     B_BORROW struct B_IQuestion const *question,
     B_BORROW struct B_ByteSink *byte_sink,
     B_OUT struct B_Error *e) {
@@ -121,7 +128,40 @@ b_py_question_serialize_(
 }
 
 static B_WUR B_FUNC bool
-b_py_question_deserialize_(
+b_py_question_deserialize_native_(
+    B_BORROW struct B_ByteSource *byte_source,
+    B_OUT_TRANSFER struct B_IQuestion **question,
+    B_OUT struct B_Error *e) {
+  __builtin_trap();
+  (void) byte_source;
+  (void) question;
+  (void) e;
+}
+
+static B_WUR B_FUNC bool
+b_py_question_query_answer_python_(
+    B_BORROW struct B_IQuestion const *question,
+    B_OPTIONAL_OUT_TRANSFER struct B_IAnswer **out,
+    B_OUT struct B_Error *e) {
+  __builtin_trap();
+  (void) question;
+  (void) out;
+  (void) e;
+}
+
+static B_WUR B_FUNC bool
+b_py_question_serialize_python_(
+    B_BORROW struct B_IQuestion const *question,
+    B_BORROW struct B_ByteSink *byte_sink,
+    B_OUT struct B_Error *e) {
+  __builtin_trap();
+  (void) question;
+  (void) byte_sink;
+  (void) e;
+}
+
+static B_WUR B_FUNC bool
+b_py_question_deserialize_python_(
     B_BORROW struct B_ByteSource *byte_source,
     B_OUT_TRANSFER struct B_IQuestion **question,
     B_OUT struct B_Error *e) {
@@ -132,16 +172,29 @@ b_py_question_deserialize_(
 }
 
 // This template is copied and .uuid replaced for each
-// B_PyQuestionVTable.
+// native B_PyQuestionVTable.
 static struct B_QuestionVTable const
-b_py_python_question_vtable_ = {
+b_py_python_question_native_vtable_ = {
   // .uuid
   // .answer_vtable
-  .query_answer = b_py_question_query_answer_,
+  .query_answer = b_py_question_query_answer_native_,
   .deallocate = b_py_question_deallocate_,
   .replicate = b_py_question_replicate_,
-  .serialize = b_py_question_serialize_,
-  .deserialize = b_py_question_deserialize_,
+  .serialize = b_py_question_serialize_native_,
+  .deserialize = b_py_question_deserialize_native_,
+};
+
+// This template is copied and .uuid replaced for each
+// non-native B_PyQuestionVTable.
+static struct B_QuestionVTable const
+b_py_python_question_python_vtable_ = {
+  // .uuid
+  // .answer_vtable
+  .query_answer = b_py_question_query_answer_python_,
+  .deallocate = b_py_question_deallocate_,
+  .replicate = b_py_question_replicate_,
+  .serialize = b_py_question_serialize_python_,
+  .deserialize = b_py_question_deserialize_python_,
 };
 
 static PyTypeObject
@@ -161,6 +214,12 @@ b_py_question_class_vtable_(
     B_BORROW PyTypeObject *type) {
   PyObject *value = PyDict_GetItemString(
     type->tp_dict, b_py_question_vtable_key_);
+  if (!value) {
+    // If a QuestionVTable hasn't been set, try to lazily
+    // create one pointing to Python methods.
+    value = (PyObject *)
+      b_py_question_class_set_python_vtable_(type);
+  }
   if (!value) {
     goto fail;
   }
@@ -208,7 +267,8 @@ b_py_question_class_set_native_vtable(
     return false;
   }
   vtable_py->native_vtable = vtable;
-  vtable_py->python_vtable = b_py_python_question_vtable_;
+  vtable_py->python_vtable
+    = b_py_python_question_native_vtable_;
   vtable_py->python_vtable.uuid = vtable->uuid;
   vtable_py->python_vtable.answer_vtable
     = vtable->answer_vtable;  // TODO(strager)
@@ -221,6 +281,34 @@ b_py_question_class_set_native_vtable(
   }
   Py_DECREF(vtable_py);
   return true;
+}
+
+static B_WUR B_FUNC B_BORROW struct B_PyQuestionVTable *
+b_py_question_class_set_python_vtable_(
+    B_BORROW PyTypeObject *type) {
+  struct B_PyQuestionVTable *vtable_py
+    = (struct B_PyQuestionVTable *)
+      b_py_question_vtable_type_.tp_alloc(
+        &b_py_question_vtable_type_, 0);
+  if (!vtable_py) {
+    return false;
+  }
+  vtable_py->native_vtable = NULL;
+  vtable_py->python_vtable
+    = b_py_python_question_python_vtable_;
+// @nocommit
+  //vtable_py->python_vtable.uuid = ...;
+  vtable_py->python_vtable.answer_vtable
+    = NULL;  // TODO(strager)
+  if (PyDict_SetItemString(
+      type->tp_dict,
+      b_py_question_vtable_key_,
+      (PyObject *) vtable_py) == -1) {
+    Py_DECREF(vtable_py);
+    return NULL;
+  }
+  Py_DECREF(vtable_py);
+  return vtable_py;
 }
 
 B_WUR B_FUNC bool
